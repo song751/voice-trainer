@@ -27,10 +27,12 @@ Future<void> main() async {
   try {
     for (var start = 0; start < _totalSamples; start += _batchSize) {
       final count = math.min(_batchSize, _totalSamples - start);
-      final pcm = Int16List.fromList(List<int>.generate(count, (offset) {
-        final phase = math.pi * 2 * 220 * (start + offset) / _sampleRate;
-        return (math.sin(phase) * 16000).truncate();
-      }, growable: false));
+      final pcm = Int16List.fromList(
+        List<int>.generate(count, (offset) {
+          final phase = math.pi * 2 * 220 * (start + offset) / _sampleRate;
+          return (math.sin(phase) * 16000).truncate();
+        }, growable: false),
+      );
       final batch = PcmBatch(
         firstSampleIndex: start,
         format: _format,
