@@ -5,3 +5,5 @@ analyzer:
     # Cargokit is an FRB-generated nested Dart package with its own pubspec.
     # It is built by its own toolchain and must not be analyzed as app source.
     - rust_builder/cargokit/build_tool/**
+    # Node CDP smoke scripts are intentionally JavaScript, not Dart sources.
+    - tool/**/*.mjs

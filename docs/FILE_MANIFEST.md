@@ -278,6 +278,7 @@ voice-trainer/
 │  ├─ phase0_cdp_capture.mjs                     [现有；Edge 麦克风 gate]
 │  ├─ phase0_cdp_dsp.mjs                         [现有；通用 Edge report/heap gate]
 │  ├─ phase0_coep_server.ps1                     [现有；headers test harness]
+│  ├─ c2_edge_worker_smoke.mjs                    [C2；direct dedicated-worker smoke]
 │  ├─ generate_test_audio.dart
 │  ├─ benchmark_report.dart
 │  ├─ verify_feature_blob.dart

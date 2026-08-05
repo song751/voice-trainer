@@ -437,3 +437,13 @@ Phase-boundary 回归：FRB codegen 连续两次 7 个生成文件 SHA-256 不�
 - 未覆盖项或外部阻塞：C4 仍需记录当前/后续 hosted CI 的最终绿灯；真实麦克风与 Edge Worker 不是 C1 验收项。
 - 证据：首个本地基线 commit、`git status`、`.gitignore`/`.gitattributes`、本条记录、CI workflow 与上述 GitHub Actions runs。
 - 下一张允许执行的卡：C2。
+
+### C2 执行记录（2026-08-05，进行中）
+
+- 范围：Analysis worker 有限恢复状态机、每个 worker request 的 timeout、无响应 worker 的直接 terminate、异常路径测试和 Edge dedicated-worker smoke。
+- 修改文件：`analysis_worker_supervisor.dart`、FRB/Web worker adapters、`web/analysis_worker_client.js`、worker tests、`tool/c2_edge_worker_smoke.mjs`、分析排除与 manifest。
+- 已实现：supervisor 明确执行 `primary → restartOnce → fallback → terminalFailure`，只重启一次；`initialize`、`pushPcm`、`finish`、`reset` 和 factory/初始化均带 timeout。timeout/crash 后先同步 `terminate()`，不等待 worker 回复；`dispose()` 同样直接 terminate。Web client 会拒绝所有 pending promise 并调用 `Worker.terminate()`。
+- 执行命令与结果：`dart format --output=none --set-exit-if-changed lib test integration_test test_driver tool` 通过（99 files / 0 changed）；worker 窄测试 10/10 通过；`flutter analyze` 通过；`node --check tool/c2_edge_worker_smoke.mjs` 通过；`flutter test` 30/30 通过；默认 `flutter build web --release` 通过。该次 build 的 Flutter Wasm dry-run 成功，但不等同于 `flutter build web --wasm` 或 Edge dedicated-worker 验收，默认发布策略仍是 Flutter JS + Rust WASM。
+- 未覆盖项或外部阻塞：真实 Edge smoke 未能启动。`flutter run -d edge --release --web-port 7390 --web-browser-flag=--remote-debugging-port=9222` 在 web build 后被本机拒绝本地调试 socket；尝试使用独立本地静态服务和专用 Edge CDP 实例时，环境启动策略拒绝该 Edge 调试进程。当前会话也没有可调用的 Windows/Browser control runtime 以替代 CDP。因而未实际运行 `tool/c2_edge_worker_smoke.mjs`，没有将 fake 测试或 web build 冒充为 Edge 通过。
+- 验收结论：部分通过；Windows/Edge frame-count、sample checksum、RMS/pitch tolerance 对比和 DataCloneError 的真实运行时结论仍待 Edge 环境可用后执行。
+- 下一张允许执行的卡：C2（外部运行时阻塞）；不得进入 C3 或 Phase 2。

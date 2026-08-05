@@ -16,6 +16,7 @@ extension type _WebWorkerClient._(JSObject _) implements JSObject {
   external JSPromise<JSString> pushPcm(JSUint8Array pcm);
   external JSPromise<JSString> reset();
   external JSPromise<JSString> dispose();
+  external void terminate();
 }
 
 /// Dedicated browser Worker client. The JavaScript counterpart transfers a
@@ -69,8 +70,18 @@ final class WebWorkerAnalysisWorker implements AnalysisWorker {
 
   @override
   Future<void> dispose() async {
+    // Disposal normally gives the worker a chance to close itself. The
+    // supervisor uses [terminate] when a request is hung or crashed.
     await _client.dispose().toDart;
     _frames.clear();
+  }
+
+  @override
+  void terminate() {
+    _client.terminate();
+    _frames.clear();
+    _originSampleIndex = null;
+    _nextInputSampleIndex = null;
   }
 
   AnalysisFrame _mapFrame(Map<String, dynamic> frame, int origin) =>

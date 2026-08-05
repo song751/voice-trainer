@@ -68,8 +68,13 @@ final class FrbAnalysisWorker implements AnalysisWorker {
 
   @override
   Future<void> dispose() async {
-    // RustOpaque is finalized by FRB. Reset releases the retained DSP buffers
-    // promptly without depending on GC timing.
+    terminate();
+  }
+
+  @override
+  void terminate() {
+    // RustOpaque is finalized by FRB. Dropping the retained handle releases
+    // the DSP buffers promptly without waiting on a failed worker response.
     final analyzer = _analyzer;
     _analyzer = null;
     if (analyzer != null) {

@@ -14,8 +14,7 @@ class VoiceTrainerAnalysisWorker {
     };
     this._worker.onerror = (event) => {
       const error = new Error(event.message || 'Analysis worker crashed.');
-      for (const pending of this._pending.values()) pending.reject(error);
-      this._pending.clear();
+      this._terminate(error);
     };
   }
 
@@ -35,12 +34,22 @@ class VoiceTrainerAnalysisWorker {
     return this._request('dispose').finally(() => this._worker.terminate());
   }
 
+  terminate() {
+    this._terminate(new Error('Analysis worker terminated.'));
+  }
+
   _request(kind, payload = {}, transfer = []) {
     const id = this._nextId++;
     return new Promise((resolve, reject) => {
       this._pending.set(id, { resolve, reject });
       this._worker.postMessage({ id, kind, ...payload }, transfer);
     });
+  }
+
+  _terminate(error) {
+    for (const pending of this._pending.values()) pending.reject(error);
+    this._pending.clear();
+    this._worker.terminate();
   }
 }
 
