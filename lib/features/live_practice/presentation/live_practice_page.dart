@@ -117,5 +117,6 @@ class LivePracticePage extends ConsumerWidget {
     FailureCode.finalizationFailed ||
     FailureCode.persistenceFailed => '保存练习结果时发生错误。',
     FailureCode.invalidTransition => '当前操作不可用。',
+    FailureCode.unexpected => '发生未预期的错误，请重试。',
   };
 }

@@ -9,6 +9,8 @@ import '../core/domain/persistence/recording_store.dart';
 import '../core/domain/persistence/session_repository.dart';
 import '../core/domain/practice/practice_target.dart';
 import '../core/domain/practice/practice_template.dart';
+import '../core/errors/app_exception.dart';
+import '../core/logging/app_logger.dart';
 import '../features/live_practice/application/practice_session_coordinator.dart';
 import '../infrastructure/audio/fake_audio_capture.dart';
 import '../infrastructure/dsp/fake_analysis_engine.dart';
@@ -43,6 +45,12 @@ final recordingSinkProvider = Provider<RecordingSink>((ref) {
 final sessionRepositoryProvider = Provider<SessionRepository>(
   (ref) => InMemorySessionRepository(),
 );
+
+final appErrorMapperProvider = Provider<AppErrorMapper>(
+  (ref) => const AppErrorMapper(),
+);
+
+final appLoggerProvider = Provider<AppLogger>((ref) => AppLogger());
 
 final practiceTemplateProvider = Provider<PracticeTemplate>(
   (ref) => const PracticeTemplate(

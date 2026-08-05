@@ -6,7 +6,9 @@ import 'package:voice_trainer/app/app_providers.dart';
 import 'package:voice_trainer/app/router/app_router.dart';
 import 'package:voice_trainer/app/router/route_names.dart';
 import 'package:voice_trainer/core/domain/audio/audio_capture.dart';
+import 'package:voice_trainer/core/errors/app_exception.dart';
 import 'package:voice_trainer/core/errors/failure.dart';
+import 'package:voice_trainer/core/logging/app_logger.dart';
 import 'package:voice_trainer/infrastructure/audio/fake_audio_capture.dart';
 import 'package:voice_trainer/infrastructure/dsp/fake_analysis_engine.dart';
 import 'package:voice_trainer/infrastructure/persistence/in_memory_recording_store.dart';
@@ -19,6 +21,8 @@ void main() {
     final store = InMemoryRecordingStore();
     final sink = InMemoryRecordingSink(store);
     final repository = InMemorySessionRepository();
+    const errorMapper = AppErrorMapper();
+    final logger = AppLogger();
     final container = ProviderContainer(
       overrides: <Override>[
         audioCaptureProvider.overrideWithValue(capture),
@@ -26,6 +30,8 @@ void main() {
         recordingStoreProvider.overrideWithValue(store),
         recordingSinkProvider.overrideWithValue(sink),
         sessionRepositoryProvider.overrideWithValue(repository),
+        appErrorMapperProvider.overrideWithValue(errorMapper),
+        appLoggerProvider.overrideWithValue(logger),
       ],
     );
     addTearDown(container.dispose);
@@ -34,6 +40,8 @@ void main() {
     expect(container.read(analysisEngineProvider), same(analysis));
     expect(container.read(recordingSinkProvider), same(sink));
     expect(container.read(sessionRepositoryProvider), same(repository));
+    expect(container.read(appErrorMapperProvider), same(errorMapper));
+    expect(container.read(appLoggerProvider), same(logger));
   });
 
   Future<void> pumpPracticeApp(

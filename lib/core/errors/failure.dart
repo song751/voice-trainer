@@ -16,6 +16,7 @@ enum FailureCode {
   finalizationFailed,
   persistenceFailed,
   invalidTransition,
+  unexpected,
 }
 
 final class PermissionDeniedFailure extends DomainFailure {
@@ -81,6 +82,36 @@ final class FinalizationFailure extends DomainFailure {
 }
 
 enum FinalizationFailureReason { analysis, recording, persistence, unknown }
+
+final class RecordingFailure extends DomainFailure {
+  const RecordingFailure({this.isRecoverable = true});
+
+  @override
+  final bool isRecoverable;
+
+  @override
+  FailureCode get code => FailureCode.recordingUnavailable;
+}
+
+final class PersistenceFailure extends DomainFailure {
+  const PersistenceFailure({this.isRecoverable = true});
+
+  @override
+  final bool isRecoverable;
+
+  @override
+  FailureCode get code => FailureCode.persistenceFailed;
+}
+
+final class UnexpectedFailure extends DomainFailure {
+  const UnexpectedFailure();
+
+  @override
+  FailureCode get code => FailureCode.unexpected;
+
+  @override
+  bool get isRecoverable => false;
+}
 
 final class InvalidSessionTransition extends DomainFailure {
   const InvalidSessionTransition({required this.from, required this.event});
