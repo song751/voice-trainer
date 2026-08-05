@@ -20,6 +20,7 @@ void main() {
           'deviceId': 'hardware-unique-id',
           'userNote': 'private note',
           'output': r'D:\private\recording.wav',
+          'message': r'write failed at D:\private\recording.wav',
           'qualityFlags': ['clipping'],
         },
         error: StateError(r'D:\private\recording.wav'),
@@ -32,6 +33,7 @@ void main() {
       expect(record.fields['deviceId'], redactedValue);
       expect(record.fields['userNote'], redactedValue);
       expect(record.fields['output'], redactedPath);
+      expect(record.fields['message'], redactedPath);
       expect(record.fields['qualityFlags'], '[COLLECTION_REDACTED]');
       expect(record.fields['errorType'], 'StateError');
       expect(record.fields.toString(), isNot(contains('private')));
@@ -53,5 +55,17 @@ void main() {
       'deviceId': redactedValue,
       'sampleRate': 48000,
     });
+  });
+
+  test('accepts stable event keys and rejects free-text event data', () {
+    final records = <AppLogRecord>[];
+    final logger = AppLogger(sink: records.add);
+
+    logger.log(AppLogLevel.info, 'session.capture_started');
+    logger.log(AppLogLevel.error, r'failed at D:\private\recording.wav');
+
+    expect(records.first.event, 'session.capture_started');
+    expect(records.last.event, 'invalid.event');
+    expect(records.last.event, isNot(contains('private')));
   });
 }

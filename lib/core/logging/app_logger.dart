@@ -36,11 +36,17 @@ final class AppLogger {
     _sink(
       AppLogRecord(
         level: level,
-        event: event,
+        event: _safeEvent(event),
         fields: _redactor.redact(safeFields),
       ),
     );
   }
+}
+
+String _safeEvent(String event) {
+  return RegExp(r'^[a-z0-9]+(?:[._-][a-z0-9]+)*$').hasMatch(event)
+      ? event
+      : 'invalid.event';
 }
 
 void _discard(AppLogRecord _) {}

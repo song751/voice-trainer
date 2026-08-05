@@ -31,8 +31,10 @@ final class LogRedactor {
   }
 
   bool _looksLikeAbsolutePath(String value) {
-    if (value.startsWith('/') || value.startsWith(r'\\')) return true;
-    return RegExp(r'^[a-zA-Z]:[\\/]').hasMatch(value);
+    if (value.contains(r'\\') || RegExp(r'[a-zA-Z]:[\\/]').hasMatch(value)) {
+      return true;
+    }
+    return RegExp(r'(^|\s)/[^/\s]+').hasMatch(value);
   }
 }
 

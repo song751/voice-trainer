@@ -27,7 +27,7 @@
 
 - 源码范围 Dart format：111 files，0 changed。
 - `flutter analyze` 通过。
-- Flutter 单元/Widget tests：42 个通过。
+- Flutter 单元/Widget tests：43 个通过。
 - Windows fake integration：3 个通过。
 - Rust fmt、Clippy、tests：2 个通过。
 - Flutter Web release build 通过；产物包含 dedicated worker、Rust WASM、SQLite WASM 和 Drift worker。
