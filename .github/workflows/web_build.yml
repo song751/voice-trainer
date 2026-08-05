@@ -39,6 +39,9 @@ jobs:
           if [[ -n "$unexpected" ]]; then
             echo "Unexpected generated FRB Web files:"
             echo "$unexpected"
+            while IFS= read -r path; do
+              echo "::error file=$path,title=Unexpected FRB Web artifact::Generated file is not tracked"
+            done <<< "$unexpected"
             exit 1
           fi
 
@@ -46,8 +49,18 @@ jobs:
           # to be byte-identical across Windows and Linux hosts. Keep strict drift
           # detection for the generated interface files; validate and build the
           # fresh WASM payload in the surrounding steps.
-          git diff --exit-code -- . \
-            ':(exclude)web/pkg/rust_lib_voice_trainer_bg.wasm'
+          drift="$(git diff --name-only -- . \
+            ':(exclude)web/pkg/rust_lib_voice_trainer_bg.wasm')"
+          if [[ -n "$drift" ]]; then
+            while IFS= read -r path; do
+              tracked_hash="$(git rev-parse "HEAD:$path")"
+              generated_hash="$(git hash-object "$path")"
+              echo "::error file=$path,title=Generated-file drift::tracked=$tracked_hash generated=$generated_hash"
+            done <<< "$drift"
+            git diff -- . \
+              ':(exclude)web/pkg/rust_lib_voice_trainer_bg.wasm'
+            exit 1
+          fi
       - name: Build default Flutter JS web application
         run: flutter build web --release
       - name: Upload web build
