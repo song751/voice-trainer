@@ -1547,6 +1547,392 @@ class FeatureSeriesTableCompanion
   }
 }
 
+class $FeatureSeriesMetadataTable extends FeatureSeriesMetadata
+    with TableInfo<$FeatureSeriesMetadataTable, FeatureSeriesMetadataData> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $FeatureSeriesMetadataTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _runIdMeta = const VerificationMeta('runId');
+  @override
+  late final GeneratedColumn<int> runId = GeneratedColumn<int>(
+    'run_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES analysis_runs (id)',
+    ),
+  );
+  static const VerificationMeta _frameCountMeta = const VerificationMeta(
+    'frameCount',
+  );
+  @override
+  late final GeneratedColumn<int> frameCount = GeneratedColumn<int>(
+    'frame_count',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _startSampleIndexMeta = const VerificationMeta(
+    'startSampleIndex',
+  );
+  @override
+  late final GeneratedColumn<int> startSampleIndex = GeneratedColumn<int>(
+    'start_sample_index',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _samplePeriodSamplesMeta =
+      const VerificationMeta('samplePeriodSamples');
+  @override
+  late final GeneratedColumn<int> samplePeriodSamples = GeneratedColumn<int>(
+    'sample_period_samples',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _algorithmVersionMeta = const VerificationMeta(
+    'algorithmVersion',
+  );
+  @override
+  late final GeneratedColumn<String> algorithmVersion = GeneratedColumn<String>(
+    'algorithm_version',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    runId,
+    frameCount,
+    startSampleIndex,
+    samplePeriodSamples,
+    algorithmVersion,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'feature_series_metadata';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<FeatureSeriesMetadataData> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('run_id')) {
+      context.handle(
+        _runIdMeta,
+        runId.isAcceptableOrUnknown(data['run_id']!, _runIdMeta),
+      );
+    }
+    if (data.containsKey('frame_count')) {
+      context.handle(
+        _frameCountMeta,
+        frameCount.isAcceptableOrUnknown(data['frame_count']!, _frameCountMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_frameCountMeta);
+    }
+    if (data.containsKey('start_sample_index')) {
+      context.handle(
+        _startSampleIndexMeta,
+        startSampleIndex.isAcceptableOrUnknown(
+          data['start_sample_index']!,
+          _startSampleIndexMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_startSampleIndexMeta);
+    }
+    if (data.containsKey('sample_period_samples')) {
+      context.handle(
+        _samplePeriodSamplesMeta,
+        samplePeriodSamples.isAcceptableOrUnknown(
+          data['sample_period_samples']!,
+          _samplePeriodSamplesMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_samplePeriodSamplesMeta);
+    }
+    if (data.containsKey('algorithm_version')) {
+      context.handle(
+        _algorithmVersionMeta,
+        algorithmVersion.isAcceptableOrUnknown(
+          data['algorithm_version']!,
+          _algorithmVersionMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_algorithmVersionMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {runId};
+  @override
+  FeatureSeriesMetadataData map(
+    Map<String, dynamic> data, {
+    String? tablePrefix,
+  }) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return FeatureSeriesMetadataData(
+      runId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}run_id'],
+      )!,
+      frameCount: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}frame_count'],
+      )!,
+      startSampleIndex: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}start_sample_index'],
+      )!,
+      samplePeriodSamples: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}sample_period_samples'],
+      )!,
+      algorithmVersion: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}algorithm_version'],
+      )!,
+    );
+  }
+
+  @override
+  $FeatureSeriesMetadataTable createAlias(String alias) {
+    return $FeatureSeriesMetadataTable(attachedDatabase, alias);
+  }
+}
+
+class FeatureSeriesMetadataData extends DataClass
+    implements Insertable<FeatureSeriesMetadataData> {
+  final int runId;
+  final int frameCount;
+  final int startSampleIndex;
+  final int samplePeriodSamples;
+  final String algorithmVersion;
+  const FeatureSeriesMetadataData({
+    required this.runId,
+    required this.frameCount,
+    required this.startSampleIndex,
+    required this.samplePeriodSamples,
+    required this.algorithmVersion,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['run_id'] = Variable<int>(runId);
+    map['frame_count'] = Variable<int>(frameCount);
+    map['start_sample_index'] = Variable<int>(startSampleIndex);
+    map['sample_period_samples'] = Variable<int>(samplePeriodSamples);
+    map['algorithm_version'] = Variable<String>(algorithmVersion);
+    return map;
+  }
+
+  FeatureSeriesMetadataCompanion toCompanion(bool nullToAbsent) {
+    return FeatureSeriesMetadataCompanion(
+      runId: Value(runId),
+      frameCount: Value(frameCount),
+      startSampleIndex: Value(startSampleIndex),
+      samplePeriodSamples: Value(samplePeriodSamples),
+      algorithmVersion: Value(algorithmVersion),
+    );
+  }
+
+  factory FeatureSeriesMetadataData.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return FeatureSeriesMetadataData(
+      runId: serializer.fromJson<int>(json['runId']),
+      frameCount: serializer.fromJson<int>(json['frameCount']),
+      startSampleIndex: serializer.fromJson<int>(json['startSampleIndex']),
+      samplePeriodSamples: serializer.fromJson<int>(
+        json['samplePeriodSamples'],
+      ),
+      algorithmVersion: serializer.fromJson<String>(json['algorithmVersion']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'runId': serializer.toJson<int>(runId),
+      'frameCount': serializer.toJson<int>(frameCount),
+      'startSampleIndex': serializer.toJson<int>(startSampleIndex),
+      'samplePeriodSamples': serializer.toJson<int>(samplePeriodSamples),
+      'algorithmVersion': serializer.toJson<String>(algorithmVersion),
+    };
+  }
+
+  FeatureSeriesMetadataData copyWith({
+    int? runId,
+    int? frameCount,
+    int? startSampleIndex,
+    int? samplePeriodSamples,
+    String? algorithmVersion,
+  }) => FeatureSeriesMetadataData(
+    runId: runId ?? this.runId,
+    frameCount: frameCount ?? this.frameCount,
+    startSampleIndex: startSampleIndex ?? this.startSampleIndex,
+    samplePeriodSamples: samplePeriodSamples ?? this.samplePeriodSamples,
+    algorithmVersion: algorithmVersion ?? this.algorithmVersion,
+  );
+  FeatureSeriesMetadataData copyWithCompanion(
+    FeatureSeriesMetadataCompanion data,
+  ) {
+    return FeatureSeriesMetadataData(
+      runId: data.runId.present ? data.runId.value : this.runId,
+      frameCount: data.frameCount.present
+          ? data.frameCount.value
+          : this.frameCount,
+      startSampleIndex: data.startSampleIndex.present
+          ? data.startSampleIndex.value
+          : this.startSampleIndex,
+      samplePeriodSamples: data.samplePeriodSamples.present
+          ? data.samplePeriodSamples.value
+          : this.samplePeriodSamples,
+      algorithmVersion: data.algorithmVersion.present
+          ? data.algorithmVersion.value
+          : this.algorithmVersion,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('FeatureSeriesMetadataData(')
+          ..write('runId: $runId, ')
+          ..write('frameCount: $frameCount, ')
+          ..write('startSampleIndex: $startSampleIndex, ')
+          ..write('samplePeriodSamples: $samplePeriodSamples, ')
+          ..write('algorithmVersion: $algorithmVersion')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    runId,
+    frameCount,
+    startSampleIndex,
+    samplePeriodSamples,
+    algorithmVersion,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is FeatureSeriesMetadataData &&
+          other.runId == this.runId &&
+          other.frameCount == this.frameCount &&
+          other.startSampleIndex == this.startSampleIndex &&
+          other.samplePeriodSamples == this.samplePeriodSamples &&
+          other.algorithmVersion == this.algorithmVersion);
+}
+
+class FeatureSeriesMetadataCompanion
+    extends UpdateCompanion<FeatureSeriesMetadataData> {
+  final Value<int> runId;
+  final Value<int> frameCount;
+  final Value<int> startSampleIndex;
+  final Value<int> samplePeriodSamples;
+  final Value<String> algorithmVersion;
+  const FeatureSeriesMetadataCompanion({
+    this.runId = const Value.absent(),
+    this.frameCount = const Value.absent(),
+    this.startSampleIndex = const Value.absent(),
+    this.samplePeriodSamples = const Value.absent(),
+    this.algorithmVersion = const Value.absent(),
+  });
+  FeatureSeriesMetadataCompanion.insert({
+    this.runId = const Value.absent(),
+    required int frameCount,
+    required int startSampleIndex,
+    required int samplePeriodSamples,
+    required String algorithmVersion,
+  }) : frameCount = Value(frameCount),
+       startSampleIndex = Value(startSampleIndex),
+       samplePeriodSamples = Value(samplePeriodSamples),
+       algorithmVersion = Value(algorithmVersion);
+  static Insertable<FeatureSeriesMetadataData> custom({
+    Expression<int>? runId,
+    Expression<int>? frameCount,
+    Expression<int>? startSampleIndex,
+    Expression<int>? samplePeriodSamples,
+    Expression<String>? algorithmVersion,
+  }) {
+    return RawValuesInsertable({
+      if (runId != null) 'run_id': runId,
+      if (frameCount != null) 'frame_count': frameCount,
+      if (startSampleIndex != null) 'start_sample_index': startSampleIndex,
+      if (samplePeriodSamples != null)
+        'sample_period_samples': samplePeriodSamples,
+      if (algorithmVersion != null) 'algorithm_version': algorithmVersion,
+    });
+  }
+
+  FeatureSeriesMetadataCompanion copyWith({
+    Value<int>? runId,
+    Value<int>? frameCount,
+    Value<int>? startSampleIndex,
+    Value<int>? samplePeriodSamples,
+    Value<String>? algorithmVersion,
+  }) {
+    return FeatureSeriesMetadataCompanion(
+      runId: runId ?? this.runId,
+      frameCount: frameCount ?? this.frameCount,
+      startSampleIndex: startSampleIndex ?? this.startSampleIndex,
+      samplePeriodSamples: samplePeriodSamples ?? this.samplePeriodSamples,
+      algorithmVersion: algorithmVersion ?? this.algorithmVersion,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (runId.present) {
+      map['run_id'] = Variable<int>(runId.value);
+    }
+    if (frameCount.present) {
+      map['frame_count'] = Variable<int>(frameCount.value);
+    }
+    if (startSampleIndex.present) {
+      map['start_sample_index'] = Variable<int>(startSampleIndex.value);
+    }
+    if (samplePeriodSamples.present) {
+      map['sample_period_samples'] = Variable<int>(samplePeriodSamples.value);
+    }
+    if (algorithmVersion.present) {
+      map['algorithm_version'] = Variable<String>(algorithmVersion.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('FeatureSeriesMetadataCompanion(')
+          ..write('runId: $runId, ')
+          ..write('frameCount: $frameCount, ')
+          ..write('startSampleIndex: $startSampleIndex, ')
+          ..write('samplePeriodSamples: $samplePeriodSamples, ')
+          ..write('algorithmVersion: $algorithmVersion')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -1557,6 +1943,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $AnalysisRunsTable analysisRuns = $AnalysisRunsTable(this);
   late final $FeatureSeriesTableTable featureSeriesTable =
       $FeatureSeriesTableTable(this);
+  late final $FeatureSeriesMetadataTable featureSeriesMetadata =
+      $FeatureSeriesMetadataTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -1566,6 +1954,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     recordings,
     analysisRuns,
     featureSeriesTable,
+    featureSeriesMetadata,
   ];
 }
 
@@ -2362,6 +2751,31 @@ final class $$AnalysisRunsTableReferences
       manager.$state.copyWith(prefetchedData: cache),
     );
   }
+
+  static MultiTypedResultKey<
+    $FeatureSeriesMetadataTable,
+    List<FeatureSeriesMetadataData>
+  >
+  _featureSeriesMetadataRefsTable(_$AppDatabase db) =>
+      MultiTypedResultKey.fromTable(
+        db.featureSeriesMetadata,
+        aliasName: 'analysis_runs__id__feature_series_metadata__run_id',
+      );
+
+  $$FeatureSeriesMetadataTableProcessedTableManager
+  get featureSeriesMetadataRefs {
+    final manager = $$FeatureSeriesMetadataTableTableManager(
+      $_db,
+      $_db.featureSeriesMetadata,
+    ).filter((f) => f.runId.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(
+      _featureSeriesMetadataRefsTable($_db),
+    );
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
 }
 
 class $$AnalysisRunsTableFilterComposer
@@ -2433,6 +2847,32 @@ class $$AnalysisRunsTableFilterComposer
                 $removeJoinBuilderFromRootComposer,
           ),
     );
+    return f(composer);
+  }
+
+  Expression<bool> featureSeriesMetadataRefs(
+    Expression<bool> Function($$FeatureSeriesMetadataTableFilterComposer f) f,
+  ) {
+    final $$FeatureSeriesMetadataTableFilterComposer composer =
+        $composerBuilder(
+          composer: this,
+          getCurrentColumn: (t) => t.id,
+          referencedTable: $db.featureSeriesMetadata,
+          getReferencedColumn: (t) => t.runId,
+          builder:
+              (
+                joinBuilder, {
+                $addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer,
+              }) => $$FeatureSeriesMetadataTableFilterComposer(
+                $db: $db,
+                $table: $db.featureSeriesMetadata,
+                $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                joinBuilder: joinBuilder,
+                $removeJoinBuilderFromRootComposer:
+                    $removeJoinBuilderFromRootComposer,
+              ),
+        );
     return f(composer);
   }
 }
@@ -2553,6 +2993,32 @@ class $$AnalysisRunsTableAnnotationComposer
         );
     return f(composer);
   }
+
+  Expression<T> featureSeriesMetadataRefs<T extends Object>(
+    Expression<T> Function($$FeatureSeriesMetadataTableAnnotationComposer a) f,
+  ) {
+    final $$FeatureSeriesMetadataTableAnnotationComposer composer =
+        $composerBuilder(
+          composer: this,
+          getCurrentColumn: (t) => t.id,
+          referencedTable: $db.featureSeriesMetadata,
+          getReferencedColumn: (t) => t.runId,
+          builder:
+              (
+                joinBuilder, {
+                $addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer,
+              }) => $$FeatureSeriesMetadataTableAnnotationComposer(
+                $db: $db,
+                $table: $db.featureSeriesMetadata,
+                $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                joinBuilder: joinBuilder,
+                $removeJoinBuilderFromRootComposer:
+                    $removeJoinBuilderFromRootComposer,
+              ),
+        );
+    return f(composer);
+  }
 }
 
 class $$AnalysisRunsTableTableManager
@@ -2568,7 +3034,11 @@ class $$AnalysisRunsTableTableManager
           $$AnalysisRunsTableUpdateCompanionBuilder,
           (AnalysisRun, $$AnalysisRunsTableReferences),
           AnalysisRun,
-          PrefetchHooks Function({bool sessionId, bool featureSeriesTableRefs})
+          PrefetchHooks Function({
+            bool sessionId,
+            bool featureSeriesTableRefs,
+            bool featureSeriesMetadataRefs,
+          })
         > {
   $$AnalysisRunsTableTableManager(_$AppDatabase db, $AnalysisRunsTable table)
     : super(
@@ -2614,11 +3084,16 @@ class $$AnalysisRunsTableTableManager
               )
               .toList(),
           prefetchHooksCallback:
-              ({sessionId = false, featureSeriesTableRefs = false}) {
+              ({
+                sessionId = false,
+                featureSeriesTableRefs = false,
+                featureSeriesMetadataRefs = false,
+              }) {
                 return PrefetchHooks(
                   db: db,
                   explicitlyWatchedTables: [
                     if (featureSeriesTableRefs) db.featureSeriesTable,
+                    if (featureSeriesMetadataRefs) db.featureSeriesMetadata,
                   ],
                   addJoins:
                       <
@@ -2677,6 +3152,27 @@ class $$AnalysisRunsTableTableManager
                               ),
                           typedResults: items,
                         ),
+                      if (featureSeriesMetadataRefs)
+                        await $_getPrefetchedData<
+                          AnalysisRun,
+                          $AnalysisRunsTable,
+                          FeatureSeriesMetadataData
+                        >(
+                          currentTable: table,
+                          referencedTable: $$AnalysisRunsTableReferences
+                              ._featureSeriesMetadataRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$AnalysisRunsTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).featureSeriesMetadataRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.runId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
                     ];
                   },
                 );
@@ -2697,7 +3193,11 @@ typedef $$AnalysisRunsTableProcessedTableManager =
       $$AnalysisRunsTableUpdateCompanionBuilder,
       (AnalysisRun, $$AnalysisRunsTableReferences),
       AnalysisRun,
-      PrefetchHooks Function({bool sessionId, bool featureSeriesTableRefs})
+      PrefetchHooks Function({
+        bool sessionId,
+        bool featureSeriesTableRefs,
+        bool featureSeriesMetadataRefs,
+      })
     >;
 typedef $$FeatureSeriesTableTableCreateCompanionBuilder =
     FeatureSeriesTableCompanion Function({
@@ -3068,6 +3568,347 @@ typedef $$FeatureSeriesTableTableProcessedTableManager =
       FeatureSeriesTableData,
       PrefetchHooks Function({bool runId})
     >;
+typedef $$FeatureSeriesMetadataTableCreateCompanionBuilder =
+    FeatureSeriesMetadataCompanion Function({
+      Value<int> runId,
+      required int frameCount,
+      required int startSampleIndex,
+      required int samplePeriodSamples,
+      required String algorithmVersion,
+    });
+typedef $$FeatureSeriesMetadataTableUpdateCompanionBuilder =
+    FeatureSeriesMetadataCompanion Function({
+      Value<int> runId,
+      Value<int> frameCount,
+      Value<int> startSampleIndex,
+      Value<int> samplePeriodSamples,
+      Value<String> algorithmVersion,
+    });
+
+final class $$FeatureSeriesMetadataTableReferences
+    extends
+        BaseReferences<
+          _$AppDatabase,
+          $FeatureSeriesMetadataTable,
+          FeatureSeriesMetadataData
+        > {
+  $$FeatureSeriesMetadataTableReferences(
+    super.$_db,
+    super.$_table,
+    super.$_typedResult,
+  );
+
+  static $AnalysisRunsTable _runIdTable(_$AppDatabase db) => db.analysisRuns
+      .createAlias('feature_series_metadata__run_id__analysis_runs__id');
+
+  $$AnalysisRunsTableProcessedTableManager get runId {
+    final $_column = $_itemColumn<int>('run_id')!;
+
+    final manager = $$AnalysisRunsTableTableManager(
+      $_db,
+      $_db.analysisRuns,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_runIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$FeatureSeriesMetadataTableFilterComposer
+    extends Composer<_$AppDatabase, $FeatureSeriesMetadataTable> {
+  $$FeatureSeriesMetadataTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get frameCount => $composableBuilder(
+    column: $table.frameCount,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get startSampleIndex => $composableBuilder(
+    column: $table.startSampleIndex,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get samplePeriodSamples => $composableBuilder(
+    column: $table.samplePeriodSamples,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get algorithmVersion => $composableBuilder(
+    column: $table.algorithmVersion,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$AnalysisRunsTableFilterComposer get runId {
+    final $$AnalysisRunsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.runId,
+      referencedTable: $db.analysisRuns,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$AnalysisRunsTableFilterComposer(
+            $db: $db,
+            $table: $db.analysisRuns,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$FeatureSeriesMetadataTableOrderingComposer
+    extends Composer<_$AppDatabase, $FeatureSeriesMetadataTable> {
+  $$FeatureSeriesMetadataTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get frameCount => $composableBuilder(
+    column: $table.frameCount,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get startSampleIndex => $composableBuilder(
+    column: $table.startSampleIndex,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get samplePeriodSamples => $composableBuilder(
+    column: $table.samplePeriodSamples,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get algorithmVersion => $composableBuilder(
+    column: $table.algorithmVersion,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$AnalysisRunsTableOrderingComposer get runId {
+    final $$AnalysisRunsTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.runId,
+      referencedTable: $db.analysisRuns,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$AnalysisRunsTableOrderingComposer(
+            $db: $db,
+            $table: $db.analysisRuns,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$FeatureSeriesMetadataTableAnnotationComposer
+    extends Composer<_$AppDatabase, $FeatureSeriesMetadataTable> {
+  $$FeatureSeriesMetadataTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get frameCount => $composableBuilder(
+    column: $table.frameCount,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get startSampleIndex => $composableBuilder(
+    column: $table.startSampleIndex,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get samplePeriodSamples => $composableBuilder(
+    column: $table.samplePeriodSamples,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get algorithmVersion => $composableBuilder(
+    column: $table.algorithmVersion,
+    builder: (column) => column,
+  );
+
+  $$AnalysisRunsTableAnnotationComposer get runId {
+    final $$AnalysisRunsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.runId,
+      referencedTable: $db.analysisRuns,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$AnalysisRunsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.analysisRuns,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$FeatureSeriesMetadataTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $FeatureSeriesMetadataTable,
+          FeatureSeriesMetadataData,
+          $$FeatureSeriesMetadataTableFilterComposer,
+          $$FeatureSeriesMetadataTableOrderingComposer,
+          $$FeatureSeriesMetadataTableAnnotationComposer,
+          $$FeatureSeriesMetadataTableCreateCompanionBuilder,
+          $$FeatureSeriesMetadataTableUpdateCompanionBuilder,
+          (FeatureSeriesMetadataData, $$FeatureSeriesMetadataTableReferences),
+          FeatureSeriesMetadataData,
+          PrefetchHooks Function({bool runId})
+        > {
+  $$FeatureSeriesMetadataTableTableManager(
+    _$AppDatabase db,
+    $FeatureSeriesMetadataTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$FeatureSeriesMetadataTableFilterComposer(
+                $db: db,
+                $table: table,
+              ),
+          createOrderingComposer: () =>
+              $$FeatureSeriesMetadataTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$FeatureSeriesMetadataTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<int> runId = const Value.absent(),
+                Value<int> frameCount = const Value.absent(),
+                Value<int> startSampleIndex = const Value.absent(),
+                Value<int> samplePeriodSamples = const Value.absent(),
+                Value<String> algorithmVersion = const Value.absent(),
+              }) => FeatureSeriesMetadataCompanion(
+                runId: runId,
+                frameCount: frameCount,
+                startSampleIndex: startSampleIndex,
+                samplePeriodSamples: samplePeriodSamples,
+                algorithmVersion: algorithmVersion,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> runId = const Value.absent(),
+                required int frameCount,
+                required int startSampleIndex,
+                required int samplePeriodSamples,
+                required String algorithmVersion,
+              }) => FeatureSeriesMetadataCompanion.insert(
+                runId: runId,
+                frameCount: frameCount,
+                startSampleIndex: startSampleIndex,
+                samplePeriodSamples: samplePeriodSamples,
+                algorithmVersion: algorithmVersion,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $$FeatureSeriesMetadataTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({runId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (runId) {
+                      state =
+                          state.withJoin(
+                                currentTable: table,
+                                currentColumn: table.runId,
+                                referencedTable:
+                                    $$FeatureSeriesMetadataTableReferences
+                                        ._runIdTable(db),
+                                referencedColumn:
+                                    $$FeatureSeriesMetadataTableReferences
+                                        ._runIdTable(db)
+                                        .id,
+                              )
+                              as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$FeatureSeriesMetadataTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $FeatureSeriesMetadataTable,
+      FeatureSeriesMetadataData,
+      $$FeatureSeriesMetadataTableFilterComposer,
+      $$FeatureSeriesMetadataTableOrderingComposer,
+      $$FeatureSeriesMetadataTableAnnotationComposer,
+      $$FeatureSeriesMetadataTableCreateCompanionBuilder,
+      $$FeatureSeriesMetadataTableUpdateCompanionBuilder,
+      (FeatureSeriesMetadataData, $$FeatureSeriesMetadataTableReferences),
+      FeatureSeriesMetadataData,
+      PrefetchHooks Function({bool runId})
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -3080,4 +3921,6 @@ class $AppDatabaseManager {
       $$AnalysisRunsTableTableManager(_db, _db.analysisRuns);
   $$FeatureSeriesTableTableTableManager get featureSeriesTable =>
       $$FeatureSeriesTableTableTableManager(_db, _db.featureSeriesTable);
+  $$FeatureSeriesMetadataTableTableManager get featureSeriesMetadata =>
+      $$FeatureSeriesMetadataTableTableManager(_db, _db.featureSeriesMetadata);
 }

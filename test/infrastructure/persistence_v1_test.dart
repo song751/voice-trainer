@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 
+import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:voice_trainer/infrastructure/persistence/codecs/feature_blob_codec.dart';
@@ -99,6 +100,53 @@ void main() {
 
       await database.finalizeRecordingDeletion('session-2');
       expect(await database.select(database.recordings).get(), isEmpty);
+    },
+  );
+
+  test(
+    'failed persistence transaction leaves no session or analysis rows',
+    () async {
+      final database = AppDatabase(NativeDatabase.memory());
+      addTearDown(database.close);
+
+      await expectLater(
+        database.saveSessionWithFeatures(
+          session: PracticeSessionsCompanion.insert(
+            id: 'session-rollback',
+            templateJson: '{}',
+            startedAt: DateTime.utc(2026, 8, 5),
+            validFrameCount: 0,
+            totalFrameCount: 0,
+            qualityFlagsJson: '[]',
+          ),
+          recording: RecordingsCompanion.insert(
+            sessionId: 'missing-parent',
+            locator: 'file://missing.wav',
+            storageKind: 'file',
+          ),
+          run: AnalysisRunsCompanion.insert(
+            sessionId: 'session-rollback',
+            createdAt: DateTime.utc(2026, 8, 5),
+            algorithmVersion: 'test',
+          ),
+          metadata: FeatureSeriesMetadataCompanion.insert(
+            runId: const Value(0),
+            frameCount: 0,
+            startSampleIndex: 0,
+            samplePeriodSamples: 1,
+            algorithmVersion: 'test',
+          ),
+          features: const <FeatureSeriesTableCompanion>[],
+        ),
+        throwsA(isA<Exception>()),
+      );
+
+      expect(await database.select(database.practiceSessions).get(), isEmpty);
+      expect(await database.select(database.analysisRuns).get(), isEmpty);
+      expect(
+        await database.select(database.featureSeriesMetadata).get(),
+        isEmpty,
+      );
     },
   );
 }

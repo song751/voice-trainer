@@ -43,20 +43,41 @@ class FeatureSeriesTable extends Table {
   String get tableName => 'feature_series';
 }
 
+/// Describes the shared sample timeline for all packed feature columns in an
+/// analysis run. The values are stored separately from column payloads so a
+/// reader never has to invent time from a list position.
+class FeatureSeriesMetadata extends Table {
+  IntColumn get runId => integer().references(AnalysisRuns, #id)();
+  IntColumn get frameCount => integer()();
+  IntColumn get startSampleIndex => integer()();
+  IntColumn get samplePeriodSamples => integer()();
+  TextColumn get algorithmVersion => text()();
+
+  @override
+  Set<Column<Object>> get primaryKey => {runId};
+}
+
 @DriftDatabase(
-  tables: [PracticeSessions, Recordings, AnalysisRuns, FeatureSeriesTable],
+  tables: [
+    PracticeSessions,
+    Recordings,
+    AnalysisRuns,
+    FeatureSeriesTable,
+    FeatureSeriesMetadata,
+  ],
 )
 class AppDatabase extends _$AppDatabase {
   AppDatabase(super.executor);
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
     onCreate: (migrator) => migrator.createAll(),
     onUpgrade: (migrator, from, to) async {
       if (from < 1) await migrator.createAll();
+      if (from < 2) await migrator.createTable(featureSeriesMetadata);
     },
     beforeOpen: (details) async {
       await customStatement('PRAGMA foreign_keys = ON');
@@ -77,6 +98,28 @@ class AppDatabase extends _$AppDatabase {
     await into(
       featureSeriesTable,
     ).insert(feature.copyWith(runId: Value(runId)));
+  });
+
+  Future<void> saveSessionWithFeatures({
+    required PracticeSessionsCompanion session,
+    RecordingsCompanion? recording,
+    required AnalysisRunsCompanion run,
+    required FeatureSeriesMetadataCompanion metadata,
+    required List<FeatureSeriesTableCompanion> features,
+  }) => transaction(() async {
+    await into(
+      practiceSessions,
+    ).insert(session, mode: InsertMode.insertOrReplace);
+    if (recording != null) await into(recordings).insert(recording);
+    final runId = await into(analysisRuns).insert(run);
+    await into(
+      featureSeriesMetadata,
+    ).insert(metadata.copyWith(runId: Value(runId)));
+    for (final feature in features) {
+      await into(
+        featureSeriesTable,
+      ).insert(feature.copyWith(runId: Value(runId)));
+    }
   });
 
   Future<void> deleteRecordingWithTombstone(String sessionId) =>
@@ -102,6 +145,29 @@ class AppDatabase extends _$AppDatabase {
         analysisRuns.id.equalsExp(featureSeriesTable.runId),
       ),
     ])..where(analysisRuns.sessionId.equals(sessionId));
+    query.orderBy([OrderingTerm.asc(featureSeriesTable.kind)]);
     return query.map((row) => row.readTable(featureSeriesTable)).get();
   }
+
+  Future<FeatureSeriesMetadataData?> featureMetadataForSession(
+    String sessionId,
+  ) {
+    final query = select(featureSeriesMetadata).join([
+      innerJoin(
+        analysisRuns,
+        analysisRuns.id.equalsExp(featureSeriesMetadata.runId),
+      ),
+    ])..where(analysisRuns.sessionId.equals(sessionId));
+    return query
+        .map((row) => row.readTable(featureSeriesMetadata))
+        .getSingleOrNull();
+  }
+
+  Future<List<Recording>> pendingRecordings() => (select(
+    recordings,
+  )..where((row) => row.pendingDelete.equals(true))).get();
+
+  Future<Recording?> recordingForSession(String sessionId) => (select(
+    recordings,
+  )..where((row) => row.sessionId.equals(sessionId))).getSingleOrNull();
 }

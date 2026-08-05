@@ -280,6 +280,7 @@ voice-trainer/
 │  ├─ phase0_coep_server.ps1                     [现有；headers test harness]
 │  ├─ c2_edge_worker_smoke.mjs                    [C2；direct dedicated-worker smoke]
 │  ├─ c2_windows_worker_smoke.dart                 [C2；native FRB comparison baseline]
+│  ├─ c3_edge_recording_store_smoke.mjs             [C3；OPFS/IndexedDB/memory storage smoke]
 │  ├─ generate_test_audio.dart
 │  ├─ benchmark_report.dart
 │  ├─ verify_feature_blob.dart

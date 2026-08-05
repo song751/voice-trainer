@@ -449,3 +449,15 @@ Phase-boundary 回归：FRB codegen 连续两次 7 个生成文件 SHA-256 不�
 - DataCloneError：三次 Edge dedicated-worker 运行均成功，且 CDP 未报告 `Runtime.exceptionThrown`；未复现 DataCloneError。该结果仅适用于本项目禁用 FRB WASM WorkerPool、由 dedicated worker 自行持有 WASM 实例的路径。
 - 验收结论：通过。有限状态恢复、timeout/terminate、异常测试、真实 Edge dedicated worker 与 Windows/Edge 数值对比均已完成。
 - 下一张允许执行的卡：C3；不得进入 Phase 2。
+
+### C3 执行记录（2026-08-05，已完成）
+
+- 范围：真实 Native/Web 录音 BlobStore、录音删除/启动恢复、feature-series 无损持久化，以及 capture contract 补测。
+- 修改文件：Drift schema/repository、`native_recording_sink.dart`、`web_recording_sink.dart`、`recording_recovery_service.dart`、WAV writer、Web storage client、capture/persistence tests 与 C3 Edge smoke。
+- 录音生命周期：Native sink 只将完成文件暴露为 `.wav`；输入先进入同目录 `.partial`，PCM 与补写的 WAV header 均执行 flush 后才使用同卷 rename。abort 或启动恢复会清理 `.partial`。删除先写 `pendingDelete` tombstone，物理 Blob 删除成功后才删 DB 行；失败会保留 tombstone 供下次启动恢复。
+- Web 存储层级：`VoiceTrainerRecordingStore` 先尝试 OPFS，失败时使用 IndexedDB，二者均不可用时才使用内存并设置明确的不可持久化警告。WAV 在 Web MVP 内存中构造，限制 mono 48 kHz PCM16 为 60 秒（5,760,000 PCM bytes），不写入 Drift/SQLite。
+- feature-series：schema v2 新增 `feature_series_metadata`，保存 frame count、明确的起始 sample index、sample-period samples 和算法版本；每个 F0、RMS、Peak、Clarity、voiced、cents、quality-flags 列独立使用校验和保护的 packed BLOB。读取会校验每列 SHA-256，恢复原 sample timeline 与原始特征；未知 band/spectrum 列不会静默丢弃，而是明确拒绝写入直到其 column contract 定义完毕。
+- 执行命令与结果：新增的 Drift repository round-trip/checksum、native sink/recovery、transaction rollback 以及 capture contract 窄测试共 11 项通过；最终 `flutter test` 37 项、`flutter analyze` 和默认 `flutter build web --release` 均通过。`dart run build_runner build` 后仅生成预期 Drift 输出。
+- Web 运行时：用户启动的 Edge 138.0.3351.95 通过 CDP 执行 `tool/c3_edge_recording_store_smoke.mjs`，结果为 `{storageKind: "opfs", existsBeforeDelete: true, existsAfterDelete: false}`。这确认了实际选用 OPFS、写入、存在性检查与删除；未依赖 SQLite 存放音频。
+- 验收结论：通过。Native 半成品保护/恢复、Web 持久化层级、tombstone、无损 feature-series、事务回滚和所列 capture contracts 均已覆盖。
+- 下一张允许执行的卡：C4；不得进入 Phase 2。

@@ -6,6 +6,7 @@ import '../../../core/domain/audio/pcm_chunk.dart';
 abstract interface class WavOutput {
   Future<void> append(Uint8List bytes);
   Future<void> overwrite(int offset, Uint8List bytes);
+  Future<void> flush();
   Future<void> close();
   Future<void> abort();
 }
@@ -34,7 +35,9 @@ final class WavStreamWriter {
   Future<void> finalize() async {
     final format = _format;
     if (!_opened || format == null) throw StateError('WAV writer is not open.');
+    await _output.flush();
     await _output.overwrite(0, _header(format, _dataBytes));
+    await _output.flush();
     await _output.close();
     _opened = false;
   }
