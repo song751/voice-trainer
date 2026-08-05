@@ -42,6 +42,21 @@ void main() {
     _fail('FRB Web package metadata does not publish the JS and WASM pair');
   }
 
+  final javascript = javascriptFile.readAsStringSync();
+  const requiredJavaScriptContracts = [
+    'let wasm_bindgen =',
+    'class WorkerRealtimeAnalyzer',
+    'exports.WorkerRealtimeAnalyzer = WorkerRealtimeAnalyzer',
+    'return Object.assign(__wbg_init, { initSync }, exports)',
+  ];
+  for (final contract in requiredJavaScriptContracts) {
+    if (!javascript.contains(contract)) {
+      _fail(
+        '${javascriptFile.path} is missing required binding contract: $contract',
+      );
+    }
+  }
+
   final wasmHeader = wasmFile.openSync();
   late final List<int> header;
   try {
@@ -56,7 +71,8 @@ void main() {
   }
 
   stdout.writeln(
-    'Verified FRB Web package: ${wasmFile.lengthSync()} byte WASM payload.',
+    'Verified FRB Web package: WorkerRealtimeAnalyzer JS binding and '
+    '${wasmFile.lengthSync()} byte WASM payload.',
   );
 }
 

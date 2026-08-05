@@ -31,7 +31,9 @@ jobs:
       - name: Build Rust WASM bridge
         run: flutter_rust_bridge_codegen build-web --release
       - name: Validate FRB Web artifacts
-        run: dart run tool/verify_frb_web_artifacts.dart
+        run: |
+          dart run tool/verify_frb_web_artifacts.dart
+          node --check web/pkg/rust_lib_voice_trainer.js
       - name: Reject FRB Web artifact drift
         shell: bash
         run: |
@@ -45,11 +47,12 @@ jobs:
             exit 1
           fi
 
-          # wasm-pack/wasm-opt output is a compiled binary and is not guaranteed
-          # to be byte-identical across Windows and Linux hosts. Keep strict drift
-          # detection for the generated interface files; validate and build the
-          # fresh WASM payload in the surrounding steps.
+          # wasm-bindgen JS and wasm-pack/wasm-opt WASM are a compiled artifact
+          # pair and are not guaranteed to be byte-identical across Windows and
+          # Linux hosts. Keep strict drift detection for the declarative package
+          # files; validate the fresh compiled pair in the surrounding steps.
           drift="$(git diff --name-only -- . \
+            ':(exclude)web/pkg/rust_lib_voice_trainer.js' \
             ':(exclude)web/pkg/rust_lib_voice_trainer_bg.wasm')"
           if [[ -n "$drift" ]]; then
             while IFS= read -r path; do
@@ -58,6 +61,7 @@ jobs:
               echo "::error file=$path,title=Generated-file drift::tracked=$tracked_hash generated=$generated_hash"
             done <<< "$drift"
             git diff -- . \
+              ':(exclude)web/pkg/rust_lib_voice_trainer.js' \
               ':(exclude)web/pkg/rust_lib_voice_trainer_bg.wasm'
             exit 1
           fi
