@@ -1,0 +1,42 @@
+name: Web build
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.44.7
+          channel: stable
+          cache: true
+      - uses: dtolnay/rust-toolchain@1.97.1
+        with:
+          targets: wasm32-unknown-unknown
+      - name: Install FRB Web prerequisites
+        run: |
+          rustup toolchain install nightly --profile minimal --component rust-src
+          cargo install wasm-pack --version 0.15.0 --locked
+          cargo install flutter_rust_bridge_codegen --version 2.12.0 --locked
+      - name: Restore dependencies
+        run: flutter pub get --enforce-lockfile
+      - name: Build Rust WASM bridge
+        run: flutter_rust_bridge_codegen build-web --release
+      - name: Reject FRB Web artifact drift
+        run: git diff --exit-code
+      - name: Build default Flutter JS web application
+        run: flutter build web --release
+      - name: Upload web build
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-js-release
+          path: build/web/
+          if-no-files-found: error

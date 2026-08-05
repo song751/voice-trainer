@@ -1,0 +1,44 @@
+name: Dart and Rust checks
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.44.7
+          channel: stable
+          cache: true
+      - uses: dtolnay/rust-toolchain@1.97.1
+        with:
+          components: rustfmt, clippy
+      - name: Restore Dart dependencies
+        run: flutter pub get --enforce-lockfile
+      - name: Check Dart formatting
+        run: dart format --output=none --set-exit-if-changed lib test integration_test test_driver tool
+      - name: Analyze Flutter code
+        run: flutter analyze
+      - name: Run Flutter tests
+        run: flutter test
+      - name: Check Rust formatting
+        run: cargo fmt --check --manifest-path rust/Cargo.toml
+      - name: Lint Rust
+        run: cargo clippy --manifest-path rust/Cargo.toml --all-targets -- -D warnings
+      - name: Run Rust tests
+        run: cargo test --manifest-path rust/Cargo.toml
+      - name: Regenerate committed code
+        run: |
+          dart run build_runner build --delete-conflicting-outputs
+          cargo install flutter_rust_bridge_codegen --version 2.12.0 --locked
+          flutter_rust_bridge_codegen generate
+      - name: Reject generated-file drift
+        run: git diff --exit-code

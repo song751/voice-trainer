@@ -1,0 +1,38 @@
+[package]
+name = "rust_lib_voice_trainer"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "staticlib", "rlib"]
+
+[dependencies]
+rustfft = "=6.4.1"
+
+[target.'cfg(not(target_family = "wasm"))'.dependencies]
+# Native keeps FRB's normal worker pool so Rust work stays off the Flutter UI
+# isolate.
+flutter_rust_bridge = "=2.12.0"
+
+[target.'cfg(target_family = "wasm")'.dependencies]
+# Phase 0's Web baseline is deliberately single-threaded. FRB 2.12 enables its
+# WASM WorkerPool through the default `thread-pool` feature; that pool requires
+# shared WebAssembly memory. Keep the remaining defaults explicitly, without
+# forcing SharedArrayBuffer/COOP/COEP on the baseline build.
+flutter_rust_bridge = { version = "=2.12.0", default-features = false, features = [
+    "anyhow",
+    "dart-opaque",
+    "log",
+    "portable-atomic",
+    "rust-async",
+    "user-utils",
+    "wasm-start",
+] }
+# These exports are used only by the explicit browser Worker wrapper.  They do
+# not enable FRB's incompatible 2.12 WASM WorkerPool.
+serde = { version = "=1.0.228", features = ["derive"] }
+serde-wasm-bindgen = "=0.6.5"
+wasm-bindgen = "=0.2.114"
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(frb_expand)'] }

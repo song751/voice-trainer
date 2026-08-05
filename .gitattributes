@@ -1,0 +1,22 @@
+# Keep source and configuration files reproducible across Windows and CI.
+* text=auto eol=lf
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.md whitespace=-trailing-space
+
+# Audio, database and WebAssembly payloads are binary. Generated Web assets
+# remain versioned; their provenance is documented in FILE_MANIFEST.md.
+*.wav binary
+*.mp3 binary
+*.m4a binary
+*.aac binary
+*.flac binary
+*.pcm binary
+*.raw binary
+*.blob binary
+*.sqlite binary
+*.sqlite3 binary
+*.db binary
+*.wasm binary
+*.png binary
+*.ico binary

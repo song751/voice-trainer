@@ -1,0 +1,33 @@
+name: Windows build
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.44.7
+          channel: stable
+          cache: true
+      - uses: dtolnay/rust-toolchain@1.97.1
+      - name: Restore dependencies
+        run: flutter pub get --enforce-lockfile
+      - name: Build Windows release application
+        run: flutter build windows --release
+      - name: Run fake capture integration flow on Windows
+        run: flutter test -d windows integration_test/fake_capture_session_flow_test.dart
+      - name: Upload Windows build
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-release
+          path: build/windows/x64/runner/Release/
+          if-no-files-found: error

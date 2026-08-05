@@ -1,0 +1,1 @@
+int? currentResidentBytes() => null;

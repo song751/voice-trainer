@@ -1,0 +1,33 @@
+name: voice_trainer
+description: "A new Flutter project."
+publish_to: 'none'
+version: 0.1.0+1
+
+environment:
+  sdk: ^3.12.2
+
+dependencies:
+  crypto: ^3.0.7
+  drift: ^2.34.3
+  flutter:
+    sdk: flutter
+  flutter_riverpod: ^2.6.1
+  flutter_rust_bridge: 2.12.0
+  go_router: ^17.3.0
+  path_provider: ^2.1.6
+  record: ^7.1.1
+  rust_lib_voice_trainer:
+    path: rust_builder
+  sqlite3: ^3.5.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  drift_dev: ^2.34.5
+  build_runner: ^2.15.1
+  integration_test:
+    sdk: flutter
+
+flutter:
+  uses-material-design: true

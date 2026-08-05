@@ -1,0 +1,9 @@
+{
+  "name": "rust_lib_voice_trainer",
+  "version": "0.1.0",
+  "files": [
+    "rust_lib_voice_trainer_bg.wasm",
+    "rust_lib_voice_trainer.js"
+  ],
+  "browser": "rust_lib_voice_trainer.js"
+}
