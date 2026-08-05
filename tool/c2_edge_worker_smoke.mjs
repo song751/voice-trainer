@@ -1,6 +1,9 @@
 const [, , portArg = '9222', originArg = 'http://localhost:7390'] = process.argv;
 const debugPort = Number(portArg);
 const origin = originArg;
+const sampleRate = 48000;
+const batchSize = 1024;
+const totalSamples = sampleRate;
 
 const targets = await fetch(`http://127.0.0.1:${debugPort}/json/list`).then(
   (response) => response.json(),
@@ -50,13 +53,20 @@ const result = await command('Runtime.evaluate', {
       }
       const worker = new VoiceTrainerAnalysisWorker();
       try {
-        await worker.initialize(48000);
-        const pcm = new Int16Array(1024);
-        for (let index = 0; index < pcm.length; index += 1) {
-          pcm[index] = Math.round(0.5 * 32767 * Math.sin(2 * Math.PI * 220 * index / 48000));
+        await worker.initialize(${sampleRate});
+        const frames = [];
+        for (let start = 0; start < ${totalSamples}; start += ${batchSize}) {
+          const count = Math.min(${batchSize}, ${totalSamples} - start);
+          const pcm = new Int16Array(count);
+          for (let offset = 0; offset < count; offset += 1) {
+            pcm[offset] = Math.trunc(16000 * Math.sin(2 * Math.PI * 220 * (start + offset) / ${sampleRate}));
+          }
+          frames.push(...JSON.parse(await worker.pushPcm(new Uint8Array(pcm.buffer))));
         }
-        const frames = JSON.parse(await worker.pushPcm(new Uint8Array(pcm.buffer)));
         return {
+          sampleRate: ${sampleRate},
+          totalSamples: ${totalSamples},
+          batchSize: ${batchSize},
           frameCount: frames.length,
           startSampleChecksum: frames.reduce((sum, frame) => sum + frame.startSample, 0),
           rmsChecksum: frames.reduce((sum, frame) => sum + frame.rmsDbfs, 0),
