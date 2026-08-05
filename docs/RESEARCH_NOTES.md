@@ -461,3 +461,16 @@ Phase-boundary 回归：FRB codegen 连续两次 7 个生成文件 SHA-256 不�
 - Web 运行时：用户启动的 Edge 138.0.3351.95 通过 CDP 执行 `tool/c3_edge_recording_store_smoke.mjs`，结果为 `{storageKind: "opfs", existsBeforeDelete: true, existsAfterDelete: false}`。这确认了实际选用 OPFS、写入、存在性检查与删除；未依赖 SQLite 存放音频。
 - 验收结论：通过。Native 半成品保护/恢复、Web 持久化层级、tombstone、无损 feature-series、事务回滚和所列 capture contracts 均已覆盖。
 - 下一张允许执行的卡：C4；不得进入 Phase 2。
+
+### C4 执行记录（2026-08-05，已完成）
+
+- 范围：Phase 1 最终本地/hosted gate、FRB Web 跨平台生成物策略修复，以及审计遗漏的日志脱敏和全局错误映射。
+- C4 根因：Ubuntu 能成功生成 Rust WASM，但原 workflow 将 Windows 提交的 `wasm-bindgen` JS/WASM 编译产物错误要求为跨 host bit-exact，导致 `Reject FRB Web artifact drift` 持续失败。诊断 annotation 进一步确认声明式文件无漂移，仅编译型 JS/WASM 绑定对存在跨主机字节差异。
+- 修复：Dart/Rust 和 Web package/snippet 等声明式输出继续执行严格 diff；JS/WASM 绑定对改为校验预期文件集合、package metadata、JS 语法、`WorkerRealtimeAnalyzer` 关键导出、WASM v1 magic/version，并继续要求 Rust WASM build、Flutter Web release build 和真实 Edge dedicated-worker runtime 通过。新增/忽略的意外生成文件仍会使 CI 失败。
+- P1 补漏：新增结构化 `AppLogger`/`LogRedactor`、`AppErrorMapper`/`AppException`、recording/persistence/unexpected typed failures 和全局 providers。logger 不把 PCM/audio bytes、录音路径、设备/用户 ID、用户备注、token/secret/password 或原始异常消息传给 sink；mapper 只保留 failure、operation 和异常类型。
+- 本地命令与结果：源码范围 format 111 files / 0 changed；`flutter analyze` 通过；`flutter test` 42/42；Windows fake integration 3/3；Rust fmt、Clippy `-D warnings`、tests 2/2；FRB Web artifact verifier、`node --check`、Rust WASM build、Flutter Web release build、Android debug APK 均通过。
+- Edge runtime：`tool/c2_edge_worker_smoke.mjs` 再次得到 48,000 samples、90 frames、start-sample checksum `2,050,560`、RMS checksum `-831.3684525375677`、pitch checksum `19859.106033325195`，未出现 Runtime exception 或 DataCloneError。
+- hosted CI：commit `ab66892` 的 [Dart/Rust](https://github.com/song751/voice-trainer/actions/runs/31013919871)、[Web](https://github.com/song751/voice-trainer/actions/runs/31013918939)、[Android](https://github.com/song751/voice-trainer/actions/runs/31013918972)、[Windows](https://github.com/song751/voice-trainer/actions/runs/31013919364) 均 completed successfully。
+- 验收结论：通过。P1-01–P1-07 与 C1–C4 均完成，Phase 1 正式关闭。
+- 未覆盖项：Apple/Linux 与 Android 真实麦克风仍按平台矩阵保留为后续真实设备覆盖，不属于 C4 自动化 gate，也未被虚报为通过。
+- 下一张允许执行的卡：P2-01 确定性信号与 golden harness；不得直接进入 P2-02 或 MPM/YIN。

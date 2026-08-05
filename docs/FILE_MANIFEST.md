@@ -248,7 +248,9 @@ voice-trainer/
 ├─ test/
 │  ├─ core/
 │  │  ├─ note_mapper_test.dart
-│  │  └─ feature_blob_codec_test.dart
+│  │  ├─ feature_blob_codec_test.dart
+│  │  ├─ errors/app_error_mapper_test.dart          [现有；P1 全局错误映射]
+│  │  └─ logging/app_logger_test.dart                [现有；P1 日志脱敏]
 │  ├─ features/
 │  │  ├─ live_practice_controller_test.dart
 │  │  ├─ practice_session_coordinator_test.dart

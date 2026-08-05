@@ -1,13 +1,14 @@
 # Phase 1 Closure 执行计划
 
 更新时间：2026-08-05  
-状态：**Phase 1 主体已落地，但尚未完成；C1–C3 已完成，下一张允许执行的卡是 C4。**
+状态：**Phase 1 与 Closure C1–C4 已全部完成；下一张且唯一允许执行的卡是 P2-01。**
 
-当前执行状态：已建立首个本地审计基线、忽略与生成物策略并同步文档；GitHub remote 已配置、
-首轮 hosted CI 已触发并记录。首轮 Web generated-file drift 已修复并重新触发。C4 才负责
-汇总并判定所有 hosted CI 的最终绿灯；在此之前仍不得进入 Phase 2。
+当前执行状态：C4 本地 gate、真实 Edge dedicated worker smoke、Android/Windows/Web 构建和
+最终 hosted CI 均通过。跨平台 FRB Web 编译产物不再被错误要求 bit-exact；声明式生成物仍执行
+严格 drift 检查，JS/WASM 绑定对改用结构、语法、关键导出、构建和 runtime 验证。Phase 2 已解锁，
+但卡片顺序仍是硬约束，当前不得越过 P2-01。
 
-本文件将 Phase 1 审计结论转成可逐卡执行、逐卡验收的收尾计划。后续 Agent 必须一次只执行一张卡；除非卡内明确要求，不得提前开始 Phase 2 DSP。
+本文件保留 Phase 1 Closure 的审计与验收记录，并定义已解锁的 Phase 2 固定顺序。后续 Agent 仍必须一次只执行一张卡；当前只执行 P2-01。
 
 ## 当前判定
 
@@ -15,40 +16,43 @@
 | --- | --- | --- |
 | P1-01 Domain/state machine | 通过 | sealed state、typed failure、合法/非法迁移测试完整；domain 没有插件依赖。 |
 | P1-02 Fake E2E | 通过 | start/pause/resume/stop、慢分析丢帧、失败恢复均有测试。 |
-| P1-03 Capture adapter | 部分通过 | 正式 adapter、PCM 所有权复制、512 buffer、WAV writer 已有；但 contract tests 较少，且缺提升后的 Windows/Edge smoke 记录与生产 WAV sink。 |
-| P1-04 Worker supervisor | 部分通过 | 队列、拆批、重启和 fake heartbeat 测试存在；真实 Edge dedicated Worker 未验收，连续崩溃时也没有可靠切换 fallback。 |
-| P1-05 Persistence v1 | 未闭合 | Native background DB、Web `WasmDatabase` 和 packed BLOB 已有；生产 BlobStore、repository round-trip、真实文件删除/恢复均缺失。 |
+| P1-03 Capture adapter | 通过 | adapter contract、PCM ownership、奇数字节/config/暂停/设备与 stream error、生产 WAV sink 和恢复均有测试。 |
+| P1-04 Worker supervisor | 通过 | `primary → restart once → fallback → terminal`、timeout/terminate、异常测试和真实 Edge/Windows 对比完整。 |
+| P1-05 Persistence v1 | 通过 | Native/Web BlobStore、tombstone/recovery、事务回滚和 feature-series 无损 round-trip 完整。 |
 | P1-06 Riverpod/shell | 通过 | provider 可覆盖，五个最小路由、错误/no-data/widget tests 均在 Phase 1 范围内。 |
-| P1-07 CI/matrices | 仅配置 | workflow 内容基本正确，但仓库没有 commit、没有 remote；hosted CI 尚不可能有运行记录。 |
+| P1-07 CI/matrices | 通过 | 四条 workflow、生成物 gate、平台矩阵、remote 和最终 hosted CI 绿灯均可复核。 |
+| P1 cross-cutting | 通过 | 结构化日志在 sink 前脱敏；全局 mapper 将外部错误映射为 typed failure，不保留原始敏感消息。 |
 
 ### 已复验的证据
 
-- 源码范围 Dart format：98 files，0 changed。
+- 源码范围 Dart format：111 files，0 changed。
 - `flutter analyze` 通过。
-- Flutter 单元/Widget tests：25 个通过。
+- Flutter 单元/Widget tests：42 个通过。
 - Windows fake integration：3 个通过。
 - Rust fmt、Clippy、tests：2 个通过。
 - Flutter Web release build 通过；产物包含 dedicated worker、Rust WASM、SQLite WASM 和 Drift worker。
-- Edge dedicated Worker runtime smoke **未执行**：当前浏览器控制接口不可用。因此仅确认构建产物，不能把 runtime 标记为通过。
+- Edge dedicated Worker runtime smoke 通过：90 frames、sample checksum `2,050,560`，与 Windows 基线相容且未出现 DataCloneError。
+- Android debug APK 构建通过。
+- commit `ab66892` 的 Dart/Rust、Web、Android、Windows hosted CI 全绿。
 
-## 必须优先处理的事实
+## 审计发现与处置
 
-1. `master` 是零提交，约 299 个项目文件全部未跟踪，且没有 remote。因此没有可信基线、历史回滚或 hosted CI 证据。
-2. [C1 本地范围已解决] 审计时 `AGENTS.md` 仍称项目处于 Phase 0 前、`README.md` 把 Phase 1 简化为只等待 CI；两份文档现已同步为 Phase 1 Closure / C1 外部阻塞状态。
-3. `AnalysisWorkerSupervisor` 当前只兜底第一次调用：替换 worker 再崩溃会直接抛错，且 Web 请求缺少 timeout/终止保护。
-4. `DriftSessionRepository` 读取 feature series 时会将 sample index 重建为 `0, 1, 2...`，并将 RMS、Peak、Clarity 重建为零，破坏「sample index 是唯一时间轴」约束。
-5. 目前只有 `InMemoryRecordingStore` 和 `WavStreamWriter`，没有 Native/Web 生产 BlobStore。
-6. Playbook 要求的日志脱敏和全局错误映射尚未创建。
-7. `dart format ... .` 会扫描 `build/` 中的 Cargokit 生成副本而失败；格式 gate 应只检查源码目录并保持幂等。
-8. `PROJECT_BLUEPRINT.md` 与 `IMPLEMENTATION_PLAYBOOK.md` 对 CPPS/Formant 阶段描述冲突。以 Playbook 为准：Phase 2 不实现 HNR、Formant、CPPS、Jitter/Shimmer。
+1. [C1 已解决] 建立 Git 基线、remote、忽略/二进制属性和 hosted CI 证据。
+2. [C1 已解决] 同步阶段文档，并统一 Phase 2 不实现 HNR、Formant、CPPS、Jitter/Shimmer。
+3. [C2 已解决] Worker 使用有限恢复状态机、每请求 timeout 和直接 terminate，并完成真实 Edge 验收。
+4. [C3 已解决] feature series 保留 sample timeline、RMS、Peak、Clarity 等原值及列校验和。
+5. [C3 已解决] Native/Web 生产 BlobStore、删除 tombstone 和启动恢复均已实现并验证。
+6. [C4 已解决] 增加 sink 前结构化日志脱敏、统一错误 mapper、全局 providers 和对应 tests。
+7. [C1 已解决] format gate 只扫描源码目录，不再包含 `build/` 或第三方生成副本。
+8. [C4 已解决] FRB JS/WASM 编译产物采用语义/runtime gate；声明式生成物继续严格拒绝漂移。
 
 ## 执行规则
 
-- 卡片顺序固定为 `C1 → C2 → C3 → C4 → P2-01`。一张卡未通过不得开始下一张。
+- C1–C4 已完成。后续顺序固定为 `P2-01 → P2-02 → ... → P2-07`；当前只允许 P2-01。
 - 每张卡结束时，记录实际执行命令、平台、结果、未覆盖项和证据文件位置。
 - 不以 build 成功、fake 测试或模拟器代替真实麦克风/Edge Worker 验收。
 - 格式检查仅扫描明确的源码目录；不要将构建目录、缓存或第三方生成副本纳入 gate。
-- Phase 2 开始前，所有 Phase 1 Closure 的验收项和 hosted CI 必须为通过状态。
+- P2-01 完成前不得修改生产 pitch、spectrum、resampler 或 bridge DTO。
 
 ---
 
@@ -141,6 +145,8 @@
 
 **目标**：将 Phase 1 从「主体已落地」提升为「可判定完成」。
 
+**状态：通过（2026-08-05）。** 本地与 hosted 证据见 `docs/RESEARCH_NOTES.md` 的 C4 执行记录；下一张允许卡为 P2-01。
+
 ### 工作范围与验收
 
 重新执行并记录以下证据：
@@ -170,6 +176,16 @@
 | P2-05 | Aggregator/features | 实现 clipping、input-too-low、dropped/discontinuity、有效帧不足、音高/音量 robust stability、onset 和 segment aggregator。 |
 | P2-06 | Bridge DTO | 扩展 Rust/FRB/Web Worker DTO 和 Dart mapper；保持 bridge batch 最多 1024 samples，不传递内部 DSP 状态或过大频谱数组。 |
 | P2-07 | Bench/Gate | 新增 `rust/tests/{chunk_invariance,pitch_golden,spectrum_golden,discontinuity}.rs` 与 `rust/benches/{realtime_pipeline,bridge_payload}.rs`，在 Windows 与 Edge/WASM 验收。 |
+
+### P2-01 当前执行边界
+
+- 只创建确定性信号生成器、golden harness、manifest/schema 和对应 tests；生产实时 analyzer 行为保持不变。
+- 信号集必须覆盖纯音、谐波、缺失基频、固定种子噪声、滑音、静音、削波和明确 sample-index 断点。
+- 每个 case 固定 sample rate、sample count/duration、振幅/频率参数、随机种子、PCM 编码规则和 SHA-256；同一命令连续运行两次必须 bit-exact。
+- manifest 的预期值只描述可独立计算的真值/范围和后续算法 gate，不把当前 Phase 0 FFT-autocorrelation 输出固化为正确答案。
+- 优先运行时生成；只有体积小、用途和许可清楚且确需 bit-exact 回归的 golden 才可提交二进制。
+- P2-01 验收至少包括生成器单元测试、manifest/哈希自校验、固定种子复现、断点语义测试，以及 Rust fmt、Clippy `-D warnings`、全量 Rust tests。
+- 完成后把文件、命令、case 数、hash 证据和未覆盖项写入 `RESEARCH_NOTES.md`，明确解锁 P2-02；在此之前不得修改 pitch、spectrum、resampler 或 bridge DTO。
 
 ### Phase 2 硬性指标
 

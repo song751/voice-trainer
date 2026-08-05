@@ -13,10 +13,11 @@ The desktop source guide is historical input. Repository documents are authorita
 
 ## Current phase
 
-Phase 0 and the Phase 1 task cards are complete. The repository is now in
-**Phase 1 Closure** and must follow `docs/PHASE1_CLOSURE_PLAN.md` one card at a
-time. C1–C3 are complete; the next permitted card is C4. Do not start Phase 2 DSP
-until C1–C4 are complete and C4 records hosted CI as green.
+Phase 0, Phase 1, and closure cards C1–C4 are complete. The repository is now at
+the **Phase 2 DSP MVP** boundary. The next and only permitted card is `P2-01`
+from `docs/PHASE1_CLOSURE_PLAN.md`: deterministic signals and the golden
+harness. Do not start pitch, spectrum, resampling, or other `P2-02+` work until
+P2-01 is independently accepted and recorded.
 
 ## Non-negotiable architecture
 

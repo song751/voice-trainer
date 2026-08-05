@@ -1,5 +1,7 @@
 # Phase 1 Task Cards
 
+状态：**P1-01–P1-07 与 Closure C1–C4 均已完成（2026-08-05）**。本文件保留为历史验收定义；后续开发不得从这里重开 Phase 1，当前唯一允许卡为 `docs/PHASE1_CLOSURE_PLAN.md` 中的 `P2-01`。
+
 前置条件：Phase 0 Gate 0A–0E 已通过。每张卡单独执行、单独验收；不要把这些卡合并成一次“生成整个应用”。
 
 ## P1-01 Domain contracts and session state machine
