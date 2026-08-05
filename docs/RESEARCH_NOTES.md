@@ -432,7 +432,8 @@ Phase-boundary 回归：FRB codegen 连续两次 7 个生成文件 SHA-256 不�
 - 生成物策略：提交 `pubspec.lock`、`rust/Cargo.lock`、Drift `*.g.dart`、FRB Rust/Dart 输出、`web/pkg/` FRB JS/WASM，以及锁定 Drift 包来源的 `web/sqlite3.wasm`、`web/drift_worker.js`；不手改。FRB 生成的 `web/pkg/.gitignore` 保持 `*`，已跟踪的 bridge 文件与后续新增输出使用 force-add。CI 在 clean checkout 重新生成并拒绝 diff。`.gitattributes` 将 WASM、音频、数据库/BLOB 和图像声明为 binary。
 - 执行命令与结果：源码范围 `dart format --output=none --set-exit-if-changed lib test integration_test test_driver tool` 连续执行两次，结果一致；该 gate 不再扫描 `build/`。
 - 平台/运行时：Windows 本地工作区；未运行真实麦克风或 Edge Worker 验收，本卡也不将它们当作通过。
-- 验收结论：本地范围通过；hosted CI 仍未通过/未运行。
-- 未覆盖项或外部阻塞：仓库没有 remote，remote 的选择、授权、push 与首次 hosted CI 运行由仓库所有者决定。获得可链接的首次 run 后才能关闭 C1。
-- 证据：首个本地基线 commit、`git status`、`.gitignore`/`.gitattributes`、本条记录和 CI workflow。
-- 下一张允许执行的卡：C1（等待 remote 与首次 hosted CI 证据）；不得进入 C2。
+- hosted CI：`origin` 已配置为 `git@github.com:song751/voice-trainer.git`，`master` 已推送。首次触发为 commit `1a9b829`： [Dart/Rust](https://github.com/song751/voice-trainer/actions/runs/31004201395)、[Web](https://github.com/song751/voice-trainer/actions/runs/31004201441)、[Android](https://github.com/song751/voice-trainer/actions/runs/31004201885)、[Windows](https://github.com/song751/voice-trainer/actions/runs/31004202562)。其中 Web run 在 `Reject FRB Web artifact drift` 失败；根因是 FRB 生成的 `web/pkg/.gitignore` 被手动改写。修复 commit `664596c` 保留工具生成的 `*` 并 force-add bridge 输出，已重新触发 [Dart/Rust](https://github.com/song751/voice-trainer/actions/runs/31004686198)、[Web](https://github.com/song751/voice-trainer/actions/runs/31004686065)、[Android](https://github.com/song751/voice-trainer/actions/runs/31004686506)、[Windows](https://github.com/song751/voice-trainer/actions/runs/31004683455)。这些运行的最终全绿由 C4 记录，不能在 C1 声称通过。
+- 验收结论：通过。首个本地基线、remote 和可链接的首次 hosted CI 结果均可复核。
+- 未覆盖项或外部阻塞：C4 仍需记录当前/后续 hosted CI 的最终绿灯；真实麦克风与 Edge Worker 不是 C1 验收项。
+- 证据：首个本地基线 commit、`git status`、`.gitignore`/`.gitattributes`、本条记录、CI workflow 与上述 GitHub Actions runs。
+- 下一张允许执行的卡：C2。

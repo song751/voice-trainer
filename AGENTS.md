@@ -15,8 +15,8 @@ The desktop source guide is historical input. Repository documents are authorita
 
 Phase 0 and the Phase 1 task cards are complete. The repository is now in
 **Phase 1 Closure** and must follow `docs/PHASE1_CLOSURE_PLAN.md` one card at a
-time. C1 is the active card until its remote/hosted-CI evidence is available;
-do not start C2 or Phase 2 DSP while C1 is externally blocked.
+time. C1 is complete; the next permitted card is C2. Do not start Phase 2 DSP
+until C1–C4 are complete and C4 records hosted CI as green.
 
 ## Non-negotiable architecture
 

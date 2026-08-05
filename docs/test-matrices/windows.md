@@ -4,9 +4,9 @@
 
 | 范围 | 自动化 / 手动 | 当前状态 | 验收记录 |
 |---|---|---|---|
-| Dart/Rust 静态检查 | CI：`Dart and Rust checks` | 本地通过；仓库尚无 remote，首次 hosted CI 未运行 | 不使用麦克风或模拟设备宣称硬件通过。 |
-| Fake capture 集成闭环 | CI：`Windows build`，`flutter test -d windows integration_test/fake_capture_session_flow_test.dart` | 本地通过；仓库尚无 remote，首次 hosted CI 未运行 | 验证流程恢复，不计入硬件覆盖。 |
-| Release 构建 | CI：`Windows build`，`flutter build windows --release` | 本地通过；仓库尚无 remote，首次 hosted CI 未运行 | 上传 release runner artifact。 |
+| Dart/Rust 静态检查 | CI：`Dart and Rust checks` | 本地通过；hosted CI 已首次触发，链接见 C1 执行记录 | 不使用麦克风或模拟设备宣称硬件通过。 |
+| Fake capture 集成闭环 | CI：`Windows build`，`flutter test -d windows integration_test/fake_capture_session_flow_test.dart` | 本地通过；hosted CI 已首次触发，链接见 C1 执行记录 | 验证流程恢复，不计入硬件覆盖。 |
+| Release 构建 | CI：`Windows build`，`flutter build windows --release` | 本地通过；hosted CI 已首次触发，链接见 C1 执行记录 | 上传 release runner artifact。 |
 | 内置 Realtek PCM16 48 kHz 长音与暂停恢复 | 手动，真实设备 | Phase 0 已通过 | 60 秒样本误差 0.3167%，interval P95 47.615 ms；一次非持续 discontinuity。 |
 | USB Audio PCM16 48 kHz 长音 | 手动，真实设备 | Phase 0 已通过 | 60 秒样本误差 0.0167%，无 discontinuity。 |
 | 权限拒绝/撤回、无设备、设备拔插、采样率变化 | 手动，真实设备 | Pending | 记录有效格式、错误恢复和 quality flag。 |
