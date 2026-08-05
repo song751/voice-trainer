@@ -23,7 +23,8 @@ jobs:
           targets: wasm32-unknown-unknown
       - name: Install FRB Web prerequisites
         run: |
-          rustup toolchain install nightly --profile minimal --component rust-src
+          rustup toolchain install nightly-2026-08-02 --profile minimal --component rust-src --target wasm32-unknown-unknown
+          ln -s "$(rustc +nightly-2026-08-02 --print sysroot)" "$HOME/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu"
           cargo install wasm-pack --version 0.15.0 --locked
           cargo install flutter_rust_bridge_codegen --version 2.12.0 --locked
       - name: Restore dependencies
