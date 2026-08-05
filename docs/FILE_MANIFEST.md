@@ -281,6 +281,7 @@ voice-trainer/
 │  ├─ c2_edge_worker_smoke.mjs                    [C2；direct dedicated-worker smoke]
 │  ├─ c2_windows_worker_smoke.dart                 [C2；native FRB comparison baseline]
 │  ├─ c3_edge_recording_store_smoke.mjs             [C3；OPFS/IndexedDB/memory storage smoke]
+│  ├─ verify_frb_web_artifacts.dart                  [C4；FRB Web package structure/WASM validation]
 │  ├─ generate_test_audio.dart
 │  ├─ benchmark_report.dart
 │  ├─ verify_feature_blob.dart
@@ -384,7 +385,7 @@ voice-trainer/
 
 ### 3.4 生成文件
 
-Drift 的 `*.g.dart` 可与源文件相邻；Freezed/Riverpod generated 文件遵循工具默认。FRB generated 文件集中到 `lib/generated/frb` 和 `rust/src/frb_generated.rs`。全部提交但不手改，并在文件头保留 generated 标记。`web/pkg/` 的 FRB JavaScript/WASM、`web/sqlite3.wasm` 和 `web/drift_worker.js` 也提交：它们来自锁定工具链/Drift 包，CI 会重新生成并以 diff 拒绝漂移。FRB 自己生成的 `web/pkg/.gitignore` 保持 `*`；这些已提交的 Web bridge 文件以 force-add 方式纳入版本控制，新增输出也必须同样显式加入。
+Drift 的 `*.g.dart` 可与源文件相邻；Freezed/Riverpod generated 文件遵循工具默认。FRB generated 文件集中到 `lib/generated/frb` 和 `rust/src/frb_generated.rs`。全部提交但不手改，并在文件头保留 generated 标记。`web/pkg/` 的 FRB JavaScript/WASM、`web/sqlite3.wasm` 和 `web/drift_worker.js` 也提交：它们来自锁定工具链/Drift 包。CI 对代码生成的文本接口执行严格 diff；编译型 WASM 可能因 Windows/Linux host 的 `wasm-pack`/`wasm-opt` 输出而非 bit-exact，因此改为校验 package 文件集合、WASM magic/version、成功构建和真实 Edge runtime，不把跨 host 二进制 hash 当成源码漂移。FRB 自己生成的 `web/pkg/.gitignore` 保持 `*`；这些已提交的 Web bridge 文件以 force-add 方式纳入版本控制，新增输出也必须同样显式加入。
 
 ## 4. Rust 文件边界
 

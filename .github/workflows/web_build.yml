@@ -30,8 +30,24 @@ jobs:
         run: flutter pub get --enforce-lockfile
       - name: Build Rust WASM bridge
         run: flutter_rust_bridge_codegen build-web --release
+      - name: Validate FRB Web artifacts
+        run: dart run tool/verify_frb_web_artifacts.dart
       - name: Reject FRB Web artifact drift
-        run: git diff --exit-code
+        shell: bash
+        run: |
+          unexpected="$(git ls-files --others --ignored --exclude-standard -- web/pkg)"
+          if [[ -n "$unexpected" ]]; then
+            echo "Unexpected generated FRB Web files:"
+            echo "$unexpected"
+            exit 1
+          fi
+
+          # wasm-pack/wasm-opt output is a compiled binary and is not guaranteed
+          # to be byte-identical across Windows and Linux hosts. Keep strict drift
+          # detection for the generated interface files; validate and build the
+          # fresh WASM payload in the surrounding steps.
+          git diff --exit-code -- . \
+            ':(exclude)web/pkg/rust_lib_voice_trainer_bg.wasm'
       - name: Build default Flutter JS web application
         run: flutter build web --release
       - name: Upload web build
