@@ -381,7 +381,7 @@ voice-trainer/
 
 ### 3.4 生成文件
 
-Drift 的 `*.g.dart` 可与源文件相邻；Freezed/Riverpod generated 文件遵循工具默认。FRB generated 文件集中到 `lib/generated/frb` 和 `rust/src/frb_generated.rs`。全部提交但不手改，并在文件头保留 generated 标记。`web/pkg/` 的 FRB JavaScript/WASM、`web/sqlite3.wasm` 和 `web/drift_worker.js` 也提交：它们来自锁定工具链/Drift 包，CI 会重新生成并以 diff 拒绝漂移。
+Drift 的 `*.g.dart` 可与源文件相邻；Freezed/Riverpod generated 文件遵循工具默认。FRB generated 文件集中到 `lib/generated/frb` 和 `rust/src/frb_generated.rs`。全部提交但不手改，并在文件头保留 generated 标记。`web/pkg/` 的 FRB JavaScript/WASM、`web/sqlite3.wasm` 和 `web/drift_worker.js` 也提交：它们来自锁定工具链/Drift 包，CI 会重新生成并以 diff 拒绝漂移。FRB 自己生成的 `web/pkg/.gitignore` 保持 `*`；这些已提交的 Web bridge 文件以 force-add 方式纳入版本控制，新增输出也必须同样显式加入。
 
 ## 4. Rust 文件边界
 

@@ -429,7 +429,7 @@ Phase-boundary 回归：FRB codegen 连续两次 7 个生成文件 SHA-256 不�
 - 范围：建立首次本地审计基线，审查忽略/敏感内容和大文件，固定生成物策略，并同步 Phase 1 Closure 状态与 Phase 2 范围。
 - 修改文件：根 `.gitignore`、`.gitattributes`、`web/pkg/.gitignore`、CI format gate、`AGENTS.md`、`README.md`、蓝图、实施手册、manifest 与 Closure 计划。
 - 敏感内容审查：未发现录音、SQLite/BLOB、私钥、keystore、`.env` 或疑似凭据；所有大文件均处于已忽略的 `.dart_tool`、`build` 或 `rust/target`。运行时录音/数据库、媒体格式和凭据现已由根忽略规则覆盖；小型、确定性且有文档/许可的测试 WAV 只能显式 force-add。
-- 生成物策略：提交 `pubspec.lock`、`rust/Cargo.lock`、Drift `*.g.dart`、FRB Rust/Dart 输出、`web/pkg/` FRB JS/WASM，以及锁定 Drift 包来源的 `web/sqlite3.wasm`、`web/drift_worker.js`；不手改。CI 在 clean checkout 重新生成并拒绝 diff。`.gitattributes` 将 WASM、音频、数据库/BLOB 和图像声明为 binary。
+- 生成物策略：提交 `pubspec.lock`、`rust/Cargo.lock`、Drift `*.g.dart`、FRB Rust/Dart 输出、`web/pkg/` FRB JS/WASM，以及锁定 Drift 包来源的 `web/sqlite3.wasm`、`web/drift_worker.js`；不手改。FRB 生成的 `web/pkg/.gitignore` 保持 `*`，已跟踪的 bridge 文件与后续新增输出使用 force-add。CI 在 clean checkout 重新生成并拒绝 diff。`.gitattributes` 将 WASM、音频、数据库/BLOB 和图像声明为 binary。
 - 执行命令与结果：源码范围 `dart format --output=none --set-exit-if-changed lib test integration_test test_driver tool` 连续执行两次，结果一致；该 gate 不再扫描 `build/`。
 - 平台/运行时：Windows 本地工作区；未运行真实麦克风或 Edge Worker 验收，本卡也不将它们当作通过。
 - 验收结论：本地范围通过；hosted CI 仍未通过/未运行。
