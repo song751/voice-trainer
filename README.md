@@ -2,7 +2,7 @@
 
 这是一个面向 Windows、Android、Web，并逐步覆盖 macOS、iOS、Linux 的本地优先练声应用规划仓库。
 
-当前状态：**Phase 1 与 Closure C1–C4、P2-01 至 P2-07 均已完成**。可信仓库基线、生成物策略、日志脱敏、统一错误映射、真实 Edge dedicated worker、Windows/Edge 数值对比、录音恢复、feature-series 无损 round-trip、Web OPFS 和 hosted CI 均已有证据。P2-01 至 P2-06 分别完成确定性信号、signal core、YIN pitch/voicing、full-band spectrum、quality/segment aggregation 与受限 FRB/Web Worker DTO；P2-07 已通过 Rust golden/invariance、Windows benchmark/native runtime 和实际 Edge/WASM dedicated-worker gate。Phase 3 需要另行定义和接受任务卡后才能开始。
+当前状态：**Phase 1 与 Closure C1–C4、P2-01 至 P2-07，以及 Phase 3 立项卡 P3-00 均已完成**。可信仓库基线、生成物策略、日志脱敏、统一错误映射、真实 Edge dedicated worker、Windows/Edge 数值对比、录音恢复、feature-series 无损 round-trip、Web OPFS 和 hosted CI 均已有证据。P2-01 至 P2-06 分别完成确定性信号、signal core、YIN pitch/voicing、full-band spectrum、quality/segment aggregation 与受限 FRB/Web Worker DTO；P2-07 已通过 Rust golden/invariance、Windows benchmark/native runtime 和实际 Edge/WASM dedicated-worker gate。Phase 3 的固定顺序与验收条件见 `docs/PHASE3_TASKS.md`，当前仅解锁 P3-01。
 
 应用提供可覆盖的 audio capture、analysis engine、recording sink/store 和 session repository provider，默认接入确定性 fake session；最小导航包含首页、实时练习、结果、历史和设置。它不直接在页面中引用 `record`、Drift 或 FRB，也不恢复 FRB 2.12 默认 WASM WorkerPool。Gate 0A–0E 的实测证据及 Phase 1 决策见 `docs/RESEARCH_NOTES.md` 和 `docs/adr/0001-frb-2-12-phase0-compatibility.md`。
 
@@ -15,7 +15,8 @@
 3. [`docs/IMPLEMENTATION_PLAYBOOK.md`](docs/IMPLEMENTATION_PLAYBOOK.md)：阶段任务、命令、验收门槛和模型使用建议。
 4. [`docs/FILE_MANIFEST.md`](docs/FILE_MANIFEST.md)：计划目录树及每个文件的职责。
 5. [`docs/RESEARCH_NOTES.md`](docs/RESEARCH_NOTES.md)：选型证据、本机检查结果、待验证假设。
-6. [`docs/PHASE1_CLOSURE_PLAN.md`](docs/PHASE1_CLOSURE_PLAN.md)：Phase 1 审计结论、收尾任务卡和 Phase 2 解锁顺序。
+6. [`docs/PHASE1_CLOSURE_PLAN.md`](docs/PHASE1_CLOSURE_PLAN.md)：Phase 1 审计结论和已关闭的 Phase 2 历史记录。
+7. [`docs/PHASE3_TASKS.md`](docs/PHASE3_TASKS.md)：Phase 3 固定任务卡、依赖关系与逐卡验收标准。
 
 桌面上的原始 `WINDOWS_CODEX_FLUTTER_AGENT_GUIDE.md` 是需求来源。若它与本仓库文档冲突，以本仓库文档为准。
 
@@ -34,4 +35,4 @@
 
 ## 下一步
 
-Phase 2 DSP MVP 固定卡已关闭。开始下一阶段前，先定义、审查并接受单独的 Phase 3 任务卡。真实麦克风覆盖仍按 [`docs/test-matrices/`](docs/test-matrices/) 中的平台矩阵进行；不要用 fake capture、emulator 或构建成功冒充真实设备通过。
+`P3-00` 已完成；当前仅允许执行 [`docs/PHASE3_TASKS.md`](docs/PHASE3_TASKS.md) 的 `P3-01`，将 P2 DSP 合成为生产 100 Hz pipeline。真实麦克风覆盖仍按 [`docs/test-matrices/`](docs/test-matrices/) 中的平台矩阵进行；不要用 fake capture、emulator 或构建成功冒充真实设备通过。

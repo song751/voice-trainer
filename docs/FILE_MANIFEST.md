@@ -313,6 +313,7 @@ voice-trainer/
 │  ├─ RESEARCH_NOTES.md                           [现有]
 │  ├─ PHASE1_TASKS.md                             [现有]
 │  ├─ PHASE1_CLOSURE_PLAN.md                      [现有]
+│  ├─ PHASE3_TASKS.md                              [P3；固定任务卡、验收与执行记录]
 │  ├─ specs/
 │  │  ├─ FEATURE_BLOB_V1.md                       [现有]
 │  │  ├─ AUDIO_CONTRACT.md                        [现有]

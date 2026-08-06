@@ -14,8 +14,9 @@ The desktop source guide is historical input. Repository documents are authorita
 ## Current phase
 
 Phase 0, Phase 1, closure cards C1–C4, and `P2-01` through `P2-07` are complete.
-The **Phase 2 DSP MVP** fixed card sequence is closed. Do not begin Phase 3 or
-product work until a separately scoped and accepted task card is recorded.
+`P3-00` is accepted and complete. The **only** Phase 3 implementation card now
+allowed is `P3-01` in `docs/PHASE3_TASKS.md`; execute one card at a time and do
+not start `P3-02+` until the prior card is independently accepted and recorded.
 
 ## Non-negotiable architecture
 
