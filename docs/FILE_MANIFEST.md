@@ -209,6 +209,9 @@ voice-trainer/
 │  │  │  ├─ realtime_analyzer.rs
 │  │  │  ├─ offline_analyzer.rs
 │  │  │  └─ frame_aggregator.rs
+│  │  ├─ golden/                                  [P2-01；只生成确定性测试输入]
+│  │  │  ├─ mod.rs
+│  │  │  └─ signals.rs
 │  │  ├─ signal/
 │  │  │  ├─ mod.rs
 │  │  │  ├─ pcm.rs
@@ -219,9 +222,9 @@ voice-trainer/
 │  │  ├─ pitch/
 │  │  │  ├─ mod.rs
 │  │  │  ├─ estimator.rs
-│  │  │  ├─ mcleod.rs
+│  │  │  ├─ mpm.rs
 │  │  │  ├─ yin.rs
-│  │  │  └─ continuity.rs
+│  │  │  └─ tracker.rs
 │  │  ├─ spectrum/
 │  │  │  ├─ mod.rs
 │  │  │  ├─ stft.rs
@@ -229,22 +232,31 @@ voice-trainer/
 │  │  │  └─ ui_bins.rs
 │  │  ├─ features/
 │  │  │  ├─ mod.rs
-│  │  │  ├─ level.rs
 │  │  │  ├─ stability.rs
 │  │  │  ├─ onset.rs
+│  │  │  ├─ quality.rs
+│  │  │  └─ segment.rs
 │  │  │  ├─ hnr.rs                         [Beta]
 │  │  │  ├─ vibrato.rs                     [Beta]
 │  │  │  ├─ formant.rs                     [Phase 6 Beta]
 │  │  │  └─ cpps.rs                        [Phase 6 Beta]
 │  │  └─ frb_generated.rs                        [生成，不手改]
 │  ├─ tests/
-│  │  ├─ chunk_invariance.rs
-│  │  ├─ pitch_golden.rs
-│  │  ├─ spectrum_golden.rs
-│  │  └─ discontinuity.rs
+│  │  ├─ p2_01_golden.rs                          [P2-01；manifest/hash/seed/breakpoint]
+│  │  ├─ p2_02_signal_core.rs                     [P2-02；golden input chunk-invariance]
+│  │  ├─ p2_03_pitch_golden.rs                    [P2-03；MPM/YIN/voicing golden gates]
+│  │  ├─ p2_04_spectrum_golden.rs                 [P2-04；power/centroid/UI-bin golden gates]
+│  │  ├─ p2_05_features.rs                        [P2-05；quality/stability/onset/segment]
+│  │  ├─ chunk_invariance.rs                        [P2-07；三条 DSP 分支的任意 chunk gate]
+│  │  ├─ pitch_golden.rs                            [P2-07；合成 pitch 硬指标 gate]
+│  │  ├─ spectrum_golden.rs                         [P2-07；物理频谱 gate]
+│  │  └─ discontinuity.rs                           [P2-07；缺口/dropped gate]
 │  └─ benches/
-│     ├─ realtime_pipeline.rs
-│     └─ bridge_payload.rs
+│     ├─ realtime_pipeline.rs                       [P2-07；release realtime factor]
+│     └─ bridge_payload.rs                          [P2-07；1024-sample payload boundary]
+├─ rust/test_assets/
+│  ├─ p2_01_manifest.json                         [P2-01；参数、真值与 PCM SHA-256]
+│  └─ p2_01_manifest.schema.json                  [P2-01；manifest schema]
 ├─ test/
 │  ├─ core/
 │  │  ├─ note_mapper_test.dart
@@ -282,6 +294,8 @@ voice-trainer/
 │  ├─ phase0_coep_server.ps1                     [现有；headers test harness]
 │  ├─ c2_edge_worker_smoke.mjs                    [C2；direct dedicated-worker smoke]
 │  ├─ c2_windows_worker_smoke.dart                 [C2；native FRB comparison baseline]
+│  ├─ p2_07_edge_gate.mjs                          [P2-07；new DTO dedicated-worker gate]
+│  ├─ p2_07_windows_gate.dart                      [P2-07；new DTO native comparison]
 │  ├─ c3_edge_recording_store_smoke.mjs             [C3；OPFS/IndexedDB/memory storage smoke]
 │  ├─ verify_frb_web_artifacts.dart                  [C4；FRB Web package structure/WASM validation]
 │  ├─ generate_test_audio.dart
@@ -383,7 +397,7 @@ voice-trainer/
 
 ### 3.3 `infrastructure`
 
-所有第三方包都应在这里被包裹。上层不能散布 `AudioRecorder`、Drift table 或 FRB DTO。第三方 API 变更时，只需修改 adapter 和 mapper。
+所有第三方包都应在这里被包裹。上层不能散布 `AudioRecorder`、Drift table 或 FRB DTO。`analysis_frame_dto_mapper.dart` 是 Rust/Worker 的受限帧 DTO 到 domain `AnalysisFrame` 的唯一 mapper：只接受 8 个 band power 和已知质量位，拒绝未知位或任何大频谱 payload。第三方 API 变更时，只需修改 adapter 和 mapper。
 
 ### 3.4 生成文件
 
@@ -391,7 +405,7 @@ Drift 的 `*.g.dart` 可与源文件相邻；Freezed/Riverpod generated 文件�
 
 ## 4. Rust 文件边界
 
-- `api/` 只定义桥可见 DTO 和生命周期函数，不写算法。
+- `api/` 只定义桥可见 DTO 和生命周期函数，不写算法；`AnalysisFrameDto` 只含标量、8 个 band power 与质量 bitset，绝不包含 DSP 状态或 128-bin UI spectrum。
 - `pipeline/` 组合 signal、pitch、spectrum 和 features。
 - `signal/` 处理样本、窗口、环形缓冲与重采样。
 - `pitch/` 的 trait 保证 MPM/YIN/未来神经实现可换。

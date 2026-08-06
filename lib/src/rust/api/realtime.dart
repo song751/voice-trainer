@@ -4,15 +4,68 @@
 // ignore_for_file: invalid_use_of_internal_member, unused_import, unnecessary_import
 
 import '../frb_generated.dart';
-import '../model.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
+
+// These functions are ignored because they are not marked as `pub`: `amplitude_to_dbfs`
+// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `eq`, `fmt`, `from`
 
 // Rust type: RustOpaqueMoi<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<RealtimeAnalyzer>>
 abstract class RealtimeAnalyzer implements RustOpaqueInterface {
   factory RealtimeAnalyzer({required int sampleRate}) => RustLib.instance.api
       .crateApiRealtimeRealtimeAnalyzerNew(sampleRate: sampleRate);
 
-  List<AnalysisFrame> pushPcm16({required List<int> pcm});
+  List<AnalysisFrameDto> pushPcm16({required List<int> pcm});
 
   void reset();
+}
+
+/// The intentionally small, stable result crossing the FRB and browser-worker
+/// boundaries. It contains scalar analysis results, eight full-band summaries,
+/// and a compact quality mask only; DSP buffers and 128-bin UI spectrum data
+/// remain private to Rust.
+class AnalysisFrameDto {
+  final BigInt startSample;
+  final double rmsDbfs;
+  final double peakDbfs;
+  final double? pitchHz;
+  final double pitchClarity;
+  final bool voiced;
+  final Float32List bandPowersDbfs;
+  final int qualityFlags;
+
+  const AnalysisFrameDto({
+    required this.startSample,
+    required this.rmsDbfs,
+    required this.peakDbfs,
+    this.pitchHz,
+    required this.pitchClarity,
+    required this.voiced,
+    required this.bandPowersDbfs,
+    required this.qualityFlags,
+  });
+
+  @override
+  int get hashCode =>
+      startSample.hashCode ^
+      rmsDbfs.hashCode ^
+      peakDbfs.hashCode ^
+      pitchHz.hashCode ^
+      pitchClarity.hashCode ^
+      voiced.hashCode ^
+      bandPowersDbfs.hashCode ^
+      qualityFlags.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is AnalysisFrameDto &&
+          runtimeType == other.runtimeType &&
+          startSample == other.startSample &&
+          rmsDbfs == other.rmsDbfs &&
+          peakDbfs == other.peakDbfs &&
+          pitchHz == other.pitchHz &&
+          pitchClarity == other.pitchClarity &&
+          voiced == other.voiced &&
+          bandPowersDbfs == other.bandPowersDbfs &&
+          qualityFlags == other.qualityFlags;
 }

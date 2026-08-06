@@ -6,7 +6,9 @@
 
 use wasm_bindgen::prelude::*;
 
-use crate::pipeline::realtime_analyzer::RealtimeAnalyzerCore;
+use crate::{api::realtime::AnalysisFrameDto, pipeline::realtime_analyzer::RealtimeAnalyzerCore};
+
+const MAX_BRIDGE_BATCH_SAMPLES: usize = 1_024;
 
 #[wasm_bindgen]
 pub struct WorkerRealtimeAnalyzer {
@@ -24,8 +26,16 @@ impl WorkerRealtimeAnalyzer {
 
     #[wasm_bindgen(js_name = pushPcm16)]
     pub fn push_pcm16(&mut self, pcm: &[i16]) -> Result<JsValue, JsValue> {
-        serde_wasm_bindgen::to_value(&self.core.push_pcm16(pcm))
-            .map_err(|error| JsValue::from_str(&error.to_string()))
+        if pcm.len() > MAX_BRIDGE_BATCH_SAMPLES {
+            return Err(JsValue::from_str("Worker batch exceeds 1024 samples."));
+        }
+        let frames: Vec<AnalysisFrameDto> = self
+            .core
+            .push_pcm16(pcm)
+            .into_iter()
+            .map(AnalysisFrameDto::from)
+            .collect();
+        serde_wasm_bindgen::to_value(&frames).map_err(|error| JsValue::from_str(&error.to_string()))
     }
 
     pub fn reset(&mut self) {

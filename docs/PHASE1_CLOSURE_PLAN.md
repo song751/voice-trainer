@@ -1,14 +1,14 @@
 # Phase 1 Closure 执行计划
 
-更新时间：2026-08-05  
-状态：**Phase 1 与 Closure C1–C4 已全部完成；下一张且唯一允许执行的卡是 P2-01。**
+更新时间：2026-08-06  
+状态：**Phase 1 与 Closure C1–C4、P2-01 至 P2-07 均已完成；Phase 2 DSP MVP 固定顺序已关闭。**
 
 当前执行状态：C4 本地 gate、真实 Edge dedicated worker smoke、Android/Windows/Web 构建和
 最终 hosted CI 均通过。跨平台 FRB Web 编译产物不再被错误要求 bit-exact；声明式生成物仍执行
-严格 drift 检查，JS/WASM 绑定对改用结构、语法、关键导出、构建和 runtime 验证。Phase 2 已解锁，
-但卡片顺序仍是硬约束，当前不得越过 P2-01。
+严格 drift 检查，JS/WASM 绑定对改用结构、语法、关键导出、构建和 runtime 验证。P2-01 的
+确定性输入集、manifest/schema 与 hash harness、signal core、pitch/voicing、full-band spectrum、quality/segment aggregation、受限 bridge DTO，以及 Windows/Edge benchmark/gate 均已验收。
 
-本文件保留 Phase 1 Closure 的审计与验收记录，并定义已解锁的 Phase 2 固定顺序。后续 Agent 仍必须一次只执行一张卡；当前只执行 P2-01。
+本文件保留 Phase 1 Closure 的审计与验收记录及已关闭的 Phase 2 固定顺序。后续 Phase 必须先另行定义、审查并接受任务卡。
 
 ## 当前判定
 
@@ -48,11 +48,11 @@
 
 ## 执行规则
 
-- C1–C4 已完成。后续顺序固定为 `P2-01 → P2-02 → ... → P2-07`；当前只允许 P2-01。
+- C1–C4、P2-01 至 P2-07 已完成；`P2-01 → P2-02 → ... → P2-07` 固定顺序已关闭。
 - 每张卡结束时，记录实际执行命令、平台、结果、未覆盖项和证据文件位置。
 - 不以 build 成功、fake 测试或模拟器代替真实麦克风/Edge Worker 验收。
 - 格式检查仅扫描明确的源码目录；不要将构建目录、缓存或第三方生成副本纳入 gate。
-- P2-01 完成前不得修改生产 pitch、spectrum、resampler 或 bridge DTO。
+- 不得以既有 P2 验收替代尚未定义的后续 Phase 任务卡。
 
 ---
 
@@ -145,7 +145,7 @@
 
 **目标**：将 Phase 1 从「主体已落地」提升为「可判定完成」。
 
-**状态：通过（2026-08-05）。** 本地与 hosted 证据见 `docs/RESEARCH_NOTES.md` 的 C4 执行记录；下一张允许卡为 P2-01。
+**状态：通过（2026-08-05）。** 本地与 hosted 证据见 `docs/RESEARCH_NOTES.md` 的 C4 执行记录；当时解锁的下一张卡为 P2-01。
 
 ### 工作范围与验收
 
@@ -175,9 +175,9 @@
 | P2-04 | Full-band spectrum | 48 kHz、2048 Hann、hop 480；实现正确的 power dBFS normalization、band power、spectral centroid 和 128 个对数 UI bins。 |
 | P2-05 | Aggregator/features | 实现 clipping、input-too-low、dropped/discontinuity、有效帧不足、音高/音量 robust stability、onset 和 segment aggregator。 |
 | P2-06 | Bridge DTO | 扩展 Rust/FRB/Web Worker DTO 和 Dart mapper；保持 bridge batch 最多 1024 samples，不传递内部 DSP 状态或过大频谱数组。 |
-| P2-07 | Bench/Gate | 新增 `rust/tests/{chunk_invariance,pitch_golden,spectrum_golden,discontinuity}.rs` 与 `rust/benches/{realtime_pipeline,bridge_payload}.rs`，在 Windows 与 Edge/WASM 验收。 |
+| P2-07 | Bench/Gate（已完成） | 新增 `rust/tests/{chunk_invariance,pitch_golden,spectrum_golden,discontinuity}.rs` 与 `rust/benches/{realtime_pipeline,bridge_payload}.rs`，已在 Windows 与 Edge/WASM 验收。 |
 
-### P2-01 当前执行边界
+### P2-01 已执行边界（历史验收）
 
 - 只创建确定性信号生成器、golden harness、manifest/schema 和对应 tests；生产实时 analyzer 行为保持不变。
 - 信号集必须覆盖纯音、谐波、缺失基频、固定种子噪声、滑音、静音、削波和明确 sample-index 断点。

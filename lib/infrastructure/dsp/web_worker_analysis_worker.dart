@@ -6,6 +6,7 @@ import '../../core/domain/analysis/analysis_engine.dart';
 import '../../core/domain/analysis/analysis_frame.dart';
 import '../../core/domain/analysis/feature_series.dart';
 import '../../core/domain/audio/pcm_chunk.dart';
+import 'analysis_frame_dto_mapper.dart';
 import 'analysis_worker_supervisor.dart';
 
 @JS('VoiceTrainerAnalysisWorker')
@@ -20,7 +21,7 @@ extension type _WebWorkerClient._(JSObject _) implements JSObject {
 }
 
 /// Dedicated browser Worker client. The JavaScript counterpart transfers a
-/// PCM16 ArrayBuffer and sends back only the six Phase 0 frame fields.
+/// PCM16 ArrayBuffer and sends back only the compact Phase 2 frame DTO.
 final class WebWorkerAnalysisWorker implements AnalysisWorker {
   final _WebWorkerClient _client = _WebWorkerClient();
   final List<AnalysisFrame> _frames = <AnalysisFrame>[];
@@ -85,13 +86,16 @@ final class WebWorkerAnalysisWorker implements AnalysisWorker {
   }
 
   AnalysisFrame _mapFrame(Map<String, dynamic> frame, int origin) =>
-      AnalysisFrame(
-        sampleIndex: origin + (frame['startSample'] as num).toInt(),
+      mapAnalysisFrameDto(
+        startSample: origin + (frame['startSample'] as num).toInt(),
         rmsDbfs: (frame['rmsDbfs'] as num).toDouble(),
         peakDbfs: (frame['peakDbfs'] as num).toDouble(),
         pitchClarity: (frame['pitchClarity'] as num).toDouble(),
-        voiced: frame['pitchHz'] != null,
-        algorithmVersion: 'phase0-autocorrelation-v1',
+        voiced: frame['voiced'] as bool,
         f0Hz: (frame['pitchHz'] as num?)?.toDouble(),
+        bandPowersDb: (frame['bandPowersDbfs'] as List<dynamic>)
+            .map((value) => (value as num).toDouble())
+            .toList(growable: false),
+        qualityFlags: (frame['qualityFlags'] as num).toInt(),
       );
 }

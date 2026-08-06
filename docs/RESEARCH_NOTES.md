@@ -474,3 +474,72 @@ Phase-boundary 回归：FRB codegen 连续两次 7 个生成文件 SHA-256 不�
 - 验收结论：通过。P1-01–P1-07 与 C1–C4 均完成，Phase 1 正式关闭。
 - 未覆盖项：Apple/Linux 与 Android 真实麦克风仍按平台矩阵保留为后续真实设备覆盖，不属于 C4 自动化 gate，也未被虚报为通过。
 - 下一张允许执行的卡：P2-01 确定性信号与 golden harness；不得直接进入 P2-02 或 MPM/YIN。
+
+### P2-01 执行记录（2026-08-05，已完成）
+
+- 范围：新增 `rust/src/golden/` 的确定性 PCM16LE 单声道生成器、`rust/test_assets/p2_01_manifest.json` 及其 JSON schema，并以 `rust/tests/p2_01_golden.rs` 验证。未修改生产 realtime analyzer、pitch、spectrum、resampler 或 bridge DTO。
+- 信号集：48 kHz 运行时生成、无提交 WAV/录音；共 8 个 case：220 Hz 纯音、196 Hz 谐波、缺失 196 Hz 基频、seed `7` 的低能量噪声、110→440 Hz 两秒线性滑音、静音、1.25 倍幅度削波正弦，以及 sample `24,123` 相位重置断点。PCM 量化规则固定为 little-endian signed PCM16、`round(clamp(x, -1, 1 - 1/32768) * 32768)`。
+- 哈希证据（按 manifest 顺序）：`pure_tone_a3` `0e1cabeb677c62a98e17221a4c91698069bd06502b45854d26593ecfc21c54c6`；`harmonic_series_g3` `b87a3fef20bd06159291f80791bd2a886ffbba46b8ccc03ea95c98e55a7d7dd3`；`missing_fundamental_g3` `5ce67f6df67ddfd6713d44892916c5d8bdfb9daa8f3d9018a62433bfebe9cc63`；`seeded_noise_7` `a95ca291f9915d08fae9b5c05c5e5bad224b377f8ca60d7734bb8703dfc44781`；`linear_glide_a2_to_a4` `929be8c4ea3d4bb2b8cbd62941e87f8214cb15f0b0ffd28b969fedeca163ff6a`；`silence` `55873fecc61a79e87ca550c7072e38ccdd7ecb600ace286fe4717952a97c42b0`；`clipped_sine_a3` `265b496d37f0287ae830bc5e81a360452865fcb27df06b731ae8c665148522d7`；`phase_reset_breakpoint_a3` `46fca510a36f270fbaea6cdca5b0e3ce3244609b10861c965bd955bce1c9fcb3`。
+- 真值只记录独立可计算的频率、voiced 期望、RMS 范围、削波数量和断点语义，并保留后续算法 gate；没有将当前 Phase 0 FFT-autocorrelation 输出固化为“正确”答案。测试覆盖 manifest/hash 自校验、固定种子两次生成、PCM sample count/量化事实、削波和 RMS 真值、以及断点恰在声明 sample index 且确实不连续。
+- 新增依赖：`sha2 0.10.9` 仅用于 manifest 的 PCM SHA-256；`serde` 的 derive 现在跨 native/WASM 使用以序列化测试 manifest，`serde_json 1.0.149` 仅为 dev-dependency 读取该 manifest。三者均为 Rust/WASM 兼容的 MIT/Apache-2.0 双许可依赖；没有运行时网络或资产加载，移除成本仅限 golden harness。
+- 执行命令与结果：`cargo fmt --check --manifest-path rust/Cargo.toml`、`cargo test --manifest-path rust/Cargo.toml --test p2_01_golden`（4/4）和 `cargo clippy --manifest-path rust/Cargo.toml --all-targets -- -D warnings` 通过；完整 phase-boundary gate 见本卡最终复验。
+- 未覆盖项：本卡没有评估 MPM/YIN、频谱、重采样、真实人声或跨 CPU/WASM 的 `sin` 数值一致性；这些不应由本输入 harness 冒充通过。
+- 验收结论：通过。下一张允许执行的卡：P2-02 signal core；不得跳到 P2-03+。
+
+### P2-02 执行记录（2026-08-05，已完成）
+
+- 范围：新增 `rust/src/signal/{pcm,ring_buffer,dc_blocker,window,resampler}.rs` 和 signal module；将实时 analyzer 的 pending PCM 改为固定容量 `RingBuffer`，因此已移除实时 `Vec::drain`。未实现或修改 MPM/YIN、voicing 策略、full-band spectrum、features、bridge DTO 或持久化。
+- PCM/窗口：PCM16 小端字节序会拒绝奇数字节输入并转换到固定半开 `[-1, 1)` f32 范围；DC blocker 固定 20 Hz 一阶 pole，并在 analyzer reset 时清除状态；Hann 窗采用后续 P2-04 使用的 periodic 定义，所有 window application 由调用方提供输出 buffer。
+- 重采样：实现 48→16 kHz 专用的 63-tap Hamming-windowed sinc FIR 三相 decimator；因果 group delay 为 31 个输入 samples（约 0.65 ms）。它在 stream 中只保留固定 63-sample history，输出为严格 3:1；10 kHz 输入相对 1 kHz 的已测 alias-rejection gate 要求 `< -45 dB`。44.1 kHz 等非整数比率明确返回 unsupported，留待后续有单独基准/延迟评估时决定是否引入 rubato；没有新增依赖。
+- 验证：signal 单元测试 11 项通过；`rust/tests/p2_02_signal_core.rs` 2 项通过，覆盖 P2-01 全部 8 个 case 的 DC-block + resample chunk-invariance、严格输出长度和静音不变；既有 realtime analyzer 的纯音与 chunk-invariance 两项继续通过。完整 Rust gate 与 phase-boundary Dart/Flutter gate 见本卡最终复验。
+- 未覆盖项：未在本卡接入 pitch branch 或评估非整数输入率；尚未完成 P2-03 的 MPM/YIN、voiced decision 和真实人声 benchmark，也没有把 P2-04 spectrum 算法提前替换。
+- 验收结论：通过。下一张允许执行的卡：P2-03 pitch/voicing；不得跳到 P2-04+。
+
+### P2-03 执行记录（2026-08-06，已完成）
+
+- 范围：新增 `rust/src/pitch/{estimator,mpm,yin,tracker}.rs`。两种 estimator 均实现相同 `PitchEstimator` trait；`PitchTracker` 使用 P2-02 的 DC blocker、48→16 kHz FIR、1024-sample pitch window 和 160-sample hop，并通过固定容量 ring buffer 保留 window。没有修改 spectrum、features、bridge DTO 或持久化。
+- 算法与判定：MPM 使用 normalized square difference 的正局部峰并作三点抛物线插值；YIN 使用 CMNDF（threshold 0.12）和同一插值。voiced 判定同时要求 RMS ≥ -55 dBFS、clarity ≥ 0.60 和相邻有效 F0 不超过 250 cents；因此静音/低能量噪声不会仅凭周期候选被标为 voiced。连续滑音每 10 ms 的变化远低于该门槛，二八度突变会被抑制。
+- golden 决策：P2-01 合成集上，YIN 的 220 Hz 纯音 P50/P95 绝对误差为约 0.112/0.121 cents，196 Hz 谐波为 0.065/0.067 cents，缺失基频为 0.057/0.060 cents，110→440 Hz 滑音 P95 为约 1.067 cents；静音和 seed-7 低能量噪声均为 0 voiced frames。MPM 保留为对照，但在相同 voiced gate 下有效帧显著更少，且这些稳定 case 的中位误差更高；故 `DEFAULT_PITCH_ALGORITHM` 固定为 YIN。
+- 验证：`rust/tests/p2_03_pitch_golden.rs` 5 项通过，覆盖 MPM/YIN 比较与 default 选择、纯音/谐波/缺基频/滑音阈值、silence/noise false-positive、二八度 continuity 拒绝，以及任意 chunk split 的 glide 输出不变。完整 Rust 与 phase-boundary Dart/Flutter gate 见本卡最终复验。
+- 未覆盖项：尚未完成 P2-04 full-band spectrum、P2-05 quality/segment aggregation、P2-06 bridge DTO 或真实人声分层 benchmark；MPM 仍保留为可重新调参的对照而非默认。
+- 验收结论：通过。下一张允许执行的卡：P2-04 full-band spectrum；不得跳到 P2-05+。
+
+### P2-04 执行记录（2026-08-06，已完成）
+
+- 范围：新增 `rust/src/spectrum/{stft,bands,ui_bins}.rs` 与 module。它实现独立的 streaming 48 kHz full-band core：2048-sample periodic Hann、480-sample（10 ms）hop、预建 RustFFT plan 和固定容量 ring/FFT/window buffers。没有修改 P2-03 pitch/voicing、features、bridge DTO 或持久化。
+- 归一化与输出：每个 FFT bin 使用单边、window-energy-normalized power（DC/Nyquist 不翻倍），所有 bin 的线性功率和等于输入 mean-square power；转换为 `10*log10(power)` dBFS，并在 -120 dBFS 截断。输出总 power、power-weighted spectral centroid、8 个物理频段（0–250、250–500、500–1000、1000–2000、2000–4000、4000–8000、8000–12000、12000–24000 Hz）和 20 Hz–24 kHz 的 128 个对数 UI bins。FFT→band/UI-bin 映射在初始化时预计算，实时帧不重新分配大缓冲或重复计算 log。
+- 验证：bin-centred 1,875 Hz full-scale sine 的 total power 与所属 band 均为 -3.0103 dBFS（容差 0.02 dB），centroid 容差 0.1 Hz；silence 的 total/band/UI 输出均为 -120 dBFS、centroid 为 0；`p2_04_spectrum_golden` 3 项覆盖这些事实及 P2-01 全部 8 个 case 的 chunk-invariance、480 sample monotonic frame start 和固定 128-bin UI shape。完整 Rust 与 phase-boundary Dart/Flutter gate 见本卡最终复验。
+- 未覆盖项：本卡不接入 bridge 或 UI，不实施 P2-05 的 clipping/低输入/断点/聚合，也不以 spectrum 物理量推断声学/医学结论。
+- 验收结论：通过。下一张允许执行的卡：P2-05 aggregator/features；不得跳到 P2-06+。
+
+### P2-05 执行记录（2026-08-06，已完成）
+
+- 范围：新增 `rust/src/features/{quality,stability,onset,segment}.rs` 与 module。它接收内部 `FeatureInput`，输出内部 `SegmentSummary`；没有修改 FRB、Web worker、Dart mapper、数据库或 UI。
+- 质量与有效性：`QualityFlags` 固定表示 clipping、input-too-low、dropped samples、discontinuity 和 insufficient valid frames。clipping 阈值为饱和 PCM sample 比例 ≥0.1%，低输入阈值为 RMS < -50 dBFS。segment 会比较连续 frame 的 monotonic sample index；任意间隙自动累计 dropped samples、标记 dropped/discontinuity，并将该帧排除出跨缺口稳定度统计。少于 30 个有效帧会标记 insufficient。
+- 指标：pitch 先转换为连续 cents，pitch/level 均使用去趋势后的 median absolute deviation；趋势使用 median adjacent-frame slope，避免单个 octave/level outlier 污染稳定度。onset 从 -45 dBFS 能量越阈到连续 3 帧有效 voiced 的 sample-index delay 计算；它是描述性时序，不推断生理原因。
+- 验证：`p2_05_features` 3 项通过，覆盖 P2-01 pure/clipped/silence 的物理质量 flag、outlier-resistant stability 与 onset，以及 sample-index gap 的 dropped/discontinuity/insufficient 判定。完整 Rust 与 phase-boundary Dart/Flutter gate 见本卡最终复验。
+- 未覆盖项：未实现 P2-06 bridge DTO、P2-07 benchmark/gate、真实人声分层或任何将物理 feature 映射为医学/声门结论的规则。
+- 验收结论：通过。下一张允许执行的卡：P2-06 bridge DTO；不得跳到 P2-07。
+
+### P2-06 执行记录（2026-08-06，已完成）
+
+- 范围：新增 Rust `AnalysisFrameDto`、FRB 生成声明、Web dedicated-worker DTO 和统一 Dart mapper；没有开始 P2-07 benchmark/gate，也没有恢复 FRB 2.12 WASM WorkerPool。
+- 受限 wire contract：每帧只跨越 `startSample`、RMS/peak dBFS、optional F0、clarity、explicit voiced、8 个固定物理 band power 与 `u16` quality bitset。128-bin UI spectrum、spectral buffers、FFT plan、ring buffer、pitch tracker 与其他内部 DSP state 都不跨 FRB 或 worker 边界。Dart mapper 强制 band 数量恰为 8、拒绝未知质量位，并将五个已知 bit 映射为 domain quality enum；`spectrumBinsDb` 保持为空。
+- 批次边界：native FRB `push_pcm16` 与 WASM `WorkerRealtimeAnalyzer.pushPcm16` 都拒绝大于 1,024 个 PCM16 sample 的请求；supervisor 既有的 capture 拆分仍是第一道限制。Web worker 同时保留自己的输入长度检查，所有层使用同一上限。
+- 算法与 DTO 分离：`model::AnalysisFrame` 仍是内部类型。当前 realtime path 在既有 FFT 上累计 8 个 band power，并用 P2-05 `FeatureInput` 产出 physical clipping/input-too-low 位；API 层才转换为 dBFS DTO。为让 FRB 2.12 只扫描 `crate::api`，codegen 使用只在生成阶段启用的 `frb` Cargo feature 把 DSP modules 收敛为 crate-private；MPM/YIN unit estimator 标为 FRB opaque，避免 generator 将纯内部 unit struct 误判为桥类型。
+- 修改文件：`rust/src/{api/realtime.rs,model.rs,pipeline/realtime_analyzer.rs,web_worker.rs,lib.rs,features/quality.rs,pitch/{mpm,yin}.rs}`、`flutter_rust_bridge.yaml`、FRB generated Dart/Rust、`web/analysis_worker.js`、native/Web mapper、shared Dart mapper 和 mapper unit test。过时的 generated `lib/src/rust/model.dart` 已删除，避免把 internal model 继续暴露给 Dart。
+- 验证：`flutter_rust_bridge_codegen generate --stop-on-error` 成功；Rust DTO 固定 8-band 和 oversized native batch 拒绝已有 unit tests，Dart mapper test 覆盖 payload、quality bit 和 oversized spectrum 拒绝。最终复验：`dart format --output=none --set-exit-if-changed lib test integration_test test_driver tool`（112 files/0 changes）、`flutter analyze`、`flutter test`（45/45）、`cargo fmt --check`、`cargo clippy --all-targets -- -D warnings`、`cargo test`（39/39）和 P2-01 窄测试（4/4）均通过；`flutter_rust_bridge_codegen build-web --release`、`node --check web/analysis_worker.js` 及 `flutter build web --release` 也通过。
+- 未覆盖项：本卡没有重新设计 pipeline 的 100 Hz composition、没有把 128-bin UI spectrum 传给 Flutter，也没有运行 P2-07 的 Windows/Edge benchmark。真实 Edge runtime smoke 仍应由 P2-07 在新的 DTO contract 上记录。
+- 验收结论：通过。下一张允许执行的卡：P2-07 bench/gate；不得跳到后续工作。
+
+### P2-07 执行记录（2026-08-06，已完成）
+
+- 范围：新增 `rust/tests/{chunk_invariance,pitch_golden,spectrum_golden,discontinuity}.rs`、`rust/benches/{realtime_pipeline,bridge_payload}.rs`，以及 `tool/p2_07_{windows,edge}_gate`。没有开始任何后续 Phase。
+- Rust gates：四个新测试共 8 项通过。它们分别覆盖 P2-01 的全部 8 个输入在 realtime core、pitch tracker、full-band spectrum 的任意 chunk split 不变；steady P50 `< 1 cent`、harmonic P95 `< 5 cents`/无 octave lock、glide P95 `< 10 cents`、silence/noise 无 voiced；full-scale bin-centred tone 的 -3.0103 dBFS 与 centroid；以及 timeline gap/显式 dropped sample 的 discontinuity、有效帧排除和 insufficient gate。
+- Windows release benchmark（`cargo bench --bench realtime_pipeline -- --seconds=10`）：48 kHz、1024 samples/batch、934 frames、25.462 ms，realtime factor `392.734x`。Bridge payload benchmark 同样处理 10 秒：最大输入 `1024 samples / 2048 bytes`、单调用最多 2 帧、每帧固定 8 band power、934 frames、27.187 ms，realtime factor `367.822x`；两项都强制 `>= 10x` realtime gate。
+- Windows native runtime：`flutter run -d windows -t tool/p2_07_windows_gate.dart` 通过。48,000 samples / 1024 batch 得到 90 frames、start-sample checksum `2,050,560`、RMS dBFS checksum `-833.5675897598267`、pitch checksum `19858.987274169922`、maxBandPowers `8`、qualityFrameCount `0`。该工具同时拒绝非 8-band 或带有 spectrumBins 的 domain payload，并检查 voiced 与 optional F0 一致。
+- 自动化复验：`node --check tool/p2_07_edge_gate.mjs`、Dart format（113 files/0 changes）、`flutter analyze`、`flutter test`（45/45）、Rust fmt、Clippy `-D warnings`、`cargo test`（47/47）和 P2-01 窄测试（4/4）均通过。FRB codegen、FRB Web release build 与 `flutter build web --release` 均通过；WASM release bundle 因此包含新 DTO。
+- Edge/WASM dedicated-worker runtime：用户以实际 Edge CDP page 启动 release bundle 后，`node tool/p2_07_edge_gate.mjs 9222 http://localhost:7390` 通过。48,000 samples / 1024 batch 得到 90 frames、start-sample checksum `2,050,560`、RMS dBFS checksum `-833.5675888061523`、pitch checksum `19858.990264892578`、maxBandPowers `8`、qualityMaskOr `0`；1025-sample 输入被拒绝，未出现 browser exception 或 DataCloneError。
+- 验收结论：通过。P2-07 的 Rust golden/invariance、bench、Windows native runtime 与实际 Edge/WASM runtime 均已通过，Phase 2 DSP MVP 固定卡正式关闭。
+- 未覆盖项：Phase 3 尚未定义；真实麦克风平台矩阵仍须按其独立任务和设备证据执行，不能由本合成流 gate 替代。
+- 下一步：在开始任何后续实现前，先定义、审查并接受单独的 Phase 3 任务卡。

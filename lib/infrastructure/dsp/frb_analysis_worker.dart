@@ -1,4 +1,3 @@
-import 'dart:math';
 import 'dart:typed_data';
 
 import '../../core/domain/analysis/analysis_config.dart';
@@ -7,7 +6,7 @@ import '../../core/domain/analysis/analysis_frame.dart' as domain;
 import '../../core/domain/analysis/feature_series.dart';
 import '../../core/domain/audio/pcm_chunk.dart';
 import '../../src/rust/api/realtime.dart';
-import '../../src/rust/model.dart' as rust;
+import 'analysis_frame_dto_mapper.dart';
 import 'analysis_worker_supervisor.dart';
 
 /// FRB-backed worker used on native platforms.
@@ -83,22 +82,18 @@ final class FrbAnalysisWorker implements AnalysisWorker {
     _frames.clear();
   }
 
-  domain.AnalysisFrame _mapFrame(rust.AnalysisFrame frame, int origin) {
-    final pitch = frame.pitchHz;
-    return domain.AnalysisFrame(
-      sampleIndex: origin + frame.startSample.toInt(),
-      rmsDbfs: _dbfs(frame.rms),
-      peakDbfs: _dbfs(frame.peak),
-      pitchClarity: frame.pitchClarity,
-      voiced: pitch != null,
-      algorithmVersion: 'phase0-autocorrelation-v1',
-      f0Hz: pitch,
-    );
-  }
+  domain.AnalysisFrame _mapFrame(AnalysisFrameDto frame, int origin) =>
+      mapAnalysisFrameDto(
+        startSample: origin + frame.startSample.toInt(),
+        rmsDbfs: frame.rmsDbfs,
+        peakDbfs: frame.peakDbfs,
+        pitchClarity: frame.pitchClarity,
+        voiced: frame.voiced,
+        f0Hz: frame.pitchHz,
+        bandPowersDb: frame.bandPowersDbfs,
+        qualityFlags: frame.qualityFlags,
+      );
 
   RealtimeAnalyzer _requireAnalyzer() =>
       _analyzer ?? (throw StateError('FRB analyzer is not initialized.'));
-
-  double _dbfs(double amplitude) =>
-      amplitude <= 0 ? -160 : max(-160, 20 * (log(amplitude) / ln10));
 }

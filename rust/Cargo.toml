@@ -6,8 +6,16 @@ edition = "2021"
 [lib]
 crate-type = ["cdylib", "staticlib", "rlib"]
 
+[features]
+# Used only while FRB parses `crate::api`. It makes DSP implementation modules
+# crate-private so code generation cannot accidentally discover them as bridge
+# surface. Runtime builds and Rust integration tests use the default API.
+frb = []
+
 [dependencies]
 rustfft = "=6.4.1"
+serde = { version = "=1.0.228", features = ["derive"] }
+sha2 = "=0.10.9"
 
 [target.'cfg(not(target_family = "wasm"))'.dependencies]
 # Native keeps FRB's normal worker pool so Rust work stays off the Flutter UI
@@ -30,9 +38,19 @@ flutter_rust_bridge = { version = "=2.12.0", default-features = false, features 
 ] }
 # These exports are used only by the explicit browser Worker wrapper.  They do
 # not enable FRB's incompatible 2.12 WASM WorkerPool.
-serde = { version = "=1.0.228", features = ["derive"] }
 serde-wasm-bindgen = "=0.6.5"
 wasm-bindgen = "=0.2.114"
+
+[dev-dependencies]
+serde_json = "=1.0.149"
+
+[[bench]]
+name = "realtime_pipeline"
+harness = false
+
+[[bench]]
+name = "bridge_payload"
+harness = false
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(frb_expand)'] }

@@ -276,23 +276,34 @@ impl SseDecode for String {
     }
 }
 
-impl SseDecode for crate::model::AnalysisFrame {
+impl SseDecode for crate::api::realtime::AnalysisFrameDto {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
         let mut var_startSample = <u64>::sse_decode(deserializer);
-        let mut var_rms = <f32>::sse_decode(deserializer);
-        let mut var_peak = <f32>::sse_decode(deserializer);
-        let mut var_spectralCentroidHz = <f32>::sse_decode(deserializer);
+        let mut var_rmsDbfs = <f32>::sse_decode(deserializer);
+        let mut var_peakDbfs = <f32>::sse_decode(deserializer);
         let mut var_pitchHz = <Option<f32>>::sse_decode(deserializer);
         let mut var_pitchClarity = <f32>::sse_decode(deserializer);
-        return crate::model::AnalysisFrame {
+        let mut var_voiced = <bool>::sse_decode(deserializer);
+        let mut var_bandPowersDbfs = <Vec<f32>>::sse_decode(deserializer);
+        let mut var_qualityFlags = <u16>::sse_decode(deserializer);
+        return crate::api::realtime::AnalysisFrameDto {
             start_sample: var_startSample,
-            rms: var_rms,
-            peak: var_peak,
-            spectral_centroid_hz: var_spectralCentroidHz,
+            rms_dbfs: var_rmsDbfs,
+            peak_dbfs: var_peakDbfs,
             pitch_hz: var_pitchHz,
             pitch_clarity: var_pitchClarity,
+            voiced: var_voiced,
+            band_powers_dbfs: var_bandPowersDbfs,
+            quality_flags: var_qualityFlags,
         };
+    }
+}
+
+impl SseDecode for bool {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        deserializer.cursor.read_u8().unwrap() != 0
     }
 }
 
@@ -310,13 +321,27 @@ impl SseDecode for i16 {
     }
 }
 
-impl SseDecode for Vec<crate::model::AnalysisFrame> {
+impl SseDecode for Vec<crate::api::realtime::AnalysisFrameDto> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
         let mut len_ = <i32>::sse_decode(deserializer);
         let mut ans_ = Vec::with_capacity(len_ as usize);
         for idx_ in 0..len_ {
-            ans_.push(<crate::model::AnalysisFrame>::sse_decode(deserializer));
+            ans_.push(<crate::api::realtime::AnalysisFrameDto>::sse_decode(
+                deserializer,
+            ));
+        }
+        return ans_;
+    }
+}
+
+impl SseDecode for Vec<f32> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut len_ = <i32>::sse_decode(deserializer);
+        let mut ans_ = Vec::with_capacity(len_ as usize);
+        for idx_ in 0..len_ {
+            ans_.push(<f32>::sse_decode(deserializer));
         }
         return ans_;
     }
@@ -357,6 +382,13 @@ impl SseDecode for Option<f32> {
     }
 }
 
+impl SseDecode for u16 {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        deserializer.cursor.read_u16::<NativeEndian>().unwrap()
+    }
+}
+
 impl SseDecode for u32 {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -394,13 +426,6 @@ impl SseDecode for i32 {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
         deserializer.cursor.read_i32::<NativeEndian>().unwrap()
-    }
-}
-
-impl SseDecode for bool {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
-        deserializer.cursor.read_u8().unwrap() != 0
     }
 }
 
@@ -456,24 +481,29 @@ impl flutter_rust_bridge::IntoIntoDart<FrbWrapper<RealtimeAnalyzer>> for Realtim
 }
 
 // Codec=Dco (DartCObject based), see doc to use other codecs
-impl flutter_rust_bridge::IntoDart for crate::model::AnalysisFrame {
+impl flutter_rust_bridge::IntoDart for crate::api::realtime::AnalysisFrameDto {
     fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
         [
             self.start_sample.into_into_dart().into_dart(),
-            self.rms.into_into_dart().into_dart(),
-            self.peak.into_into_dart().into_dart(),
-            self.spectral_centroid_hz.into_into_dart().into_dart(),
+            self.rms_dbfs.into_into_dart().into_dart(),
+            self.peak_dbfs.into_into_dart().into_dart(),
             self.pitch_hz.into_into_dart().into_dart(),
             self.pitch_clarity.into_into_dart().into_dart(),
+            self.voiced.into_into_dart().into_dart(),
+            self.band_powers_dbfs.into_into_dart().into_dart(),
+            self.quality_flags.into_into_dart().into_dart(),
         ]
         .into_dart()
     }
 }
-impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive for crate::model::AnalysisFrame {}
-impl flutter_rust_bridge::IntoIntoDart<crate::model::AnalysisFrame>
-    for crate::model::AnalysisFrame
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::api::realtime::AnalysisFrameDto
 {
-    fn into_into_dart(self) -> crate::model::AnalysisFrame {
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::api::realtime::AnalysisFrameDto>
+    for crate::api::realtime::AnalysisFrameDto
+{
+    fn into_into_dart(self) -> crate::api::realtime::AnalysisFrameDto {
         self
     }
 }
@@ -503,15 +533,24 @@ impl SseEncode for String {
     }
 }
 
-impl SseEncode for crate::model::AnalysisFrame {
+impl SseEncode for crate::api::realtime::AnalysisFrameDto {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
         <u64>::sse_encode(self.start_sample, serializer);
-        <f32>::sse_encode(self.rms, serializer);
-        <f32>::sse_encode(self.peak, serializer);
-        <f32>::sse_encode(self.spectral_centroid_hz, serializer);
+        <f32>::sse_encode(self.rms_dbfs, serializer);
+        <f32>::sse_encode(self.peak_dbfs, serializer);
         <Option<f32>>::sse_encode(self.pitch_hz, serializer);
         <f32>::sse_encode(self.pitch_clarity, serializer);
+        <bool>::sse_encode(self.voiced, serializer);
+        <Vec<f32>>::sse_encode(self.band_powers_dbfs, serializer);
+        <u16>::sse_encode(self.quality_flags, serializer);
+    }
+}
+
+impl SseEncode for bool {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        serializer.cursor.write_u8(self as _).unwrap();
     }
 }
 
@@ -529,12 +568,22 @@ impl SseEncode for i16 {
     }
 }
 
-impl SseEncode for Vec<crate::model::AnalysisFrame> {
+impl SseEncode for Vec<crate::api::realtime::AnalysisFrameDto> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
         <i32>::sse_encode(self.len() as _, serializer);
         for item in self {
-            <crate::model::AnalysisFrame>::sse_encode(item, serializer);
+            <crate::api::realtime::AnalysisFrameDto>::sse_encode(item, serializer);
+        }
+    }
+}
+
+impl SseEncode for Vec<f32> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(self.len() as _, serializer);
+        for item in self {
+            <f32>::sse_encode(item, serializer);
         }
     }
 }
@@ -566,6 +615,13 @@ impl SseEncode for Option<f32> {
         if let Some(value) = self {
             <f32>::sse_encode(value, serializer);
         }
+    }
+}
+
+impl SseEncode for u16 {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        serializer.cursor.write_u16::<NativeEndian>(self).unwrap();
     }
 }
 
@@ -609,13 +665,6 @@ impl SseEncode for i32 {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
         serializer.cursor.write_i32::<NativeEndian>(self).unwrap();
-    }
-}
-
-impl SseEncode for bool {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        serializer.cursor.write_u8(self as _).unwrap();
     }
 }
 

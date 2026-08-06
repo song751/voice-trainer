@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "voice-trainer/p2_01_manifest.schema.json",
+  "title": "Voice Trainer P2-01 deterministic signal manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["$schema", "schema_version", "pcm_encoding", "cases"],
+  "properties": {
+    "$schema": { "const": "p2_01_manifest.schema.json" },
+    "schema_version": { "const": 1 },
+    "pcm_encoding": { "const": "pcm_s16le_interleaved_mono" },
+    "cases": {
+      "type": "array",
+      "minItems": 8,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "sample_rate_hz", "sample_count", "encoding", "seed", "signal", "expected", "breakpoints", "sha256_pcm16le"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "sample_rate_hz": { "type": "integer", "minimum": 1 },
+          "sample_count": { "type": "integer", "minimum": 1 },
+          "encoding": { "const": "pcm_s16le_interleaved_mono" },
+          "seed": { "type": ["integer", "null"], "minimum": 1 },
+          "signal": { "type": "object", "required": ["kind"] },
+          "expected": { "type": "object", "required": ["voiced", "fundamental_hz", "start_frequency_hz", "end_frequency_hz", "clipped_samples", "rms_range", "algorithm_gate"] },
+          "breakpoints": { "type": "array" },
+          "sha256_pcm16le": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+        }
+      }
+    }
+  }
+}

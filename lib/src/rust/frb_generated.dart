@@ -10,7 +10,6 @@ import 'dart:convert';
 import 'frb_generated.dart';
 import 'frb_generated.io.dart'
     if (dart.library.js_interop) 'frb_generated.web.dart';
-import 'model.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
 /// Main entrypoint of the Rust API
@@ -84,7 +83,7 @@ abstract class RustLibApi extends BaseApi {
     required int sampleRate,
   });
 
-  List<AnalysisFrame> crateApiRealtimeRealtimeAnalyzerPushPcm16({
+  List<AnalysisFrameDto> crateApiRealtimeRealtimeAnalyzerPushPcm16({
     required RealtimeAnalyzer that,
     required List<int> pcm,
   });
@@ -143,7 +142,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
-  List<AnalysisFrame> crateApiRealtimeRealtimeAnalyzerPushPcm16({
+  List<AnalysisFrameDto> crateApiRealtimeRealtimeAnalyzerPushPcm16({
     required RealtimeAnalyzer that,
     required List<int> pcm,
   }) {
@@ -159,7 +158,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 2)!;
         },
         codec: SseCodec(
-          decodeSuccessData: sse_decode_list_analysis_frame,
+          decodeSuccessData: sse_decode_list_analysis_frame_dto,
           decodeErrorData: null,
         ),
         constMeta: kCrateApiRealtimeRealtimeAnalyzerPushPcm16ConstMeta,
@@ -291,19 +290,27 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  AnalysisFrame dco_decode_analysis_frame(dynamic raw) {
+  AnalysisFrameDto dco_decode_analysis_frame_dto(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 6)
-      throw Exception('unexpected arr length: expect 6 but see ${arr.length}');
-    return AnalysisFrame(
+    if (arr.length != 8)
+      throw Exception('unexpected arr length: expect 8 but see ${arr.length}');
+    return AnalysisFrameDto(
       startSample: dco_decode_u_64(arr[0]),
-      rms: dco_decode_f_32(arr[1]),
-      peak: dco_decode_f_32(arr[2]),
-      spectralCentroidHz: dco_decode_f_32(arr[3]),
-      pitchHz: dco_decode_opt_box_autoadd_f_32(arr[4]),
-      pitchClarity: dco_decode_f_32(arr[5]),
+      rmsDbfs: dco_decode_f_32(arr[1]),
+      peakDbfs: dco_decode_f_32(arr[2]),
+      pitchHz: dco_decode_opt_box_autoadd_f_32(arr[3]),
+      pitchClarity: dco_decode_f_32(arr[4]),
+      voiced: dco_decode_bool(arr[5]),
+      bandPowersDbfs: dco_decode_list_prim_f_32_strict(arr[6]),
+      qualityFlags: dco_decode_u_16(arr[7]),
     );
+  }
+
+  @protected
+  bool dco_decode_bool(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw as bool;
   }
 
   @protected
@@ -325,9 +332,15 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  List<AnalysisFrame> dco_decode_list_analysis_frame(dynamic raw) {
+  List<AnalysisFrameDto> dco_decode_list_analysis_frame_dto(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
-    return (raw as List<dynamic>).map(dco_decode_analysis_frame).toList();
+    return (raw as List<dynamic>).map(dco_decode_analysis_frame_dto).toList();
+  }
+
+  @protected
+  Float32List dco_decode_list_prim_f_32_strict(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw as Float32List;
   }
 
   @protected
@@ -352,6 +365,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   double? dco_decode_opt_box_autoadd_f_32(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw == null ? null : dco_decode_box_autoadd_f_32(raw);
+  }
+
+  @protected
+  int dco_decode_u_16(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw as int;
   }
 
   @protected
@@ -428,22 +447,32 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  AnalysisFrame sse_decode_analysis_frame(SseDeserializer deserializer) {
+  AnalysisFrameDto sse_decode_analysis_frame_dto(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var var_startSample = sse_decode_u_64(deserializer);
-    var var_rms = sse_decode_f_32(deserializer);
-    var var_peak = sse_decode_f_32(deserializer);
-    var var_spectralCentroidHz = sse_decode_f_32(deserializer);
+    var var_rmsDbfs = sse_decode_f_32(deserializer);
+    var var_peakDbfs = sse_decode_f_32(deserializer);
     var var_pitchHz = sse_decode_opt_box_autoadd_f_32(deserializer);
     var var_pitchClarity = sse_decode_f_32(deserializer);
-    return AnalysisFrame(
+    var var_voiced = sse_decode_bool(deserializer);
+    var var_bandPowersDbfs = sse_decode_list_prim_f_32_strict(deserializer);
+    var var_qualityFlags = sse_decode_u_16(deserializer);
+    return AnalysisFrameDto(
       startSample: var_startSample,
-      rms: var_rms,
-      peak: var_peak,
-      spectralCentroidHz: var_spectralCentroidHz,
+      rmsDbfs: var_rmsDbfs,
+      peakDbfs: var_peakDbfs,
       pitchHz: var_pitchHz,
       pitchClarity: var_pitchClarity,
+      voiced: var_voiced,
+      bandPowersDbfs: var_bandPowersDbfs,
+      qualityFlags: var_qualityFlags,
     );
+  }
+
+  @protected
+  bool sse_decode_bool(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return deserializer.buffer.getUint8() != 0;
   }
 
   @protected
@@ -465,17 +494,24 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  List<AnalysisFrame> sse_decode_list_analysis_frame(
+  List<AnalysisFrameDto> sse_decode_list_analysis_frame_dto(
     SseDeserializer deserializer,
   ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
 
     var len_ = sse_decode_i_32(deserializer);
-    var ans_ = <AnalysisFrame>[];
+    var ans_ = <AnalysisFrameDto>[];
     for (var idx_ = 0; idx_ < len_; ++idx_) {
-      ans_.add(sse_decode_analysis_frame(deserializer));
+      ans_.add(sse_decode_analysis_frame_dto(deserializer));
     }
     return ans_;
+  }
+
+  @protected
+  Float32List sse_decode_list_prim_f_32_strict(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var len_ = sse_decode_i_32(deserializer);
+    return deserializer.buffer.getFloat32List(len_);
   }
 
   @protected
@@ -511,6 +547,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  int sse_decode_u_16(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return deserializer.buffer.getUint16();
+  }
+
+  @protected
   int sse_decode_u_32(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     return deserializer.buffer.getUint32();
@@ -543,12 +585,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   int sse_decode_i_32(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     return deserializer.buffer.getInt32();
-  }
-
-  @protected
-  bool sse_decode_bool(SseDeserializer deserializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    return deserializer.buffer.getUint8() != 0;
   }
 
   @protected
@@ -597,14 +633,25 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  void sse_encode_analysis_frame(AnalysisFrame self, SseSerializer serializer) {
+  void sse_encode_analysis_frame_dto(
+    AnalysisFrameDto self,
+    SseSerializer serializer,
+  ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_u_64(self.startSample, serializer);
-    sse_encode_f_32(self.rms, serializer);
-    sse_encode_f_32(self.peak, serializer);
-    sse_encode_f_32(self.spectralCentroidHz, serializer);
+    sse_encode_f_32(self.rmsDbfs, serializer);
+    sse_encode_f_32(self.peakDbfs, serializer);
     sse_encode_opt_box_autoadd_f_32(self.pitchHz, serializer);
     sse_encode_f_32(self.pitchClarity, serializer);
+    sse_encode_bool(self.voiced, serializer);
+    sse_encode_list_prim_f_32_strict(self.bandPowersDbfs, serializer);
+    sse_encode_u_16(self.qualityFlags, serializer);
+  }
+
+  @protected
+  void sse_encode_bool(bool self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    serializer.buffer.putUint8(self ? 1 : 0);
   }
 
   @protected
@@ -626,15 +673,25 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  void sse_encode_list_analysis_frame(
-    List<AnalysisFrame> self,
+  void sse_encode_list_analysis_frame_dto(
+    List<AnalysisFrameDto> self,
     SseSerializer serializer,
   ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_i_32(self.length, serializer);
     for (final item in self) {
-      sse_encode_analysis_frame(item, serializer);
+      sse_encode_analysis_frame_dto(item, serializer);
     }
+  }
+
+  @protected
+  void sse_encode_list_prim_f_32_strict(
+    Float32List self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    serializer.buffer.putFloat32List(self);
   }
 
   @protected
@@ -680,6 +737,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_u_16(int self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    serializer.buffer.putUint16(self);
+  }
+
+  @protected
   void sse_encode_u_32(int self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     serializer.buffer.putUint32(self);
@@ -713,12 +776,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     // Codec=Sse (Serialization based), see doc to use other codecs
     serializer.buffer.putInt32(self);
   }
-
-  @protected
-  void sse_encode_bool(bool self, SseSerializer serializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    serializer.buffer.putUint8(self ? 1 : 0);
-  }
 }
 
 @sealed
@@ -744,7 +801,7 @@ class RealtimeAnalyzerImpl extends RustOpaque implements RealtimeAnalyzer {
         .rust_arc_decrement_strong_count_RealtimeAnalyzerPtr,
   );
 
-  List<AnalysisFrame> pushPcm16({required List<int> pcm}) => RustLib
+  List<AnalysisFrameDto> pushPcm16({required List<int> pcm}) => RustLib
       .instance
       .api
       .crateApiRealtimeRealtimeAnalyzerPushPcm16(that: this, pcm: pcm);

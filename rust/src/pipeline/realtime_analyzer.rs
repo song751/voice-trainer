@@ -2,7 +2,12 @@ use std::sync::Arc;
 
 use rustfft::{num_complex::Complex32, Fft, FftPlanner};
 
-use crate::model::AnalysisFrame;
+use crate::{
+    features::{FeatureInput, QualityConfig},
+    model::AnalysisFrame,
+    signal::{dc_blocker::DcBlocker, pcm::pcm16_to_f32, ring_buffer::RingBuffer},
+    spectrum::{band_index_for_frequency, BAND_POWER_COUNT},
+};
 
 pub const WINDOW_SIZE: usize = 2048;
 pub const HOP_SIZE: usize = 512;
@@ -13,7 +18,9 @@ const MIN_PITCH_CLARITY: f32 = 0.55;
 
 pub struct RealtimeAnalyzerCore {
     sample_rate: u32,
-    pending: Vec<f32>,
+    pending: RingBuffer<f32>,
+    frame_buffer: Vec<f32>,
+    dc_blocker: DcBlocker,
     next_frame_start: u64,
     hann: Vec<f32>,
     spectrum_buffer: Vec<Complex32>,
@@ -37,7 +44,9 @@ impl RealtimeAnalyzerCore {
             .collect();
         Self {
             sample_rate,
-            pending: Vec::with_capacity(WINDOW_SIZE + HOP_SIZE),
+            pending: RingBuffer::new(WINDOW_SIZE + HOP_SIZE),
+            frame_buffer: vec![0.0; WINDOW_SIZE],
+            dc_blocker: DcBlocker::new(sample_rate, 20.0),
             next_frame_start: 0,
             hann,
             spectrum_buffer: vec![Complex32::default(); WINDOW_SIZE],
@@ -49,31 +58,38 @@ impl RealtimeAnalyzerCore {
     }
 
     pub fn push_pcm16(&mut self, pcm: &[i16]) -> Vec<AnalysisFrame> {
-        self.pending
-            .extend(pcm.iter().map(|sample| *sample as f32 / 32768.0));
-        let frame_count = self
-            .pending
-            .len()
+        let expected_frame_count = (self.pending.len() + pcm.len())
             .saturating_sub(WINDOW_SIZE)
             .checked_div(HOP_SIZE)
             .unwrap_or(0)
-            + usize::from(self.pending.len() >= WINDOW_SIZE);
-        let mut frames = Vec::with_capacity(frame_count);
-        while self.pending.len() >= WINDOW_SIZE {
-            frames.push(self.analyze_current_frame());
-            self.pending.drain(..HOP_SIZE);
-            self.next_frame_start += HOP_SIZE as u64;
+            + usize::from(self.pending.len() + pcm.len() >= WINDOW_SIZE);
+        let mut frames = Vec::with_capacity(expected_frame_count);
+        for &sample in pcm {
+            let overwritten = self
+                .pending
+                .push(self.dc_blocker.process(pcm16_to_f32(sample)));
+            debug_assert!(
+                overwritten.is_none(),
+                "frame production must prevent ring overflow"
+            );
+            if self.pending.len() >= WINDOW_SIZE {
+                frames.push(self.analyze_current_frame());
+                self.pending.discard_oldest(HOP_SIZE);
+                self.next_frame_start += HOP_SIZE as u64;
+            }
         }
         frames
     }
 
     pub fn reset(&mut self) {
         self.pending.clear();
+        self.dc_blocker.reset();
         self.next_frame_start = 0;
     }
 
     fn analyze_current_frame(&mut self) -> AnalysisFrame {
-        let frame = &self.pending[..WINDOW_SIZE];
+        self.pending.copy_oldest_into(&mut self.frame_buffer);
+        let frame = &self.frame_buffer;
         let mut sum_squares = 0.0_f32;
         let mut peak = 0.0_f32;
         for sample in frame {
@@ -89,10 +105,15 @@ impl RealtimeAnalyzerCore {
         let bin_hz = self.sample_rate as f32 / WINDOW_SIZE as f32;
         let mut magnitude_sum = 0.0_f32;
         let mut weighted_sum = 0.0_f32;
+        let mut band_power_sum = [0.0_f32; BAND_POWER_COUNT];
         for (index, bin) in self.spectrum_buffer[..=WINDOW_SIZE / 2].iter().enumerate() {
             let magnitude = bin.norm();
             magnitude_sum += magnitude;
             weighted_sum += magnitude * index as f32 * bin_hz;
+            let power = magnitude * magnitude / (WINDOW_SIZE * WINDOW_SIZE) as f32;
+            if let Some(band_index) = band_index_for_frequency(index as f32 * bin_hz) {
+                band_power_sum[band_index] += power;
+            }
         }
         let spectral_centroid_hz = if magnitude_sum > f32::EPSILON {
             weighted_sum / magnitude_sum
@@ -100,6 +121,10 @@ impl RealtimeAnalyzerCore {
             0.0
         };
 
+        let quality_flags =
+            FeatureInput::from_samples(self.next_frame_start, HOP_SIZE as u32, frame, None, false)
+                .quality_flags(QualityConfig::default())
+                .bits();
         let (pitch_hz, pitch_clarity) = self.estimate_pitch();
         AnalysisFrame {
             start_sample: self.next_frame_start,
@@ -108,11 +133,13 @@ impl RealtimeAnalyzerCore {
             spectral_centroid_hz,
             pitch_hz,
             pitch_clarity,
+            band_powers_dbfs: band_power_sum.map(power_to_dbfs),
+            quality_flags,
         }
     }
 
     fn estimate_pitch(&mut self) -> (Option<f32>, f32) {
-        let frame = &self.pending[..WINDOW_SIZE];
+        let frame = &self.frame_buffer;
         let mean = frame.iter().sum::<f32>() / WINDOW_SIZE as f32;
         self.autocorrelation_buffer.fill(Complex32::default());
         for (target, sample) in self.autocorrelation_buffer[..WINDOW_SIZE]
@@ -163,6 +190,10 @@ impl RealtimeAnalyzerCore {
         let refined_lag = best_lag as f32 + offset.clamp(-0.5, 0.5);
         (Some(self.sample_rate as f32 / refined_lag), best_clarity)
     }
+}
+
+fn power_to_dbfs(power: f32) -> f32 {
+    (10.0 * power.max(10.0_f32.powf(-12.0)).log10()).max(-120.0)
 }
 
 #[cfg(test)]

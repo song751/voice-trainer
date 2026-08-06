@@ -2,7 +2,7 @@
 
 这是一个面向 Windows、Android、Web，并逐步覆盖 macOS、iOS、Linux 的本地优先练声应用规划仓库。
 
-当前状态：**Phase 1 与 Closure C1–C4 已全部完成**。可信仓库基线、生成物策略、日志脱敏、统一错误映射、真实 Edge dedicated worker、Windows/Edge 数值对比、录音恢复、feature-series 无损 round-trip、Web OPFS 和 hosted CI 均已有证据。Phase 2 已解锁，但下一张只允许执行 `P2-01` 确定性信号与 golden harness；不得直接开始 MPM/YIN、频谱或重采样实现。
+当前状态：**Phase 1 与 Closure C1–C4、P2-01 至 P2-07 均已完成**。可信仓库基线、生成物策略、日志脱敏、统一错误映射、真实 Edge dedicated worker、Windows/Edge 数值对比、录音恢复、feature-series 无损 round-trip、Web OPFS 和 hosted CI 均已有证据。P2-01 至 P2-06 分别完成确定性信号、signal core、YIN pitch/voicing、full-band spectrum、quality/segment aggregation 与受限 FRB/Web Worker DTO；P2-07 已通过 Rust golden/invariance、Windows benchmark/native runtime 和实际 Edge/WASM dedicated-worker gate。Phase 3 需要另行定义和接受任务卡后才能开始。
 
 应用提供可覆盖的 audio capture、analysis engine、recording sink/store 和 session repository provider，默认接入确定性 fake session；最小导航包含首页、实时练习、结果、历史和设置。它不直接在页面中引用 `record`、Drift 或 FRB，也不恢复 FRB 2.12 默认 WASM WorkerPool。Gate 0A–0E 的实测证据及 Phase 1 决策见 `docs/RESEARCH_NOTES.md` 和 `docs/adr/0001-frb-2-12-phase0-compatibility.md`。
 
@@ -34,4 +34,4 @@
 
 ## 下一步
 
-继续按 [`docs/PHASE1_CLOSURE_PLAN.md`](docs/PHASE1_CLOSURE_PLAN.md) 的固定顺序执行 `P2-01`。本卡只建立确定性信号、参数/哈希 manifest 和 golden harness，不修改生产 pitch/spectrum 算法；达到本卡 gate 并记录证据后才允许进入 `P2-02`。真实麦克风覆盖继续按 [`docs/test-matrices/`](docs/test-matrices/) 中的平台矩阵进行；不要用 fake capture、emulator 或构建成功冒充真实设备通过。
+Phase 2 DSP MVP 固定卡已关闭。开始下一阶段前，先定义、审查并接受单独的 Phase 3 任务卡。真实麦克风覆盖仍按 [`docs/test-matrices/`](docs/test-matrices/) 中的平台矩阵进行；不要用 fake capture、emulator 或构建成功冒充真实设备通过。

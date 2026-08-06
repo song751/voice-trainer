@@ -72,7 +72,7 @@ class _DspBenchmarkPageState extends State<DspBenchmarkPage> {
         for (final frame in frames) {
           frameCount++;
           startSampleChecksum += frame.startSample;
-          rmsChecksum += frame.rms;
+          rmsChecksum += frame.rmsDbfs;
           pitchChecksum += frame.pitchHz ?? 0.0;
         }
         callCount++;

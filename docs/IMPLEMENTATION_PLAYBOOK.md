@@ -317,17 +317,16 @@ benchmark 不以共享 CI 绝对时长作为回归唯一依据；用固定自托
 
 ## 12. 下一位 Agent 的启动提示词
 
-Phase 0、Phase 1 与 Closure C1–C4 已完成。建议默认选 `gpt-5.6-terra`、Medium；当前一次只执行 `P2-01`：
+Phase 0、Phase 1、Closure C1–C4、P2-01 至 P2-07 已完成。Phase 2 DSP MVP 固定顺序已经关闭；后续工作必须先有单独接受的 Phase 3 任务卡：
 
 ```text
 请先完整阅读仓库根目录 AGENTS.md、docs/PROJECT_BLUEPRINT.md、
 docs/IMPLEMENTATION_PLAYBOOK.md、docs/FILE_MANIFEST.md 和 docs/RESEARCH_NOTES.md。
 
-Phase 0、Phase 1 与 Closure C1–C4 已完成，不重复旧 gate，不批量生成产品 UI。
-本轮只执行 docs/PHASE1_CLOSURE_PLAN.md 的 P2-01：建立确定性纯音、谐波、缺失基频、
-固定种子噪声、滑音、静音、削波和断点信号，保存参数、SHA-256 与预期指标。
-不得修改生产 pitch/spectrum/resampler，不得提前进入 P2-02，不得恢复 FRB 2.12 默认 Web WorkerPool，
-不得逐帧写 SQL。完成后运行 P2-01 窄测试及 AGENTS.md 中适用的 phase-boundary checks，并更新证据。
+Phase 0、Phase 1、Closure C1–C4 与 P2-01 至 P2-07 已完成，不重复旧 gate，不批量生成产品 UI。
+先阅读当前架构和验证证据，并提出一个边界清晰、可独立验收的 Phase 3 任务卡；
+未经仓库所有者接受，不得开始 Phase 3 实现。
+不得恢复 FRB 2.12 默认 Web WorkerPool，不得逐帧写 SQL。
 ```
 
-Phase 2 固定顺序和硬指标见 `docs/PHASE1_CLOSURE_PLAN.md`。Luna 只接收接口、文件和验收已经完全明确的机械任务。
+已关闭的 Phase 2 固定顺序和硬指标见 `docs/PHASE1_CLOSURE_PLAN.md`。Luna 只接收接口、文件和验收已经完全明确的机械任务。

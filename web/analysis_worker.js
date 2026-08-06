@@ -35,10 +35,13 @@ self.onmessage = async ({ data }) => {
       const frames = analyzer.pushPcm16(pcm);
       reply(id, frames.map((frame) => ({
         startSample: Number(frame.start_sample),
-        rmsDbfs: frame.rms <= 0 ? -160 : Math.max(-160, 20 * Math.log10(frame.rms)),
-        peakDbfs: frame.peak <= 0 ? -160 : Math.max(-160, 20 * Math.log10(frame.peak)),
+        rmsDbfs: frame.rms_dbfs,
+        peakDbfs: frame.peak_dbfs,
         pitchHz: frame.pitch_hz,
         pitchClarity: frame.pitch_clarity,
+        voiced: frame.voiced,
+        bandPowersDbfs: frame.band_powers_dbfs,
+        qualityFlags: frame.quality_flags,
       })));
       return;
     }

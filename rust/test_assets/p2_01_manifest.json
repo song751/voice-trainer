@@ -1,0 +1,55 @@
+{
+  "$schema": "p2_01_manifest.schema.json",
+  "schema_version": 1,
+  "pcm_encoding": "pcm_s16le_interleaved_mono",
+  "cases": [
+    {
+      "id": "pure_tone_a3", "sample_rate_hz": 48000, "sample_count": 48000, "encoding": "pcm_s16le_interleaved_mono", "seed": null,
+      "signal": { "kind": "sine", "frequency_hz": 220.0, "amplitude": 0.5 },
+      "expected": { "voiced": true, "fundamental_hz": 220.0, "start_frequency_hz": null, "end_frequency_hz": null, "clipped_samples": 0, "rms_range": [0.353, 0.355], "algorithm_gate": "steady-tone median absolute pitch error < 1 cent" },
+      "breakpoints": [], "sha256_pcm16le": "0e1cabeb677c62a98e17221a4c91698069bd06502b45854d26593ecfc21c54c6"
+    },
+    {
+      "id": "harmonic_series_g3", "sample_rate_hz": 48000, "sample_count": 48000, "encoding": "pcm_s16le_interleaved_mono", "seed": null,
+      "signal": { "kind": "harmonic_series", "fundamental_hz": 196.0, "amplitudes": [0.28, 0.14, 0.07, 0.035], "first_harmonic": 1 },
+      "expected": { "voiced": true, "fundamental_hz": 196.0, "start_frequency_hz": null, "end_frequency_hz": null, "clipped_samples": 0, "rms_range": [0.225, 0.229], "algorithm_gate": "harmonic-noise P95 < 5 cents and octave error < 0.5%" },
+      "breakpoints": [], "sha256_pcm16le": "b87a3fef20bd06159291f80791bd2a886ffbba46b8ccc03ea95c98e55a7d7dd3"
+    },
+    {
+      "id": "missing_fundamental_g3", "sample_rate_hz": 48000, "sample_count": 48000, "encoding": "pcm_s16le_interleaved_mono", "seed": null,
+      "signal": { "kind": "harmonic_series", "fundamental_hz": 196.0, "amplitudes": [0.24, 0.12, 0.06, 0.03], "first_harmonic": 2 },
+      "expected": { "voiced": true, "fundamental_hz": 196.0, "start_frequency_hz": null, "end_frequency_hz": null, "clipped_samples": 0, "rms_range": [0.194, 0.197], "algorithm_gate": "must recover the absent 196 Hz fundamental without octave lock" },
+      "breakpoints": [], "sha256_pcm16le": "5ce67f6df67ddfd6713d44892916c5d8bdfb9daa8f3d9018a62433bfebe9cc63"
+    },
+    {
+      "id": "seeded_noise_7", "sample_rate_hz": 48000, "sample_count": 48000, "encoding": "pcm_s16le_interleaved_mono", "seed": 7,
+      "signal": { "kind": "seeded_noise", "amplitude": 0.02 },
+      "expected": { "voiced": false, "fundamental_hz": null, "start_frequency_hz": null, "end_frequency_hz": null, "clipped_samples": 0, "rms_range": [0.011, 0.012], "algorithm_gate": "low-energy noise voiced false positive < 1%" },
+      "breakpoints": [], "sha256_pcm16le": "a95ca291f9915d08fae9b5c05c5e5bad224b377f8ca60d7734bb8703dfc44781"
+    },
+    {
+      "id": "linear_glide_a2_to_a4", "sample_rate_hz": 48000, "sample_count": 96000, "encoding": "pcm_s16le_interleaved_mono", "seed": null,
+      "signal": { "kind": "linear_glide", "start_frequency_hz": 110.0, "end_frequency_hz": 440.0, "amplitude": 0.5 },
+      "expected": { "voiced": true, "fundamental_hz": null, "start_frequency_hz": 110.0, "end_frequency_hz": 440.0, "clipped_samples": 0, "rms_range": [0.353, 0.355], "algorithm_gate": "valid glide frames P95 < 10 cents without staircase smoothing" },
+      "breakpoints": [], "sha256_pcm16le": "929be8c4ea3d4bb2b8cbd62941e87f8214cb15f0b0ffd28b969fedeca163ff6a"
+    },
+    {
+      "id": "silence", "sample_rate_hz": 48000, "sample_count": 48000, "encoding": "pcm_s16le_interleaved_mono", "seed": null,
+      "signal": { "kind": "silence" },
+      "expected": { "voiced": false, "fundamental_hz": null, "start_frequency_hz": null, "end_frequency_hz": null, "clipped_samples": 0, "rms_range": [0.0, 0.0], "algorithm_gate": "silence voiced false positive < 1%" },
+      "breakpoints": [], "sha256_pcm16le": "55873fecc61a79e87ca550c7072e38ccdd7ecb600ace286fe4717952a97c42b0"
+    },
+    {
+      "id": "clipped_sine_a3", "sample_rate_hz": 48000, "sample_count": 48000, "encoding": "pcm_s16le_interleaved_mono", "seed": null,
+      "signal": { "kind": "clipped_sine", "frequency_hz": 220.0, "amplitude": 1.25 },
+      "expected": { "voiced": true, "fundamental_hz": 220.0, "start_frequency_hz": null, "end_frequency_hz": null, "clipped_samples": 19640, "rms_range": [0.794, 0.796], "algorithm_gate": "must raise clipping quality evidence before interpretation" },
+      "breakpoints": [], "sha256_pcm16le": "265b496d37f0287ae830bc5e81a360452865fcb27df06b731ae8c665148522d7"
+    },
+    {
+      "id": "phase_reset_breakpoint_a3", "sample_rate_hz": 48000, "sample_count": 48000, "encoding": "pcm_s16le_interleaved_mono", "seed": null,
+      "signal": { "kind": "phase_reset_sine", "frequency_hz": 220.0, "amplitude": 0.5, "reset_at_sample": 24123 },
+      "expected": { "voiced": true, "fundamental_hz": 220.0, "start_frequency_hz": null, "end_frequency_hz": null, "clipped_samples": 0, "rms_range": [0.353, 0.355], "algorithm_gate": "a discontinuity at sample 24123 invalidates cross-breakpoint metrics" },
+      "breakpoints": [{ "sample_index": 24123, "kind": "discontinuity" }], "sha256_pcm16le": "46fca510a36f270fbaea6cdca5b0e3ce3244609b10861c965bd955bce1c9fcb3"
+    }
+  ]
+}
