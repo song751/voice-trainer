@@ -67,7 +67,15 @@ final class AnalysisFailure extends DomainFailure {
   FailureCode get code => FailureCode.analysisUnavailable;
 }
 
-enum AnalysisFailureReason { processing, unavailable, unknown }
+enum AnalysisFailureReason {
+  processing,
+  unavailable,
+  unsupportedFormat,
+  formatChanged,
+  invalidPcm,
+  nonMonotonicSampleIndex,
+  unknown,
+}
 
 final class FinalizationFailure extends DomainFailure {
   const FinalizationFailure(this.reason, {this.isRecoverable = true});

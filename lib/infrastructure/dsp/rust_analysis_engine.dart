@@ -3,7 +3,9 @@ import 'dart:typed_data';
 import '../../core/domain/analysis/analysis_config.dart';
 import '../../core/domain/analysis/analysis_engine.dart';
 import '../../core/domain/analysis/analysis_frame.dart';
+import '../../core/domain/audio/capture_format.dart';
 import '../../core/domain/audio/pcm_chunk.dart';
+import '../../core/errors/failure.dart';
 import 'analysis_worker_supervisor.dart';
 import 'platform_analysis_worker.dart';
 
@@ -25,18 +27,35 @@ final class RustAnalysisEngine implements AnalysisEngine {
        );
 
   final AnalysisWorkerSupervisor _supervisor;
+  AnalysisConfig? _config;
+  int? _nextInputSampleIndex;
 
+  @override
   AnalysisWorkerMetrics get workerMetrics => _supervisor.metrics;
 
   @override
-  Future<void> initialize(AnalysisConfig config) =>
-      _supervisor.initialize(config);
+  Stream<AnalysisWorkerMetrics> get workerMetricsStream =>
+      _supervisor.metricsStream;
+
+  @override
+  Future<void> initialize(AnalysisConfig config) async {
+    _validateSupportedFormat(config.inputFormat);
+    await _supervisor.initialize(config);
+    _config = config;
+    _nextInputSampleIndex = null;
+  }
 
   @override
   Future<AnalysisBatch> pushPcm(PcmBatch batch) async {
+    final config =
+        _config ??
+        (throw StateError('Rust analysis engine is not initialized.'));
+    _validateBatch(batch, config);
     final maximum = _bridgeBatchSamples;
     if (batch.frameCount <= maximum) {
-      return _supervisor.pushPcm(batch);
+      final result = await _supervisor.pushPcm(batch);
+      _nextInputSampleIndex = batch.firstSampleIndex + batch.frameCount;
+      return result;
     }
     final frames = <AnalysisFrame>[];
     for (
@@ -54,10 +73,15 @@ final class RustAnalysisEngine implements AnalysisEngine {
           bytes: Uint8List.fromList(
             batch.bytes.sublist(byteOffset, byteOffset + byteLength),
           ),
+          droppedSamplesBefore: offsetFrames == 0
+              ? batch.droppedSamplesBefore
+              : 0,
+          discontinuityBefore: offsetFrames == 0 && batch.discontinuityBefore,
         ),
       );
       frames.addAll(result.frames);
     }
+    _nextInputSampleIndex = batch.firstSampleIndex + batch.frameCount;
     return AnalysisBatch(frames);
   }
 
@@ -69,8 +93,34 @@ final class RustAnalysisEngine implements AnalysisEngine {
   Future<AnalysisFinalization> finish() => _supervisor.finish();
 
   @override
-  Future<void> reset() => _supervisor.reset();
+  Future<void> reset() async {
+    await _supervisor.reset();
+    _nextInputSampleIndex = null;
+  }
 
   @override
   Future<void> dispose() => _supervisor.dispose();
+
+  void _validateBatch(PcmBatch batch, AnalysisConfig config) {
+    if (batch.format != config.inputFormat) {
+      throw const AnalysisFailure(AnalysisFailureReason.formatChanged);
+    }
+    if (!batch.isFrameAligned) {
+      throw const AnalysisFailure(AnalysisFailureReason.invalidPcm);
+    }
+    final expected = _nextInputSampleIndex;
+    if (expected != null && batch.firstSampleIndex < expected) {
+      throw const AnalysisFailure(
+        AnalysisFailureReason.nonMonotonicSampleIndex,
+      );
+    }
+  }
+
+  void _validateSupportedFormat(CaptureFormat format) {
+    if (format.sampleRate != 48000 ||
+        format.channels != 1 ||
+        format.encoding != PcmEncoding.signedPcm16LittleEndian) {
+      throw const AnalysisFailure(AnalysisFailureReason.unsupportedFormat);
+    }
+  }
 }

@@ -17,7 +17,9 @@ Future<void> main() async {
   await RustLib.init();
   final worker = FrbAnalysisWorker();
   await worker.initialize(
-    const AnalysisConfig(inputFormatSampleRate: _sampleRate),
+    const AnalysisConfig(
+      inputFormat: CaptureFormat(sampleRate: _sampleRate, channels: 1),
+    ),
   );
 
   var frameCount = 0;

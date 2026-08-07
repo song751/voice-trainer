@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/domain/analysis/analysis_engine.dart';
+import '../core/domain/observation/observation_engine.dart';
 import '../core/domain/audio/audio_capture.dart';
 import '../core/domain/persistence/recording_sink.dart';
 import '../core/domain/persistence/recording_store.dart';
@@ -12,38 +13,39 @@ import '../core/domain/practice/practice_template.dart';
 import '../core/errors/app_exception.dart';
 import '../core/logging/app_logger.dart';
 import '../features/live_practice/application/practice_session_coordinator.dart';
-import '../infrastructure/audio/fake_audio_capture.dart';
-import '../infrastructure/dsp/fake_analysis_engine.dart';
-import '../infrastructure/persistence/in_memory_recording_store.dart';
-import '../infrastructure/persistence/in_memory_session_repository.dart';
+import '../features/session_result/application/deterministic_observation_engine.dart';
+import 'default_adapters.dart';
+import 'default_persistence.dart';
 
 /// Every platform-facing implementation is exposed separately for overrides.
-/// The Phase 1 shell deliberately uses deterministic fakes until a later card
-/// promotes each production adapter into the composition root.
+/// Windows defaults to the P3 production capture/DSP pair; tests and other
+/// platforms retain explicit deterministic replacements until their gates.
 final audioCaptureProvider = Provider<AudioCapture>(
-  (ref) => FakeAudioCapture(),
+  (ref) => createDefaultAudioCapture(),
 );
 
 final analysisEngineProvider = Provider<AnalysisEngine>(
-  (ref) => FakeAnalysisEngine(),
+  (ref) => createDefaultAnalysisEngine(),
+);
+
+final defaultPersistenceAdaptersProvider = Provider<DefaultPersistenceAdapters>(
+  (ref) {
+    final adapters = createDefaultPersistenceAdapters();
+    ref.onDispose(() => unawaited(adapters.dispose()));
+    return adapters;
+  },
 );
 
 final recordingStoreProvider = Provider<RecordingStore>(
-  (ref) => InMemoryRecordingStore(),
+  (ref) => ref.watch(defaultPersistenceAdaptersProvider).recordingStore,
 );
 
-final recordingSinkProvider = Provider<RecordingSink>((ref) {
-  final store = ref.watch(recordingStoreProvider);
-  if (store is! InMemoryRecordingStore) {
-    throw StateError(
-      'Provide a RecordingSink override when replacing the default store.',
-    );
-  }
-  return InMemoryRecordingSink(store);
-});
+final recordingSinkProvider = Provider<RecordingSink>(
+  (ref) => ref.watch(defaultPersistenceAdaptersProvider).recordingSink,
+);
 
 final sessionRepositoryProvider = Provider<SessionRepository>(
-  (ref) => InMemorySessionRepository(),
+  (ref) => ref.watch(defaultPersistenceAdaptersProvider).sessionRepository,
 );
 
 final appErrorMapperProvider = Provider<AppErrorMapper>(
@@ -51,6 +53,10 @@ final appErrorMapperProvider = Provider<AppErrorMapper>(
 );
 
 final appLoggerProvider = Provider<AppLogger>((ref) => AppLogger());
+
+final observationEngineProvider = Provider<ObservationEngine>(
+  (ref) => const DeterministicObservationEngine(),
+);
 
 final practiceTemplateProvider = Provider<PracticeTemplate>(
   (ref) => const PracticeTemplate(
@@ -73,6 +79,7 @@ final practiceSessionCoordinatorProvider = Provider<PracticeSessionCoordinator>(
       audioCapture: ref.watch(audioCaptureProvider),
       analysisEngine: ref.watch(analysisEngineProvider),
       recordingSink: ref.watch(recordingSinkProvider),
+      recordingStore: ref.watch(recordingStoreProvider),
       sessionRepository: ref.watch(sessionRepositoryProvider),
     );
     ref.onDispose(() => unawaited(coordinator.dispose()));

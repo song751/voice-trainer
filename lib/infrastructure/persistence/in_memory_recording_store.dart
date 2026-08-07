@@ -26,11 +26,17 @@ final class InMemoryRecordingSink implements RecordingSink {
   final InMemoryRecordingStore _store;
   final List<PcmChunk> chunks = <PcmChunk>[];
   RecordingMetadata? metadata;
+  RecordingLocator? _finalizedLocator;
   bool _opened = false;
   bool _aborted = false;
 
   @override
   Future<void> abort() async {
+    final finalized = _finalizedLocator;
+    if (finalized != null) {
+      await _store.delete(finalized);
+      _finalizedLocator = null;
+    }
     _aborted = true;
     _opened = false;
   }
@@ -54,6 +60,7 @@ final class InMemoryRecordingSink implements RecordingSink {
       storageKind: RecordingStorageKind.none,
     );
     _store.add(locator);
+    _finalizedLocator = locator;
     return locator;
   }
 
@@ -62,5 +69,6 @@ final class InMemoryRecordingSink implements RecordingSink {
     this.metadata = metadata;
     _opened = true;
     _aborted = false;
+    _finalizedLocator = null;
   }
 }

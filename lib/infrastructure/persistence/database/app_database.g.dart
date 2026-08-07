@@ -73,6 +73,18 @@ class $PracticeSessionsTable extends PracticeSessions
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _summaryJsonMeta = const VerificationMeta(
+    'summaryJson',
+  );
+  @override
+  late final GeneratedColumn<String> summaryJson = GeneratedColumn<String>(
+    'summary_json',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('{}'),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -81,6 +93,7 @@ class $PracticeSessionsTable extends PracticeSessions
     validFrameCount,
     totalFrameCount,
     qualityFlagsJson,
+    summaryJson,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -151,6 +164,15 @@ class $PracticeSessionsTable extends PracticeSessions
     } else if (isInserting) {
       context.missing(_qualityFlagsJsonMeta);
     }
+    if (data.containsKey('summary_json')) {
+      context.handle(
+        _summaryJsonMeta,
+        summaryJson.isAcceptableOrUnknown(
+          data['summary_json']!,
+          _summaryJsonMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -184,6 +206,10 @@ class $PracticeSessionsTable extends PracticeSessions
         DriftSqlType.string,
         data['${effectivePrefix}quality_flags_json'],
       )!,
+      summaryJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}summary_json'],
+      )!,
     );
   }
 
@@ -200,6 +226,7 @@ class PracticeSession extends DataClass implements Insertable<PracticeSession> {
   final int validFrameCount;
   final int totalFrameCount;
   final String qualityFlagsJson;
+  final String summaryJson;
   const PracticeSession({
     required this.id,
     required this.templateJson,
@@ -207,6 +234,7 @@ class PracticeSession extends DataClass implements Insertable<PracticeSession> {
     required this.validFrameCount,
     required this.totalFrameCount,
     required this.qualityFlagsJson,
+    required this.summaryJson,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -217,6 +245,7 @@ class PracticeSession extends DataClass implements Insertable<PracticeSession> {
     map['valid_frame_count'] = Variable<int>(validFrameCount);
     map['total_frame_count'] = Variable<int>(totalFrameCount);
     map['quality_flags_json'] = Variable<String>(qualityFlagsJson);
+    map['summary_json'] = Variable<String>(summaryJson);
     return map;
   }
 
@@ -228,6 +257,7 @@ class PracticeSession extends DataClass implements Insertable<PracticeSession> {
       validFrameCount: Value(validFrameCount),
       totalFrameCount: Value(totalFrameCount),
       qualityFlagsJson: Value(qualityFlagsJson),
+      summaryJson: Value(summaryJson),
     );
   }
 
@@ -243,6 +273,7 @@ class PracticeSession extends DataClass implements Insertable<PracticeSession> {
       validFrameCount: serializer.fromJson<int>(json['validFrameCount']),
       totalFrameCount: serializer.fromJson<int>(json['totalFrameCount']),
       qualityFlagsJson: serializer.fromJson<String>(json['qualityFlagsJson']),
+      summaryJson: serializer.fromJson<String>(json['summaryJson']),
     );
   }
   @override
@@ -255,6 +286,7 @@ class PracticeSession extends DataClass implements Insertable<PracticeSession> {
       'validFrameCount': serializer.toJson<int>(validFrameCount),
       'totalFrameCount': serializer.toJson<int>(totalFrameCount),
       'qualityFlagsJson': serializer.toJson<String>(qualityFlagsJson),
+      'summaryJson': serializer.toJson<String>(summaryJson),
     };
   }
 
@@ -265,6 +297,7 @@ class PracticeSession extends DataClass implements Insertable<PracticeSession> {
     int? validFrameCount,
     int? totalFrameCount,
     String? qualityFlagsJson,
+    String? summaryJson,
   }) => PracticeSession(
     id: id ?? this.id,
     templateJson: templateJson ?? this.templateJson,
@@ -272,6 +305,7 @@ class PracticeSession extends DataClass implements Insertable<PracticeSession> {
     validFrameCount: validFrameCount ?? this.validFrameCount,
     totalFrameCount: totalFrameCount ?? this.totalFrameCount,
     qualityFlagsJson: qualityFlagsJson ?? this.qualityFlagsJson,
+    summaryJson: summaryJson ?? this.summaryJson,
   );
   PracticeSession copyWithCompanion(PracticeSessionsCompanion data) {
     return PracticeSession(
@@ -289,6 +323,9 @@ class PracticeSession extends DataClass implements Insertable<PracticeSession> {
       qualityFlagsJson: data.qualityFlagsJson.present
           ? data.qualityFlagsJson.value
           : this.qualityFlagsJson,
+      summaryJson: data.summaryJson.present
+          ? data.summaryJson.value
+          : this.summaryJson,
     );
   }
 
@@ -300,7 +337,8 @@ class PracticeSession extends DataClass implements Insertable<PracticeSession> {
           ..write('startedAt: $startedAt, ')
           ..write('validFrameCount: $validFrameCount, ')
           ..write('totalFrameCount: $totalFrameCount, ')
-          ..write('qualityFlagsJson: $qualityFlagsJson')
+          ..write('qualityFlagsJson: $qualityFlagsJson, ')
+          ..write('summaryJson: $summaryJson')
           ..write(')'))
         .toString();
   }
@@ -313,6 +351,7 @@ class PracticeSession extends DataClass implements Insertable<PracticeSession> {
     validFrameCount,
     totalFrameCount,
     qualityFlagsJson,
+    summaryJson,
   );
   @override
   bool operator ==(Object other) =>
@@ -323,7 +362,8 @@ class PracticeSession extends DataClass implements Insertable<PracticeSession> {
           other.startedAt == this.startedAt &&
           other.validFrameCount == this.validFrameCount &&
           other.totalFrameCount == this.totalFrameCount &&
-          other.qualityFlagsJson == this.qualityFlagsJson);
+          other.qualityFlagsJson == this.qualityFlagsJson &&
+          other.summaryJson == this.summaryJson);
 }
 
 class PracticeSessionsCompanion extends UpdateCompanion<PracticeSession> {
@@ -333,6 +373,7 @@ class PracticeSessionsCompanion extends UpdateCompanion<PracticeSession> {
   final Value<int> validFrameCount;
   final Value<int> totalFrameCount;
   final Value<String> qualityFlagsJson;
+  final Value<String> summaryJson;
   final Value<int> rowid;
   const PracticeSessionsCompanion({
     this.id = const Value.absent(),
@@ -341,6 +382,7 @@ class PracticeSessionsCompanion extends UpdateCompanion<PracticeSession> {
     this.validFrameCount = const Value.absent(),
     this.totalFrameCount = const Value.absent(),
     this.qualityFlagsJson = const Value.absent(),
+    this.summaryJson = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   PracticeSessionsCompanion.insert({
@@ -350,6 +392,7 @@ class PracticeSessionsCompanion extends UpdateCompanion<PracticeSession> {
     required int validFrameCount,
     required int totalFrameCount,
     required String qualityFlagsJson,
+    this.summaryJson = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        templateJson = Value(templateJson),
@@ -364,6 +407,7 @@ class PracticeSessionsCompanion extends UpdateCompanion<PracticeSession> {
     Expression<int>? validFrameCount,
     Expression<int>? totalFrameCount,
     Expression<String>? qualityFlagsJson,
+    Expression<String>? summaryJson,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -373,6 +417,7 @@ class PracticeSessionsCompanion extends UpdateCompanion<PracticeSession> {
       if (validFrameCount != null) 'valid_frame_count': validFrameCount,
       if (totalFrameCount != null) 'total_frame_count': totalFrameCount,
       if (qualityFlagsJson != null) 'quality_flags_json': qualityFlagsJson,
+      if (summaryJson != null) 'summary_json': summaryJson,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -384,6 +429,7 @@ class PracticeSessionsCompanion extends UpdateCompanion<PracticeSession> {
     Value<int>? validFrameCount,
     Value<int>? totalFrameCount,
     Value<String>? qualityFlagsJson,
+    Value<String>? summaryJson,
     Value<int>? rowid,
   }) {
     return PracticeSessionsCompanion(
@@ -393,6 +439,7 @@ class PracticeSessionsCompanion extends UpdateCompanion<PracticeSession> {
       validFrameCount: validFrameCount ?? this.validFrameCount,
       totalFrameCount: totalFrameCount ?? this.totalFrameCount,
       qualityFlagsJson: qualityFlagsJson ?? this.qualityFlagsJson,
+      summaryJson: summaryJson ?? this.summaryJson,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -418,6 +465,9 @@ class PracticeSessionsCompanion extends UpdateCompanion<PracticeSession> {
     if (qualityFlagsJson.present) {
       map['quality_flags_json'] = Variable<String>(qualityFlagsJson.value);
     }
+    if (summaryJson.present) {
+      map['summary_json'] = Variable<String>(summaryJson.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -433,6 +483,7 @@ class PracticeSessionsCompanion extends UpdateCompanion<PracticeSession> {
           ..write('validFrameCount: $validFrameCount, ')
           ..write('totalFrameCount: $totalFrameCount, ')
           ..write('qualityFlagsJson: $qualityFlagsJson, ')
+          ..write('summaryJson: $summaryJson, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -1608,6 +1659,17 @@ class $FeatureSeriesMetadataTable extends FeatureSeriesMetadata
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _featureSchemaVersionMeta =
+      const VerificationMeta('featureSchemaVersion');
+  @override
+  late final GeneratedColumn<int> featureSchemaVersion = GeneratedColumn<int>(
+    'feature_schema_version',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(1),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     runId,
@@ -1615,6 +1677,7 @@ class $FeatureSeriesMetadataTable extends FeatureSeriesMetadata
     startSampleIndex,
     samplePeriodSamples,
     algorithmVersion,
+    featureSchemaVersion,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -1675,6 +1738,15 @@ class $FeatureSeriesMetadataTable extends FeatureSeriesMetadata
     } else if (isInserting) {
       context.missing(_algorithmVersionMeta);
     }
+    if (data.containsKey('feature_schema_version')) {
+      context.handle(
+        _featureSchemaVersionMeta,
+        featureSchemaVersion.isAcceptableOrUnknown(
+          data['feature_schema_version']!,
+          _featureSchemaVersionMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -1707,6 +1779,10 @@ class $FeatureSeriesMetadataTable extends FeatureSeriesMetadata
         DriftSqlType.string,
         data['${effectivePrefix}algorithm_version'],
       )!,
+      featureSchemaVersion: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}feature_schema_version'],
+      )!,
     );
   }
 
@@ -1723,12 +1799,14 @@ class FeatureSeriesMetadataData extends DataClass
   final int startSampleIndex;
   final int samplePeriodSamples;
   final String algorithmVersion;
+  final int featureSchemaVersion;
   const FeatureSeriesMetadataData({
     required this.runId,
     required this.frameCount,
     required this.startSampleIndex,
     required this.samplePeriodSamples,
     required this.algorithmVersion,
+    required this.featureSchemaVersion,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -1738,6 +1816,7 @@ class FeatureSeriesMetadataData extends DataClass
     map['start_sample_index'] = Variable<int>(startSampleIndex);
     map['sample_period_samples'] = Variable<int>(samplePeriodSamples);
     map['algorithm_version'] = Variable<String>(algorithmVersion);
+    map['feature_schema_version'] = Variable<int>(featureSchemaVersion);
     return map;
   }
 
@@ -1748,6 +1827,7 @@ class FeatureSeriesMetadataData extends DataClass
       startSampleIndex: Value(startSampleIndex),
       samplePeriodSamples: Value(samplePeriodSamples),
       algorithmVersion: Value(algorithmVersion),
+      featureSchemaVersion: Value(featureSchemaVersion),
     );
   }
 
@@ -1764,6 +1844,9 @@ class FeatureSeriesMetadataData extends DataClass
         json['samplePeriodSamples'],
       ),
       algorithmVersion: serializer.fromJson<String>(json['algorithmVersion']),
+      featureSchemaVersion: serializer.fromJson<int>(
+        json['featureSchemaVersion'],
+      ),
     );
   }
   @override
@@ -1775,6 +1858,7 @@ class FeatureSeriesMetadataData extends DataClass
       'startSampleIndex': serializer.toJson<int>(startSampleIndex),
       'samplePeriodSamples': serializer.toJson<int>(samplePeriodSamples),
       'algorithmVersion': serializer.toJson<String>(algorithmVersion),
+      'featureSchemaVersion': serializer.toJson<int>(featureSchemaVersion),
     };
   }
 
@@ -1784,12 +1868,14 @@ class FeatureSeriesMetadataData extends DataClass
     int? startSampleIndex,
     int? samplePeriodSamples,
     String? algorithmVersion,
+    int? featureSchemaVersion,
   }) => FeatureSeriesMetadataData(
     runId: runId ?? this.runId,
     frameCount: frameCount ?? this.frameCount,
     startSampleIndex: startSampleIndex ?? this.startSampleIndex,
     samplePeriodSamples: samplePeriodSamples ?? this.samplePeriodSamples,
     algorithmVersion: algorithmVersion ?? this.algorithmVersion,
+    featureSchemaVersion: featureSchemaVersion ?? this.featureSchemaVersion,
   );
   FeatureSeriesMetadataData copyWithCompanion(
     FeatureSeriesMetadataCompanion data,
@@ -1808,6 +1894,9 @@ class FeatureSeriesMetadataData extends DataClass
       algorithmVersion: data.algorithmVersion.present
           ? data.algorithmVersion.value
           : this.algorithmVersion,
+      featureSchemaVersion: data.featureSchemaVersion.present
+          ? data.featureSchemaVersion.value
+          : this.featureSchemaVersion,
     );
   }
 
@@ -1818,7 +1907,8 @@ class FeatureSeriesMetadataData extends DataClass
           ..write('frameCount: $frameCount, ')
           ..write('startSampleIndex: $startSampleIndex, ')
           ..write('samplePeriodSamples: $samplePeriodSamples, ')
-          ..write('algorithmVersion: $algorithmVersion')
+          ..write('algorithmVersion: $algorithmVersion, ')
+          ..write('featureSchemaVersion: $featureSchemaVersion')
           ..write(')'))
         .toString();
   }
@@ -1830,6 +1920,7 @@ class FeatureSeriesMetadataData extends DataClass
     startSampleIndex,
     samplePeriodSamples,
     algorithmVersion,
+    featureSchemaVersion,
   );
   @override
   bool operator ==(Object other) =>
@@ -1839,7 +1930,8 @@ class FeatureSeriesMetadataData extends DataClass
           other.frameCount == this.frameCount &&
           other.startSampleIndex == this.startSampleIndex &&
           other.samplePeriodSamples == this.samplePeriodSamples &&
-          other.algorithmVersion == this.algorithmVersion);
+          other.algorithmVersion == this.algorithmVersion &&
+          other.featureSchemaVersion == this.featureSchemaVersion);
 }
 
 class FeatureSeriesMetadataCompanion
@@ -1849,12 +1941,14 @@ class FeatureSeriesMetadataCompanion
   final Value<int> startSampleIndex;
   final Value<int> samplePeriodSamples;
   final Value<String> algorithmVersion;
+  final Value<int> featureSchemaVersion;
   const FeatureSeriesMetadataCompanion({
     this.runId = const Value.absent(),
     this.frameCount = const Value.absent(),
     this.startSampleIndex = const Value.absent(),
     this.samplePeriodSamples = const Value.absent(),
     this.algorithmVersion = const Value.absent(),
+    this.featureSchemaVersion = const Value.absent(),
   });
   FeatureSeriesMetadataCompanion.insert({
     this.runId = const Value.absent(),
@@ -1862,6 +1956,7 @@ class FeatureSeriesMetadataCompanion
     required int startSampleIndex,
     required int samplePeriodSamples,
     required String algorithmVersion,
+    this.featureSchemaVersion = const Value.absent(),
   }) : frameCount = Value(frameCount),
        startSampleIndex = Value(startSampleIndex),
        samplePeriodSamples = Value(samplePeriodSamples),
@@ -1872,6 +1967,7 @@ class FeatureSeriesMetadataCompanion
     Expression<int>? startSampleIndex,
     Expression<int>? samplePeriodSamples,
     Expression<String>? algorithmVersion,
+    Expression<int>? featureSchemaVersion,
   }) {
     return RawValuesInsertable({
       if (runId != null) 'run_id': runId,
@@ -1880,6 +1976,8 @@ class FeatureSeriesMetadataCompanion
       if (samplePeriodSamples != null)
         'sample_period_samples': samplePeriodSamples,
       if (algorithmVersion != null) 'algorithm_version': algorithmVersion,
+      if (featureSchemaVersion != null)
+        'feature_schema_version': featureSchemaVersion,
     });
   }
 
@@ -1889,6 +1987,7 @@ class FeatureSeriesMetadataCompanion
     Value<int>? startSampleIndex,
     Value<int>? samplePeriodSamples,
     Value<String>? algorithmVersion,
+    Value<int>? featureSchemaVersion,
   }) {
     return FeatureSeriesMetadataCompanion(
       runId: runId ?? this.runId,
@@ -1896,6 +1995,7 @@ class FeatureSeriesMetadataCompanion
       startSampleIndex: startSampleIndex ?? this.startSampleIndex,
       samplePeriodSamples: samplePeriodSamples ?? this.samplePeriodSamples,
       algorithmVersion: algorithmVersion ?? this.algorithmVersion,
+      featureSchemaVersion: featureSchemaVersion ?? this.featureSchemaVersion,
     );
   }
 
@@ -1917,6 +2017,9 @@ class FeatureSeriesMetadataCompanion
     if (algorithmVersion.present) {
       map['algorithm_version'] = Variable<String>(algorithmVersion.value);
     }
+    if (featureSchemaVersion.present) {
+      map['feature_schema_version'] = Variable<int>(featureSchemaVersion.value);
+    }
     return map;
   }
 
@@ -1927,7 +2030,8 @@ class FeatureSeriesMetadataCompanion
           ..write('frameCount: $frameCount, ')
           ..write('startSampleIndex: $startSampleIndex, ')
           ..write('samplePeriodSamples: $samplePeriodSamples, ')
-          ..write('algorithmVersion: $algorithmVersion')
+          ..write('algorithmVersion: $algorithmVersion, ')
+          ..write('featureSchemaVersion: $featureSchemaVersion')
           ..write(')'))
         .toString();
   }
@@ -1966,6 +2070,7 @@ typedef $$PracticeSessionsTableCreateCompanionBuilder =
       required int validFrameCount,
       required int totalFrameCount,
       required String qualityFlagsJson,
+      Value<String> summaryJson,
       Value<int> rowid,
     });
 typedef $$PracticeSessionsTableUpdateCompanionBuilder =
@@ -1976,6 +2081,7 @@ typedef $$PracticeSessionsTableUpdateCompanionBuilder =
       Value<int> validFrameCount,
       Value<int> totalFrameCount,
       Value<String> qualityFlagsJson,
+      Value<String> summaryJson,
       Value<int> rowid,
     });
 
@@ -2061,6 +2167,11 @@ class $$PracticeSessionsTableFilterComposer
 
   ColumnFilters<String> get qualityFlagsJson => $composableBuilder(
     column: $table.qualityFlagsJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get summaryJson => $composableBuilder(
+    column: $table.summaryJson,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -2153,6 +2264,11 @@ class $$PracticeSessionsTableOrderingComposer
     column: $table.qualityFlagsJson,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get summaryJson => $composableBuilder(
+    column: $table.summaryJson,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$PracticeSessionsTableAnnotationComposer
@@ -2187,6 +2303,11 @@ class $$PracticeSessionsTableAnnotationComposer
 
   GeneratedColumn<String> get qualityFlagsJson => $composableBuilder(
     column: $table.qualityFlagsJson,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get summaryJson => $composableBuilder(
+    column: $table.summaryJson,
     builder: (column) => column,
   );
 
@@ -2277,6 +2398,7 @@ class $$PracticeSessionsTableTableManager
                 Value<int> validFrameCount = const Value.absent(),
                 Value<int> totalFrameCount = const Value.absent(),
                 Value<String> qualityFlagsJson = const Value.absent(),
+                Value<String> summaryJson = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => PracticeSessionsCompanion(
                 id: id,
@@ -2285,6 +2407,7 @@ class $$PracticeSessionsTableTableManager
                 validFrameCount: validFrameCount,
                 totalFrameCount: totalFrameCount,
                 qualityFlagsJson: qualityFlagsJson,
+                summaryJson: summaryJson,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -2295,6 +2418,7 @@ class $$PracticeSessionsTableTableManager
                 required int validFrameCount,
                 required int totalFrameCount,
                 required String qualityFlagsJson,
+                Value<String> summaryJson = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => PracticeSessionsCompanion.insert(
                 id: id,
@@ -2303,6 +2427,7 @@ class $$PracticeSessionsTableTableManager
                 validFrameCount: validFrameCount,
                 totalFrameCount: totalFrameCount,
                 qualityFlagsJson: qualityFlagsJson,
+                summaryJson: summaryJson,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -3575,6 +3700,7 @@ typedef $$FeatureSeriesMetadataTableCreateCompanionBuilder =
       required int startSampleIndex,
       required int samplePeriodSamples,
       required String algorithmVersion,
+      Value<int> featureSchemaVersion,
     });
 typedef $$FeatureSeriesMetadataTableUpdateCompanionBuilder =
     FeatureSeriesMetadataCompanion Function({
@@ -3583,6 +3709,7 @@ typedef $$FeatureSeriesMetadataTableUpdateCompanionBuilder =
       Value<int> startSampleIndex,
       Value<int> samplePeriodSamples,
       Value<String> algorithmVersion,
+      Value<int> featureSchemaVersion,
     });
 
 final class $$FeatureSeriesMetadataTableReferences
@@ -3645,6 +3772,11 @@ class $$FeatureSeriesMetadataTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<int> get featureSchemaVersion => $composableBuilder(
+    column: $table.featureSchemaVersion,
+    builder: (column) => ColumnFilters(column),
+  );
+
   $$AnalysisRunsTableFilterComposer get runId {
     final $$AnalysisRunsTableFilterComposer composer = $composerBuilder(
       composer: this,
@@ -3698,6 +3830,11 @@ class $$FeatureSeriesMetadataTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get featureSchemaVersion => $composableBuilder(
+    column: $table.featureSchemaVersion,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$AnalysisRunsTableOrderingComposer get runId {
     final $$AnalysisRunsTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -3748,6 +3885,11 @@ class $$FeatureSeriesMetadataTableAnnotationComposer
 
   GeneratedColumn<String> get algorithmVersion => $composableBuilder(
     column: $table.algorithmVersion,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get featureSchemaVersion => $composableBuilder(
+    column: $table.featureSchemaVersion,
     builder: (column) => column,
   );
 
@@ -3819,12 +3961,14 @@ class $$FeatureSeriesMetadataTableTableManager
                 Value<int> startSampleIndex = const Value.absent(),
                 Value<int> samplePeriodSamples = const Value.absent(),
                 Value<String> algorithmVersion = const Value.absent(),
+                Value<int> featureSchemaVersion = const Value.absent(),
               }) => FeatureSeriesMetadataCompanion(
                 runId: runId,
                 frameCount: frameCount,
                 startSampleIndex: startSampleIndex,
                 samplePeriodSamples: samplePeriodSamples,
                 algorithmVersion: algorithmVersion,
+                featureSchemaVersion: featureSchemaVersion,
               ),
           createCompanionCallback:
               ({
@@ -3833,12 +3977,14 @@ class $$FeatureSeriesMetadataTableTableManager
                 required int startSampleIndex,
                 required int samplePeriodSamples,
                 required String algorithmVersion,
+                Value<int> featureSchemaVersion = const Value.absent(),
               }) => FeatureSeriesMetadataCompanion.insert(
                 runId: runId,
                 frameCount: frameCount,
                 startSampleIndex: startSampleIndex,
                 samplePeriodSamples: samplePeriodSamples,
                 algorithmVersion: algorithmVersion,
+                featureSchemaVersion: featureSchemaVersion,
               ),
           withReferenceMapper: (p0) => p0
               .map(

@@ -6,13 +6,17 @@ import 'package:voice_trainer/core/domain/analysis/analysis_config.dart';
 import 'package:voice_trainer/core/domain/analysis/analysis_engine.dart';
 import 'package:voice_trainer/core/domain/analysis/analysis_frame.dart';
 import 'package:voice_trainer/core/domain/analysis/feature_series.dart';
+import 'package:voice_trainer/core/domain/analysis/session_summary.dart';
 import 'package:voice_trainer/core/domain/audio/capture_format.dart';
 import 'package:voice_trainer/core/domain/audio/pcm_chunk.dart';
+import 'package:voice_trainer/core/errors/failure.dart';
 import 'package:voice_trainer/infrastructure/dsp/analysis_worker_supervisor.dart';
 import 'package:voice_trainer/infrastructure/dsp/rust_analysis_engine.dart';
 
 void main() {
-  const config = AnalysisConfig(inputFormatSampleRate: 48000);
+  const config = AnalysisConfig(
+    inputFormat: CaptureFormat(sampleRate: 48000, channels: 1),
+  );
 
   group('AnalysisWorkerSupervisor', () {
     test('restarts a crashed primary worker and retries its batch', () async {
@@ -172,6 +176,10 @@ void main() {
           primaryWorkerFactory: () async => worker,
           maxQueuedSamples: 1024,
         );
+        final metrics = <AnalysisWorkerMetrics>[];
+        final metricsSubscription = supervisor.workerMetricsStream.listen(
+          metrics.add,
+        );
         await supervisor.initialize(config);
 
         final first = supervisor.pushPcm(_batch(0));
@@ -184,7 +192,9 @@ void main() {
         expect((await dropped).frames, isEmpty);
         expect((await last).frames.single.sampleIndex, 2048);
         expect(supervisor.metrics.droppedSamples, 1024);
+        expect(metrics.last.droppedSamples, 1024);
         expect(worker.receivedSampleIndices, <int>[0, 2048]);
+        await metricsSubscription.cancel();
         await supervisor.dispose();
       },
     );
@@ -200,7 +210,9 @@ void main() {
           primaryWorkerFactory: () async => worker,
         );
         await supervisor.initialize(
-          const AnalysisConfig(inputFormatSampleRate: 1),
+          const AnalysisConfig(
+            inputFormat: CaptureFormat(sampleRate: 1, channels: 1),
+          ),
         );
         var heartbeatTicks = 0;
         final heartbeat = Timer.periodic(
@@ -240,6 +252,96 @@ void main() {
       await engine.dispose();
     },
   );
+
+  test('RustAnalysisEngine rejects invalid format and PCM contracts', () async {
+    final unsupported = RustAnalysisEngine(
+      primaryWorkerFactory: () async => _TestWorker(),
+    );
+    await expectLater(
+      unsupported.initialize(
+        const AnalysisConfig(
+          inputFormat: CaptureFormat(sampleRate: 44100, channels: 1),
+        ),
+      ),
+      throwsA(
+        isA<AnalysisFailure>().having(
+          (failure) => failure.reason,
+          'reason',
+          AnalysisFailureReason.unsupportedFormat,
+        ),
+      ),
+    );
+
+    final engine = RustAnalysisEngine(
+      primaryWorkerFactory: () async => _TestWorker(),
+    );
+    await engine.initialize(config);
+    await expectLater(
+      engine.pushPcm(
+        PcmBatch(
+          firstSampleIndex: 0,
+          format: const CaptureFormat(sampleRate: 48000, channels: 1),
+          bytes: Uint8List(3),
+        ),
+      ),
+      throwsA(
+        isA<AnalysisFailure>().having(
+          (failure) => failure.reason,
+          'reason',
+          AnalysisFailureReason.invalidPcm,
+        ),
+      ),
+    );
+    await expectLater(
+      engine.pushPcm(
+        PcmBatch(
+          firstSampleIndex: 0,
+          format: const CaptureFormat(sampleRate: 48000, channels: 2),
+          bytes: Uint8List(4),
+        ),
+      ),
+      throwsA(
+        isA<AnalysisFailure>().having(
+          (failure) => failure.reason,
+          'reason',
+          AnalysisFailureReason.formatChanged,
+        ),
+      ),
+    );
+    await engine.pushPcm(_batch(100));
+    await expectLater(
+      engine.pushPcm(_batch(99)),
+      throwsA(
+        isA<AnalysisFailure>().having(
+          (failure) => failure.reason,
+          'reason',
+          AnalysisFailureReason.nonMonotonicSampleIndex,
+        ),
+      ),
+    );
+    await engine.dispose();
+  });
+
+  test('RustAnalysisEngine retains backpressure and pause metadata', () async {
+    final worker = _TestWorker();
+    final engine = RustAnalysisEngine(primaryWorkerFactory: () async => worker);
+    await engine.initialize(config);
+    await engine.pushPcm(_batch(0));
+    await engine.pushPcm(
+      PcmBatch(
+        firstSampleIndex: 2048,
+        format: const CaptureFormat(sampleRate: 48000, channels: 1),
+        bytes: Uint8List(2048),
+        droppedSamplesBefore: 1024,
+        discontinuityBefore: true,
+      ),
+    );
+
+    expect(worker.receivedBatches.last.firstSampleIndex, 2048);
+    expect(worker.receivedBatches.last.droppedSamplesBefore, 1024);
+    expect(worker.receivedBatches.last.discontinuityBefore, isTrue);
+    await engine.dispose();
+  });
 }
 
 PcmBatch _batch(
@@ -270,6 +372,7 @@ final class _TestWorker implements AnalysisWorker {
   final bool hangDispose;
   final List<int> receivedSampleIndices = <int>[];
   final List<int> receivedSampleCounts = <int>[];
+  final List<PcmBatch> receivedBatches = <PcmBatch>[];
   bool initialized = false;
   bool terminated = false;
   bool _failed = false;
@@ -294,6 +397,7 @@ final class _TestWorker implements AnalysisWorker {
     }
     receivedSampleIndices.add(batch.firstSampleIndex);
     receivedSampleCounts.add(batch.frameCount);
+    receivedBatches.add(batch);
     return AnalysisBatch(<AnalysisFrame>[
       AnalysisFrame(
         sampleIndex: batch.firstSampleIndex,
@@ -315,6 +419,11 @@ final class _TestWorker implements AnalysisWorker {
     return AnalysisFinalization(
       featureSeries: FeatureSeries(frameRateHz: 100, frames: const []),
       finalFrames: const <AnalysisFrame>[],
+      segmentSummary: SessionSummary(
+        validFrameCount: 0,
+        totalFrameCount: 0,
+        qualityFlags: const {},
+      ),
     );
   }
 

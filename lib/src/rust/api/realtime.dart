@@ -7,14 +7,30 @@ import '../frb_generated.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
 // These functions are ignored because they are not marked as `pub`: `amplitude_to_dbfs`
-// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `eq`, `fmt`, `from`
+// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `clone`, `eq`, `eq`, `eq`, `fmt`, `fmt`, `fmt`, `from`, `from`, `from`
 
 // Rust type: RustOpaqueMoi<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<RealtimeAnalyzer>>
 abstract class RealtimeAnalyzer implements RustOpaqueInterface {
+  SegmentSummaryDto finish();
+
   factory RealtimeAnalyzer({required int sampleRate}) => RustLib.instance.api
       .crateApiRealtimeRealtimeAnalyzerNew(sampleRate: sampleRate);
 
   List<AnalysisFrameDto> pushPcm16({required List<int> pcm});
+
+  /// Production entry point. Capture owns the monotonically increasing
+  /// sample position; the DSP never invents a per-batch clock.
+  List<AnalysisFrameDto> pushPcm16At({
+    required BigInt startSample,
+    required List<int> pcm,
+  });
+
+  List<AnalysisFrameDto> pushPcm16WithMetadata({
+    required BigInt startSample,
+    required List<int> pcm,
+    required int droppedSamplesBefore,
+    required bool discontinuityBefore,
+  });
 
   void reset();
 }
@@ -68,4 +84,89 @@ class AnalysisFrameDto {
           voiced == other.voiced &&
           bandPowersDbfs == other.bandPowersDbfs &&
           qualityFlags == other.qualityFlags;
+}
+
+class RobustStabilityDto {
+  final double median;
+  final double medianAbsoluteDeviation;
+  final double slopePerSecond;
+  final int frameCount;
+
+  const RobustStabilityDto({
+    required this.median,
+    required this.medianAbsoluteDeviation,
+    required this.slopePerSecond,
+    required this.frameCount,
+  });
+
+  @override
+  int get hashCode =>
+      median.hashCode ^
+      medianAbsoluteDeviation.hashCode ^
+      slopePerSecond.hashCode ^
+      frameCount.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is RobustStabilityDto &&
+          runtimeType == other.runtimeType &&
+          median == other.median &&
+          medianAbsoluteDeviation == other.medianAbsoluteDeviation &&
+          slopePerSecond == other.slopePerSecond &&
+          frameCount == other.frameCount;
+}
+
+/// Stable segment-level result exposed only when an analyzer is finalized.
+/// Keeping this separate from the per-frame DTO prevents summary statistics
+/// from being reconstructed with a subtly different algorithm in Dart.
+class SegmentSummaryDto {
+  final BigInt? startSample;
+  final BigInt? endSample;
+  final int frameCount;
+  final int validFrameCount;
+  final BigInt droppedSamples;
+  final int qualityFlags;
+  final RobustStabilityDto? pitchStability;
+  final RobustStabilityDto? levelStability;
+  final BigInt? onsetDelaySamples;
+
+  const SegmentSummaryDto({
+    this.startSample,
+    this.endSample,
+    required this.frameCount,
+    required this.validFrameCount,
+    required this.droppedSamples,
+    required this.qualityFlags,
+    this.pitchStability,
+    this.levelStability,
+    this.onsetDelaySamples,
+  });
+
+  @override
+  int get hashCode =>
+      startSample.hashCode ^
+      endSample.hashCode ^
+      frameCount.hashCode ^
+      validFrameCount.hashCode ^
+      droppedSamples.hashCode ^
+      qualityFlags.hashCode ^
+      pitchStability.hashCode ^
+      levelStability.hashCode ^
+      onsetDelaySamples.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is SegmentSummaryDto &&
+          runtimeType == other.runtimeType &&
+          startSample == other.startSample &&
+          endSample == other.endSample &&
+          frameCount == other.frameCount &&
+          validFrameCount == other.validFrameCount &&
+          droppedSamples == other.droppedSamples &&
+          qualityFlags == other.qualityFlags &&
+          pitchStability == other.pitchStability &&
+          levelStability == other.levelStability &&
+          onsetDelaySamples == other.onsetDelaySamples;
 }

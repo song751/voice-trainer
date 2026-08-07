@@ -2,8 +2,12 @@ import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:voice_trainer/core/domain/analysis/analysis_engine.dart';
+import 'package:voice_trainer/core/domain/analysis/analysis_quality_flag.dart';
 import 'package:voice_trainer/core/domain/audio/capture_format.dart';
+import 'package:voice_trainer/core/domain/audio/capture_health.dart';
 import 'package:voice_trainer/core/domain/audio/pcm_chunk.dart';
+import 'package:voice_trainer/core/errors/failure.dart';
 import 'package:voice_trainer/core/domain/practice/practice_target.dart';
 import 'package:voice_trainer/core/domain/practice/practice_template.dart';
 import 'package:voice_trainer/features/live_practice/application/practice_session_coordinator.dart';
@@ -47,6 +51,8 @@ void main() {
           analysis.receivedBatches.map((batch) => batch.firstSampleIndex),
           <int>[0, 8],
         );
+        expect(analysis.config!.inputFormat, capture.effectiveFormat);
+        expect(analysis.receivedBatches.last.discontinuityBefore, isTrue);
         expect(
           recordingSink.chunks.map((chunk) => chunk.firstSampleIndex),
           <int>[0, 8],
@@ -58,8 +64,15 @@ void main() {
           ),
           <int>[0, 8],
         );
-        expect(coordinator.analysisQueueAccounting.droppedSamples, 0);
-        expect(coordinator.analysisQueueAccounting.hasDiscontinuity, isFalse);
+        expect(coordinator.analysisQueueAccounting.droppedSamples, 4);
+        expect(coordinator.analysisQueueAccounting.hasDiscontinuity, isTrue);
+        expect(
+          repository.records.single.summary.qualityFlags,
+          containsAll(<AnalysisQualityFlag>[
+            AnalysisQualityFlag.discontinuity,
+            AnalysisQualityFlag.droppedSamples,
+          ]),
+        );
       },
     );
 
@@ -102,6 +115,119 @@ void main() {
           ),
           containsAll(<String>['droppedSamples', 'discontinuity']),
         );
+      },
+    );
+
+    test(
+      'format changes fail analysis explicitly instead of reinterpreting PCM',
+      () async {
+        final capture = FakeAudioCapture();
+        final coordinator = _coordinator(
+          capture: capture,
+          analysis: FakeAnalysisEngine(),
+          recordingSink: InMemoryRecordingSink(InMemoryRecordingStore()),
+          repository: InMemorySessionRepository(),
+        );
+
+        expect(
+          await coordinator.start(_request('session-format-change')),
+          isA<Running>(),
+        );
+        capture.emit(
+          PcmChunk(
+            sequenceNumber: 0,
+            firstSampleIndex: 0,
+            format: const CaptureFormat(sampleRate: 44100, channels: 1),
+            bytes: Uint8List(8),
+            captureMonotonicTime: Duration.zero,
+          ),
+        );
+        await _drainMicrotasks();
+
+        final failed = coordinator.state;
+        expect(failed, isA<Failed>());
+        expect(
+          (failed as Failed).failure,
+          isA<AnalysisFailure>().having(
+            (failure) => failure.reason,
+            'reason',
+            AnalysisFailureReason.formatChanged,
+          ),
+        );
+      },
+    );
+
+    test(
+      'analysis initialization failure remains typed and stops capture',
+      () async {
+        final capture = FakeAudioCapture();
+        final coordinator = _coordinator(
+          capture: capture,
+          analysis: FakeAnalysisEngine(
+            initializeFailure: const AnalysisFailure(
+              AnalysisFailureReason.unsupportedFormat,
+            ),
+          ),
+          recordingSink: InMemoryRecordingSink(InMemoryRecordingStore()),
+          repository: InMemorySessionRepository(),
+        );
+
+        final state = await coordinator.start(
+          _request('session-analysis-failure'),
+        );
+        expect(state, isA<Failed>());
+        expect(
+          (state as Failed).failure,
+          isA<AnalysisFailure>().having(
+            (failure) => failure.reason,
+            'reason',
+            AnalysisFailureReason.unsupportedFormat,
+          ),
+        );
+      },
+    );
+
+    test(
+      'Coordinator publishes frames, capture health, and worker metrics',
+      () async {
+        final capture = FakeAudioCapture();
+        final coordinator = _coordinator(
+          capture: capture,
+          analysis: FakeAnalysisEngine(),
+          recordingSink: InMemoryRecordingSink(InMemoryRecordingStore()),
+          repository: InMemorySessionRepository(),
+        );
+        final frames = <int>[];
+        final health = <CaptureHealth>[];
+        final metrics = <AnalysisWorkerMetrics>[];
+        final frameSubscription = coordinator.realtimeFrames.listen(
+          (frame) => frames.add(frame.sampleIndex),
+        );
+        final healthSubscription = coordinator.captureHealth.listen(health.add);
+        final metricsSubscription = coordinator.workerMetrics.listen(
+          metrics.add,
+        );
+
+        await coordinator.start(_request('session-streams'));
+        capture.emit(_chunk(sequence: 0, firstSample: 0));
+        capture.emitHealth(
+          CaptureHealth(
+            effectiveFormat: capture.effectiveFormat,
+            flags: const {CaptureHealthFlag.processingAdjusted},
+          ),
+        );
+        await _drainMicrotasks();
+
+        expect(frames, <int>[0]);
+        expect(
+          health.single.flags,
+          contains(CaptureHealthFlag.processingAdjusted),
+        );
+        expect(metrics.single.state, AnalysisWorkerState.primary);
+        await frameSubscription.cancel();
+        await healthSubscription.cancel();
+        await metricsSubscription.cancel();
+        await coordinator.dispose();
       },
     );
 
@@ -151,6 +277,7 @@ PracticeSessionCoordinator _coordinator({
     audioCapture: capture,
     analysisEngine: analysis,
     recordingSink: recordingSink,
+    recordingStore: InMemoryRecordingStore(),
     sessionRepository: repository,
     maxQueuedSamples: maxQueuedSamples,
   );

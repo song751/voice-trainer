@@ -2,15 +2,21 @@ import 'dart:async';
 
 import '../../../core/domain/analysis/analysis_config.dart';
 import '../../../core/domain/analysis/analysis_engine.dart';
+import '../../../core/domain/analysis/analysis_frame.dart';
 import '../../../core/domain/analysis/analysis_quality_flag.dart';
 import '../../../core/domain/analysis/session_summary.dart';
 import '../../../core/domain/audio/audio_capture.dart';
+import '../../../core/domain/audio/capture_format.dart';
+import '../../../core/domain/audio/capture_health.dart';
 import '../../../core/domain/audio/pcm_chunk.dart';
 import '../../../core/domain/persistence/recording_sink.dart';
+import '../../../core/domain/persistence/recording_locator.dart';
+import '../../../core/domain/persistence/recording_store.dart';
 import '../../../core/domain/persistence/session_repository.dart';
 import '../../../core/domain/practice/practice_template.dart';
 import '../../../core/errors/failure.dart';
 import '../domain/practice_session_state.dart';
+import '../../session_result/application/session_result_calculator.dart';
 
 final class PracticeSessionRequest {
   const PracticeSessionRequest({
@@ -42,6 +48,7 @@ final class PracticeSessionCoordinator {
     required AudioCapture audioCapture,
     required AnalysisEngine analysisEngine,
     required RecordingSink recordingSink,
+    required RecordingStore recordingStore,
     required SessionRepository sessionRepository,
     int maxQueuedSamples = 12000,
     PracticeSessionStateMachine stateMachine =
@@ -51,6 +58,7 @@ final class PracticeSessionCoordinator {
       audioCapture: audioCapture,
       analysisEngine: analysisEngine,
       recordingSink: recordingSink,
+      recordingStore: recordingStore,
       sessionRepository: sessionRepository,
       maxQueuedSamples: maxQueuedSamples,
       stateMachine: stateMachine,
@@ -61,6 +69,7 @@ final class PracticeSessionCoordinator {
     required this._audioCapture,
     required this._analysisEngine,
     required this._recordingSink,
+    required this._recordingStore,
     required this._sessionRepository,
     required this.maxQueuedSamples,
     required this._stateMachine,
@@ -71,23 +80,43 @@ final class PracticeSessionCoordinator {
   final AudioCapture _audioCapture;
   final AnalysisEngine _analysisEngine;
   final RecordingSink _recordingSink;
+  final RecordingStore _recordingStore;
   final SessionRepository _sessionRepository;
   final PracticeSessionStateMachine _stateMachine;
   final int maxQueuedSamples;
   final _BoundedPcmQueue _analysisQueue;
   final _BoundedPcmQueue _recordingQueue;
+  final StreamController<AnalysisFrame> _realtimeFrames =
+      StreamController<AnalysisFrame>.broadcast(sync: true);
+  final StreamController<CaptureHealth> _captureHealth =
+      StreamController<CaptureHealth>.broadcast(sync: true);
+  final StreamController<AnalysisWorkerMetrics> _workerMetrics =
+      StreamController<AnalysisWorkerMetrics>.broadcast(sync: true);
 
   PracticeSessionState _state = const Idle();
   PracticeSessionRequest? _request;
   CaptureSession? _captureSession;
   StreamSubscription<PcmChunk>? _chunkSubscription;
   StreamSubscription? _healthSubscription;
+  StreamSubscription<AnalysisWorkerMetrics>? _workerMetricsSubscription;
   bool _analysisDraining = false;
   bool _recordingDraining = false;
   int _droppedSamples = 0;
   bool _hasDiscontinuity = false;
+  CaptureFormat? _analysisFormat;
+  int? _expectedSequenceNumber;
+  int? _expectedSampleIndex;
+  bool _resumeDiscontinuityPending = false;
 
   PracticeSessionState get state => _state;
+
+  /// Raw production frames for the next card's UI decimator. Presentation must
+  /// not listen to this 100 Hz stream directly.
+  Stream<AnalysisFrame> get realtimeFrames => _realtimeFrames.stream;
+
+  Stream<CaptureHealth> get captureHealth => _captureHealth.stream;
+
+  Stream<AnalysisWorkerMetrics> get workerMetrics => _workerMetrics.stream;
 
   QueueAccounting get analysisQueueAccounting => QueueAccounting(
     droppedSamples: _droppedSamples,
@@ -119,19 +148,23 @@ final class PracticeSessionCoordinator {
     }
 
     try {
+      final captureSession = await _audioCapture.start(request.captureRequest);
+      _captureSession = captureSession;
       await _analysisEngine.initialize(
-        AnalysisConfig(
-          inputFormatSampleRate: request.captureRequest.format.sampleRate,
-        ),
+        AnalysisConfig(inputFormat: captureSession.effectiveFormat),
       );
+      _analysisFormat = captureSession.effectiveFormat;
+      await _workerMetricsSubscription?.cancel();
+      _workerMetricsSubscription = _analysisEngine.workerMetricsStream.listen(
+        _workerMetrics.add,
+      );
+      _workerMetrics.add(_analysisEngine.workerMetrics);
       await _recordingSink.open(
         RecordingMetadata(
           sessionId: request.sessionId,
           startedAt: request.startedAt,
         ),
       );
-      final captureSession = await _audioCapture.start(request.captureRequest);
-      _captureSession = captureSession;
       _chunkSubscription = captureSession.pcmChunks.listen(
         _onPcmChunk,
         onError: _onCaptureStreamError,
@@ -140,6 +173,9 @@ final class PracticeSessionCoordinator {
       _state = _stateMachine.transition(_state, const CaptureStarted());
     } on CaptureFailure catch (failure) {
       _state = _stateMachine.transition(_state, CaptureFailedEvent(failure));
+    } on AnalysisFailure catch (failure) {
+      await _stopCapture();
+      _state = _stateMachine.transition(_state, AnalysisFailedEvent(failure));
     } catch (_) {
       _state = _stateMachine.transition(
         _state,
@@ -163,6 +199,7 @@ final class PracticeSessionCoordinator {
       throw InvalidSessionTransition(from: _state.kind.name, event: 'resume');
     }
     await _captureSession!.resume();
+    _resumeDiscontinuityPending = true;
     _state = _stateMachine.transition(_state, const ResumeRequested());
     return _state;
   }
@@ -200,6 +237,10 @@ final class PracticeSessionCoordinator {
   Future<void> dispose() async {
     await _stopCapture();
     await _analysisEngine.dispose();
+    await _workerMetricsSubscription?.cancel();
+    await _realtimeFrames.close();
+    await _captureHealth.close();
+    await _workerMetrics.close();
   }
 
   Future<PracticeSessionState> _finalize() async {
@@ -207,20 +248,31 @@ final class PracticeSessionCoordinator {
     if (request == null || _state is! Finalizing) {
       return _state;
     }
+    RecordingLocator? recording;
     try {
       final finalized = await _analysisEngine.finish();
-      final recording = await _recordingSink.finalize();
-      final flags = <AnalysisQualityFlag>{};
+      recording = await _recordingSink.finalize();
+      final flags = <AnalysisQualityFlag>{
+        ...finalized.segmentSummary.qualityFlags,
+      };
       if (_hasDiscontinuity) {
         flags.add(AnalysisQualityFlag.discontinuity);
       }
       if (_droppedSamples > 0) {
         flags.add(AnalysisQualityFlag.droppedSamples);
       }
-      final summary = SessionSummary(
-        validFrameCount: finalized.featureSeries.frames.length,
-        totalFrameCount: finalized.featureSeries.frames.length,
-        qualityFlags: flags,
+      final summary = withTargetHitRate(
+        segmentSummary: SessionSummary(
+          validFrameCount: finalized.segmentSummary.validFrameCount,
+          totalFrameCount: finalized.segmentSummary.totalFrameCount,
+          droppedSamples: finalized.segmentSummary.droppedSamples,
+          pitchStability: finalized.segmentSummary.pitchStability,
+          levelStability: finalized.segmentSummary.levelStability,
+          onsetDelaySamples: finalized.segmentSummary.onsetDelaySamples,
+          qualityFlags: flags,
+        ),
+        frames: finalized.featureSeries.frames,
+        target: request.template.target,
       );
       await _sessionRepository.save(
         PracticeSessionRecord(
@@ -234,6 +286,7 @@ final class PracticeSessionCoordinator {
       );
       _state = _stateMachine.transition(_state, const FinalizationSucceeded());
     } catch (_) {
+      await _discardFailedRecording(recording);
       _failFinalization(
         const FinalizationFailure(FinalizationFailureReason.unknown),
       );
@@ -241,10 +294,49 @@ final class PracticeSessionCoordinator {
     return _state;
   }
 
+  Future<void> _discardFailedRecording(RecordingLocator? recording) async {
+    if (recording != null) {
+      try {
+        await _recordingStore.delete(recording);
+      } catch (_) {
+        // Native sinks also retain enough state to remove a finalized file.
+        // Recovery handles any remaining durable tombstone on the next start.
+      }
+    }
+    try {
+      await _recordingSink.abort();
+    } catch (_) {
+      // The session already transitions to a typed finalization failure.
+    }
+  }
+
   void _onPcmChunk(PcmChunk chunk) {
     if (_state is! Running) {
       return;
     }
+    final analysisFormat = _analysisFormat;
+    if (analysisFormat == null || chunk.format != analysisFormat) {
+      _failAnalysis(const AnalysisFailure(AnalysisFailureReason.formatChanged));
+      return;
+    }
+    final expectedSequence = _expectedSequenceNumber;
+    final expectedSample = _expectedSampleIndex;
+    final sequenceGap =
+        expectedSequence != null && chunk.sequenceNumber != expectedSequence;
+    final sampleGap =
+        expectedSample != null && chunk.firstSampleIndex != expectedSample;
+    final dropped =
+        expectedSample != null && chunk.firstSampleIndex > expectedSample
+        ? chunk.firstSampleIndex - expectedSample
+        : 0;
+    chunk.droppedSamplesBefore = dropped;
+    chunk.discontinuityBefore =
+        _resumeDiscontinuityPending || sequenceGap || sampleGap;
+    _resumeDiscontinuityPending = false;
+    _expectedSequenceNumber = chunk.sequenceNumber + 1;
+    _expectedSampleIndex = chunk.endSampleIndexExclusive;
+    _droppedSamples += dropped;
+    _hasDiscontinuity = _hasDiscontinuity || chunk.discontinuityBefore;
     final analysisResult = _analysisQueue.add(chunk);
     _droppedSamples += analysisResult.droppedSamples;
     _hasDiscontinuity = _hasDiscontinuity || analysisResult.droppedSamples > 0;
@@ -262,7 +354,15 @@ final class PracticeSessionCoordinator {
     _scheduleRecordingDrain();
   }
 
-  void _onCaptureHealth(Object _) {}
+  void _onCaptureHealth(CaptureHealth health) {
+    if (!_captureHealth.isClosed) {
+      _captureHealth.add(health);
+    }
+    final analysisFormat = _analysisFormat;
+    if (analysisFormat != null && health.effectiveFormat != analysisFormat) {
+      _failAnalysis(const AnalysisFailure(AnalysisFailureReason.formatChanged));
+    }
+  }
 
   void _onCaptureStreamError(Object error, StackTrace stackTrace) {
     if (_state is Running || _state is Paused) {
@@ -287,13 +387,20 @@ final class PracticeSessionCoordinator {
     try {
       while (_analysisQueue.isNotEmpty) {
         final chunk = _analysisQueue.removeFirst();
-        await _analysisEngine.pushPcm(
+        final result = await _analysisEngine.pushPcm(
           PcmBatch(
             firstSampleIndex: chunk.firstSampleIndex,
             format: chunk.format,
             bytes: chunk.bytes,
+            droppedSamplesBefore: chunk.droppedSamplesBefore,
+            discontinuityBefore: chunk.discontinuityBefore,
           ),
         );
+        for (final frame in result.frames) {
+          if (!_realtimeFrames.isClosed) {
+            _realtimeFrames.add(frame);
+          }
+        }
       }
     } catch (_) {
       if (_state is Finalizing) {
@@ -330,9 +437,7 @@ final class PracticeSessionCoordinator {
         await _recordingSink.append(_recordingQueue.removeFirst());
       }
     } catch (_) {
-      _failFinalization(
-        const FinalizationFailure(FinalizationFailureReason.recording),
-      );
+      _failRecording();
     } finally {
       _recordingDraining = false;
       if (_recordingQueue.isNotEmpty && _state is! Failed) {
@@ -363,6 +468,30 @@ final class PracticeSessionCoordinator {
   void _failFinalization(FinalizationFailure failure) {
     if (_state is Finalizing) {
       _state = _stateMachine.transition(_state, FinalizationFailed(failure));
+    }
+  }
+
+  void _failRecording() {
+    if (_state is Finalizing) {
+      _failFinalization(
+        const FinalizationFailure(FinalizationFailureReason.recording),
+      );
+      return;
+    }
+    if (_state is Running || _state is Paused) {
+      _state = _stateMachine.transition(
+        _state,
+        const CaptureFailedEvent(CaptureFailure(CaptureFailureReason.unknown)),
+      );
+      unawaited(_recordingSink.abort());
+      unawaited(_stopCapture());
+    }
+  }
+
+  void _failAnalysis(AnalysisFailure failure) {
+    if (_state is Running || _state is Paused) {
+      _state = _stateMachine.transition(_state, AnalysisFailedEvent(failure));
+      unawaited(_stopCapture());
     }
   }
 }

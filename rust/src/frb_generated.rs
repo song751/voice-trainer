@@ -39,7 +39,7 @@ flutter_rust_bridge::frb_generated_boilerplate!(
     default_rust_auto_opaque = RustAutoOpaqueMoi,
 );
 pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_VERSION: &str = "2.12.0";
-pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -2085262526;
+pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -80312999;
 
 // Section: executor
 
@@ -47,6 +47,54 @@ pub use crate::api::simple::FLUTTER_RUST_BRIDGE_HANDLER;
 
 // Section: wire_funcs
 
+fn wire__crate__api__realtime__RealtimeAnalyzer_finish_impl(
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) -> flutter_rust_bridge::for_generated::WireSyncRust2DartSse {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_sync::<flutter_rust_bridge::for_generated::SseCodec, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "RealtimeAnalyzer_finish",
+            port: None,
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Sync,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_that = <RustOpaqueMoi<
+                flutter_rust_bridge::for_generated::RustAutoOpaqueInner<RealtimeAnalyzer>,
+            >>::sse_decode(&mut deserializer);
+            deserializer.end();
+            transform_result_sse::<_, ()>((move || {
+                let mut api_that_guard = None;
+                let decode_indices_ =
+                    flutter_rust_bridge::for_generated::lockable_compute_decode_order(vec![
+                        flutter_rust_bridge::for_generated::LockableOrderInfo::new(
+                            &api_that, 0, true,
+                        ),
+                    ]);
+                for i in decode_indices_ {
+                    match i {
+                        0 => api_that_guard = Some(api_that.lockable_decode_sync_ref_mut()),
+                        _ => unreachable!(),
+                    }
+                }
+                let mut api_that_guard = api_that_guard.unwrap();
+                let output_ok = Result::<_, ()>::Ok(
+                    crate::api::realtime::RealtimeAnalyzer::finish(&mut *api_that_guard),
+                )?;
+                Ok(output_ok)
+            })())
+        },
+    )
+}
 fn wire__crate__api__realtime__RealtimeAnalyzer_new_impl(
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
     rust_vec_len_: i32,
@@ -125,6 +173,117 @@ fn wire__crate__api__realtime__RealtimeAnalyzer_push_pcm16_impl(
                         &mut *api_that_guard,
                         api_pcm,
                     ))?;
+                Ok(output_ok)
+            })())
+        },
+    )
+}
+fn wire__crate__api__realtime__RealtimeAnalyzer_push_pcm16_at_impl(
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) -> flutter_rust_bridge::for_generated::WireSyncRust2DartSse {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_sync::<flutter_rust_bridge::for_generated::SseCodec, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "RealtimeAnalyzer_push_pcm16_at",
+            port: None,
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Sync,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_that = <RustOpaqueMoi<
+                flutter_rust_bridge::for_generated::RustAutoOpaqueInner<RealtimeAnalyzer>,
+            >>::sse_decode(&mut deserializer);
+            let api_start_sample = <u64>::sse_decode(&mut deserializer);
+            let api_pcm = <Vec<i16>>::sse_decode(&mut deserializer);
+            deserializer.end();
+            transform_result_sse::<_, ()>((move || {
+                let mut api_that_guard = None;
+                let decode_indices_ =
+                    flutter_rust_bridge::for_generated::lockable_compute_decode_order(vec![
+                        flutter_rust_bridge::for_generated::LockableOrderInfo::new(
+                            &api_that, 0, true,
+                        ),
+                    ]);
+                for i in decode_indices_ {
+                    match i {
+                        0 => api_that_guard = Some(api_that.lockable_decode_sync_ref_mut()),
+                        _ => unreachable!(),
+                    }
+                }
+                let mut api_that_guard = api_that_guard.unwrap();
+                let output_ok =
+                    Result::<_, ()>::Ok(crate::api::realtime::RealtimeAnalyzer::push_pcm16_at(
+                        &mut *api_that_guard,
+                        api_start_sample,
+                        api_pcm,
+                    ))?;
+                Ok(output_ok)
+            })())
+        },
+    )
+}
+fn wire__crate__api__realtime__RealtimeAnalyzer_push_pcm16_with_metadata_impl(
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) -> flutter_rust_bridge::for_generated::WireSyncRust2DartSse {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_sync::<flutter_rust_bridge::for_generated::SseCodec, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "RealtimeAnalyzer_push_pcm16_with_metadata",
+            port: None,
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Sync,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_that = <RustOpaqueMoi<
+                flutter_rust_bridge::for_generated::RustAutoOpaqueInner<RealtimeAnalyzer>,
+            >>::sse_decode(&mut deserializer);
+            let api_start_sample = <u64>::sse_decode(&mut deserializer);
+            let api_pcm = <Vec<i16>>::sse_decode(&mut deserializer);
+            let api_dropped_samples_before = <u32>::sse_decode(&mut deserializer);
+            let api_discontinuity_before = <bool>::sse_decode(&mut deserializer);
+            deserializer.end();
+            transform_result_sse::<_, ()>((move || {
+                let mut api_that_guard = None;
+                let decode_indices_ =
+                    flutter_rust_bridge::for_generated::lockable_compute_decode_order(vec![
+                        flutter_rust_bridge::for_generated::LockableOrderInfo::new(
+                            &api_that, 0, true,
+                        ),
+                    ]);
+                for i in decode_indices_ {
+                    match i {
+                        0 => api_that_guard = Some(api_that.lockable_decode_sync_ref_mut()),
+                        _ => unreachable!(),
+                    }
+                }
+                let mut api_that_guard = api_that_guard.unwrap();
+                let output_ok = Result::<_, ()>::Ok(
+                    crate::api::realtime::RealtimeAnalyzer::push_pcm16_with_metadata(
+                        &mut *api_that_guard,
+                        api_start_sample,
+                        api_pcm,
+                        api_dropped_samples_before,
+                        api_discontinuity_before,
+                    ),
+                )?;
                 Ok(output_ok)
             })())
         },
@@ -382,6 +541,74 @@ impl SseDecode for Option<f32> {
     }
 }
 
+impl SseDecode for Option<crate::api::realtime::RobustStabilityDto> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        if (<bool>::sse_decode(deserializer)) {
+            return Some(<crate::api::realtime::RobustStabilityDto>::sse_decode(
+                deserializer,
+            ));
+        } else {
+            return None;
+        }
+    }
+}
+
+impl SseDecode for Option<u64> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        if (<bool>::sse_decode(deserializer)) {
+            return Some(<u64>::sse_decode(deserializer));
+        } else {
+            return None;
+        }
+    }
+}
+
+impl SseDecode for crate::api::realtime::RobustStabilityDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_median = <f32>::sse_decode(deserializer);
+        let mut var_medianAbsoluteDeviation = <f32>::sse_decode(deserializer);
+        let mut var_slopePerSecond = <f32>::sse_decode(deserializer);
+        let mut var_frameCount = <u32>::sse_decode(deserializer);
+        return crate::api::realtime::RobustStabilityDto {
+            median: var_median,
+            median_absolute_deviation: var_medianAbsoluteDeviation,
+            slope_per_second: var_slopePerSecond,
+            frame_count: var_frameCount,
+        };
+    }
+}
+
+impl SseDecode for crate::api::realtime::SegmentSummaryDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_startSample = <Option<u64>>::sse_decode(deserializer);
+        let mut var_endSample = <Option<u64>>::sse_decode(deserializer);
+        let mut var_frameCount = <u32>::sse_decode(deserializer);
+        let mut var_validFrameCount = <u32>::sse_decode(deserializer);
+        let mut var_droppedSamples = <u64>::sse_decode(deserializer);
+        let mut var_qualityFlags = <u16>::sse_decode(deserializer);
+        let mut var_pitchStability =
+            <Option<crate::api::realtime::RobustStabilityDto>>::sse_decode(deserializer);
+        let mut var_levelStability =
+            <Option<crate::api::realtime::RobustStabilityDto>>::sse_decode(deserializer);
+        let mut var_onsetDelaySamples = <Option<u64>>::sse_decode(deserializer);
+        return crate::api::realtime::SegmentSummaryDto {
+            start_sample: var_startSample,
+            end_sample: var_endSample,
+            frame_count: var_frameCount,
+            valid_frame_count: var_validFrameCount,
+            dropped_samples: var_droppedSamples,
+            quality_flags: var_qualityFlags,
+            pitch_stability: var_pitchStability,
+            level_stability: var_levelStability,
+            onset_delay_samples: var_onsetDelaySamples,
+        };
+    }
+}
+
 impl SseDecode for u16 {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -450,15 +677,26 @@ fn pde_ffi_dispatcher_sync_impl(
 ) -> flutter_rust_bridge::for_generated::WireSyncRust2DartSse {
     // Codec=Pde (Serialization + dispatch), see doc to use other codecs
     match func_id {
-        1 => wire__crate__api__realtime__RealtimeAnalyzer_new_impl(ptr, rust_vec_len, data_len),
-        2 => wire__crate__api__realtime__RealtimeAnalyzer_push_pcm16_impl(
+        1 => wire__crate__api__realtime__RealtimeAnalyzer_finish_impl(ptr, rust_vec_len, data_len),
+        2 => wire__crate__api__realtime__RealtimeAnalyzer_new_impl(ptr, rust_vec_len, data_len),
+        3 => wire__crate__api__realtime__RealtimeAnalyzer_push_pcm16_impl(
             ptr,
             rust_vec_len,
             data_len,
         ),
-        3 => wire__crate__api__realtime__RealtimeAnalyzer_reset_impl(ptr, rust_vec_len, data_len),
-        4 => wire__crate__api__simple__greet_impl(ptr, rust_vec_len, data_len),
-        5 => wire__crate__api__simple__init_app_impl(ptr, rust_vec_len, data_len),
+        4 => wire__crate__api__realtime__RealtimeAnalyzer_push_pcm16_at_impl(
+            ptr,
+            rust_vec_len,
+            data_len,
+        ),
+        5 => wire__crate__api__realtime__RealtimeAnalyzer_push_pcm16_with_metadata_impl(
+            ptr,
+            rust_vec_len,
+            data_len,
+        ),
+        6 => wire__crate__api__realtime__RealtimeAnalyzer_reset_impl(ptr, rust_vec_len, data_len),
+        7 => wire__crate__api__simple__greet_impl(ptr, rust_vec_len, data_len),
+        8 => wire__crate__api__simple__init_app_impl(ptr, rust_vec_len, data_len),
         _ => unreachable!(),
     }
 }
@@ -504,6 +742,57 @@ impl flutter_rust_bridge::IntoIntoDart<crate::api::realtime::AnalysisFrameDto>
     for crate::api::realtime::AnalysisFrameDto
 {
     fn into_into_dart(self) -> crate::api::realtime::AnalysisFrameDto {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::api::realtime::RobustStabilityDto {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.median.into_into_dart().into_dart(),
+            self.median_absolute_deviation.into_into_dart().into_dart(),
+            self.slope_per_second.into_into_dart().into_dart(),
+            self.frame_count.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::api::realtime::RobustStabilityDto
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::api::realtime::RobustStabilityDto>
+    for crate::api::realtime::RobustStabilityDto
+{
+    fn into_into_dart(self) -> crate::api::realtime::RobustStabilityDto {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::api::realtime::SegmentSummaryDto {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.start_sample.into_into_dart().into_dart(),
+            self.end_sample.into_into_dart().into_dart(),
+            self.frame_count.into_into_dart().into_dart(),
+            self.valid_frame_count.into_into_dart().into_dart(),
+            self.dropped_samples.into_into_dart().into_dart(),
+            self.quality_flags.into_into_dart().into_dart(),
+            self.pitch_stability.into_into_dart().into_dart(),
+            self.level_stability.into_into_dart().into_dart(),
+            self.onset_delay_samples.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::api::realtime::SegmentSummaryDto
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::api::realtime::SegmentSummaryDto>
+    for crate::api::realtime::SegmentSummaryDto
+{
+    fn into_into_dart(self) -> crate::api::realtime::SegmentSummaryDto {
         self
     }
 }
@@ -615,6 +904,57 @@ impl SseEncode for Option<f32> {
         if let Some(value) = self {
             <f32>::sse_encode(value, serializer);
         }
+    }
+}
+
+impl SseEncode for Option<crate::api::realtime::RobustStabilityDto> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <bool>::sse_encode(self.is_some(), serializer);
+        if let Some(value) = self {
+            <crate::api::realtime::RobustStabilityDto>::sse_encode(value, serializer);
+        }
+    }
+}
+
+impl SseEncode for Option<u64> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <bool>::sse_encode(self.is_some(), serializer);
+        if let Some(value) = self {
+            <u64>::sse_encode(value, serializer);
+        }
+    }
+}
+
+impl SseEncode for crate::api::realtime::RobustStabilityDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <f32>::sse_encode(self.median, serializer);
+        <f32>::sse_encode(self.median_absolute_deviation, serializer);
+        <f32>::sse_encode(self.slope_per_second, serializer);
+        <u32>::sse_encode(self.frame_count, serializer);
+    }
+}
+
+impl SseEncode for crate::api::realtime::SegmentSummaryDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <Option<u64>>::sse_encode(self.start_sample, serializer);
+        <Option<u64>>::sse_encode(self.end_sample, serializer);
+        <u32>::sse_encode(self.frame_count, serializer);
+        <u32>::sse_encode(self.valid_frame_count, serializer);
+        <u64>::sse_encode(self.dropped_samples, serializer);
+        <u16>::sse_encode(self.quality_flags, serializer);
+        <Option<crate::api::realtime::RobustStabilityDto>>::sse_encode(
+            self.pitch_stability,
+            serializer,
+        );
+        <Option<crate::api::realtime::RobustStabilityDto>>::sse_encode(
+            self.level_stability,
+            serializer,
+        );
+        <Option<u64>>::sse_encode(self.onset_delay_samples, serializer);
     }
 }
 

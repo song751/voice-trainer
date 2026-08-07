@@ -8,14 +8,21 @@ import '../../core/domain/analysis/feature_series.dart';
 import '../../core/domain/audio/pcm_chunk.dart';
 import 'analysis_frame_dto_mapper.dart';
 import 'analysis_worker_supervisor.dart';
+import 'segment_summary_dto_mapper.dart';
 
 @JS('VoiceTrainerAnalysisWorker')
 extension type _WebWorkerClient._(JSObject _) implements JSObject {
   external factory _WebWorkerClient();
 
   external JSPromise<JSString> initialize(int sampleRate);
-  external JSPromise<JSString> pushPcm(JSUint8Array pcm);
+  external JSPromise<JSString> pushPcm(
+    JSUint8Array pcm,
+    int startSample,
+    int droppedSamplesBefore,
+    bool discontinuityBefore,
+  );
   external JSPromise<JSString> reset();
+  external JSPromise<JSString> finish();
   external JSPromise<JSString> dispose();
   external void terminate();
 }
@@ -25,48 +32,49 @@ extension type _WebWorkerClient._(JSObject _) implements JSObject {
 final class WebWorkerAnalysisWorker implements AnalysisWorker {
   final _WebWorkerClient _client = _WebWorkerClient();
   final List<AnalysisFrame> _frames = <AnalysisFrame>[];
-  int? _originSampleIndex;
-  int? _nextInputSampleIndex;
 
   @override
   Future<void> initialize(AnalysisConfig config) async {
     await _client.initialize(config.inputFormatSampleRate).toDart;
     _frames.clear();
-    _originSampleIndex = null;
-    _nextInputSampleIndex = null;
   }
 
   @override
   Future<AnalysisBatch> pushPcm(PcmBatch batch) async {
-    if (_nextInputSampleIndex != null &&
-        batch.firstSampleIndex != _nextInputSampleIndex) {
-      await _client.reset().toDart;
-      _originSampleIndex = batch.firstSampleIndex;
-    }
-    _originSampleIndex ??= batch.firstSampleIndex;
-    _nextInputSampleIndex = batch.firstSampleIndex + batch.frameCount;
-    final raw = (await _client.pushPcm(batch.bytes.toJS).toDart).toDart;
+    final raw =
+        (await _client
+                .pushPcm(
+                  batch.bytes.toJS,
+                  batch.firstSampleIndex,
+                  batch.droppedSamplesBefore,
+                  batch.discontinuityBefore,
+                )
+                .toDart)
+            .toDart;
     final decoded = jsonDecode(raw) as List<dynamic>;
     final frames = decoded
         .cast<Map<String, dynamic>>()
-        .map((frame) => _mapFrame(frame, _originSampleIndex!))
+        .map(_mapFrame)
         .toList(growable: false);
     _frames.addAll(frames);
     return AnalysisBatch(frames);
   }
 
   @override
-  Future<AnalysisFinalization> finish() async => AnalysisFinalization(
-    featureSeries: FeatureSeries(frameRateHz: 100, frames: _frames),
-    finalFrames: _frames,
-  );
+  Future<AnalysisFinalization> finish() async {
+    final raw = (await _client.finish().toDart).toDart;
+    final summary = jsonDecode(raw) as Map<String, dynamic>;
+    return AnalysisFinalization(
+      featureSeries: FeatureSeries(frameRateHz: 100, frames: _frames),
+      finalFrames: _frames,
+      segmentSummary: mapWebSegmentSummary(summary),
+    );
+  }
 
   @override
   Future<void> reset() async {
     await _client.reset().toDart;
     _frames.clear();
-    _originSampleIndex = null;
-    _nextInputSampleIndex = null;
   }
 
   @override
@@ -81,21 +89,18 @@ final class WebWorkerAnalysisWorker implements AnalysisWorker {
   void terminate() {
     _client.terminate();
     _frames.clear();
-    _originSampleIndex = null;
-    _nextInputSampleIndex = null;
   }
 
-  AnalysisFrame _mapFrame(Map<String, dynamic> frame, int origin) =>
-      mapAnalysisFrameDto(
-        startSample: origin + (frame['startSample'] as num).toInt(),
-        rmsDbfs: (frame['rmsDbfs'] as num).toDouble(),
-        peakDbfs: (frame['peakDbfs'] as num).toDouble(),
-        pitchClarity: (frame['pitchClarity'] as num).toDouble(),
-        voiced: frame['voiced'] as bool,
-        f0Hz: (frame['pitchHz'] as num?)?.toDouble(),
-        bandPowersDb: (frame['bandPowersDbfs'] as List<dynamic>)
-            .map((value) => (value as num).toDouble())
-            .toList(growable: false),
-        qualityFlags: (frame['qualityFlags'] as num).toInt(),
-      );
+  AnalysisFrame _mapFrame(Map<String, dynamic> frame) => mapAnalysisFrameDto(
+    startSample: (frame['startSample'] as num).toInt(),
+    rmsDbfs: (frame['rmsDbfs'] as num).toDouble(),
+    peakDbfs: (frame['peakDbfs'] as num).toDouble(),
+    pitchClarity: (frame['pitchClarity'] as num).toDouble(),
+    voiced: frame['voiced'] as bool,
+    f0Hz: (frame['pitchHz'] as num?)?.toDouble(),
+    bandPowersDb: (frame['bandPowersDbfs'] as List<dynamic>)
+        .map((value) => (value as num).toDouble())
+        .toList(growable: false),
+    qualityFlags: (frame['qualityFlags'] as num).toInt(),
+  );
 }

@@ -30,29 +30,6 @@ abstract interface class AnalysisWorker {
 
 typedef AnalysisWorkerFactory = Future<AnalysisWorker> Function();
 
-enum AnalysisWorkerState {
-  uninitialized,
-  primary,
-  restartOnce,
-  fallback,
-  terminalFailure,
-  disposed,
-}
-
-final class AnalysisWorkerMetrics {
-  const AnalysisWorkerMetrics({
-    required this.droppedSamples,
-    required this.restartCount,
-    required this.usingFallback,
-    required this.state,
-  });
-
-  final int droppedSamples;
-  final int restartCount;
-  final bool usingFallback;
-  final AnalysisWorkerState state;
-}
-
 /// Applies bounded backpressure and follows a finite recovery state machine:
 /// `primary -> restartOnce -> fallback -> terminalFailure`.
 ///
@@ -76,6 +53,8 @@ final class AnalysisWorkerSupervisor implements AnalysisEngine {
   final Duration requestTimeout;
   final Duration drainTimeout;
   final List<_PendingBatch> _queue = <_PendingBatch>[];
+  final StreamController<AnalysisWorkerMetrics> _metricsController =
+      StreamController<AnalysisWorkerMetrics>.broadcast(sync: true);
 
   AnalysisWorker? _worker;
   AnalysisConfig? _config;
@@ -94,6 +73,14 @@ final class AnalysisWorkerSupervisor implements AnalysisEngine {
   );
 
   @override
+  AnalysisWorkerMetrics get workerMetrics => metrics;
+
+  Stream<AnalysisWorkerMetrics> get metricsStream => _metricsController.stream;
+
+  @override
+  Stream<AnalysisWorkerMetrics> get workerMetricsStream => metricsStream;
+
+  @override
   Future<void> initialize(AnalysisConfig config) async {
     _ensureNotDisposed();
     if (_worker != null || _state != AnalysisWorkerState.uninitialized) {
@@ -103,6 +90,7 @@ final class AnalysisWorkerSupervisor implements AnalysisEngine {
     _state = AnalysisWorkerState.primary;
     try {
       _worker = await _createAndInitialize(primaryWorkerFactory, 'initialize');
+      _publishMetrics();
     } catch (error, stackTrace) {
       await _recoverFromFailure(error, stackTrace);
     }
@@ -123,6 +111,7 @@ final class AnalysisWorkerSupervisor implements AnalysisEngine {
     final pending = _PendingBatch(batch);
     if (batch.frameCount > maxQueuedSamples) {
       _droppedSamples += batch.frameCount;
+      _publishMetrics();
       pending.complete(AnalysisBatch(const []));
       return pending.future;
     }
@@ -131,6 +120,7 @@ final class AnalysisWorkerSupervisor implements AnalysisEngine {
       final dropped = _queue.removeAt(0);
       _queuedSamples -= dropped.batch.frameCount;
       _droppedSamples += dropped.batch.frameCount;
+      _publishMetrics();
       dropped.complete(AnalysisBatch(const []));
     }
     _queue.add(pending);
@@ -152,6 +142,7 @@ final class AnalysisWorkerSupervisor implements AnalysisEngine {
     await _waitForDrain();
     await _requestWithRecovery('reset', (worker) => worker.reset());
     _droppedSamples = 0;
+    _publishMetrics();
   }
 
   @override
@@ -167,6 +158,7 @@ final class AnalysisWorkerSupervisor implements AnalysisEngine {
     _queue.clear();
     _queuedSamples = 0;
     _terminateCurrentWorker();
+    unawaited(_metricsController.close());
     return Future<void>.value();
   }
 
@@ -226,6 +218,7 @@ final class AnalysisWorkerSupervisor implements AnalysisEngine {
         _restartCount += 1;
         try {
           _worker = await _createAndInitialize(primaryWorkerFactory, 'restart');
+          _publishMetrics();
           return;
         } catch (restartError, restartStackTrace) {
           await _activateFallback(restartError, restartStackTrace);
@@ -252,6 +245,7 @@ final class AnalysisWorkerSupervisor implements AnalysisEngine {
     try {
       _worker = await _createAndInitialize(factory, 'fallback initialize');
       _state = AnalysisWorkerState.fallback;
+      _publishMetrics();
     } catch (fallbackError, fallbackStackTrace) {
       _enterTerminalFailure(fallbackError, fallbackStackTrace);
     }
@@ -273,6 +267,7 @@ final class AnalysisWorkerSupervisor implements AnalysisEngine {
 
   Never _enterTerminalFailure(Object error, StackTrace stackTrace) {
     _state = AnalysisWorkerState.terminalFailure;
+    _publishMetrics();
     Error.throwWithStackTrace(
       StateError('Analysis worker reached terminal failure: $error'),
       stackTrace,
@@ -326,6 +321,12 @@ final class AnalysisWorkerSupervisor implements AnalysisEngine {
   void _ensureNotDisposed() {
     if (_disposed) {
       throw StateError('Analysis worker has been disposed.');
+    }
+  }
+
+  void _publishMetrics() {
+    if (!_metricsController.isClosed) {
+      _metricsController.add(metrics);
     }
   }
 }

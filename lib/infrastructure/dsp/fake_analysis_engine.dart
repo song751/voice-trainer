@@ -2,21 +2,44 @@ import '../../core/domain/analysis/analysis_config.dart';
 import '../../core/domain/analysis/analysis_engine.dart';
 import '../../core/domain/analysis/analysis_frame.dart';
 import '../../core/domain/analysis/feature_series.dart';
+import '../../core/domain/analysis/session_summary.dart';
 import '../../core/domain/audio/pcm_chunk.dart';
+import '../../core/errors/failure.dart';
 
 /// Deterministic analysis engine that emits one valid frame per PCM batch.
 final class FakeAnalysisEngine implements AnalysisEngine {
-  FakeAnalysisEngine({this.beforePush, this.failPushes = 0});
+  FakeAnalysisEngine({
+    this.beforePush,
+    this.failPushes = 0,
+    this.initializeFailure,
+  });
 
   Future<void> Function()? beforePush;
   int failPushes;
+  AnalysisFailure? initializeFailure;
   AnalysisConfig? config;
   final List<PcmBatch> receivedBatches = <PcmBatch>[];
   final List<AnalysisFrame> _frames = <AnalysisFrame>[];
   bool _disposed = false;
 
   @override
+  AnalysisWorkerMetrics get workerMetrics => const AnalysisWorkerMetrics(
+    droppedSamples: 0,
+    restartCount: 0,
+    usingFallback: false,
+    state: AnalysisWorkerState.primary,
+  );
+
+  @override
+  Stream<AnalysisWorkerMetrics> get workerMetricsStream =>
+      const Stream<AnalysisWorkerMetrics>.empty();
+
+  @override
   Future<void> initialize(AnalysisConfig config) async {
+    final failure = initializeFailure;
+    if (failure != null) {
+      throw failure;
+    }
     this.config = config;
   }
 
@@ -39,6 +62,7 @@ final class FakeAnalysisEngine implements AnalysisEngine {
       voiced: true,
       algorithmVersion: 'fake-v1',
       f0Hz: 220,
+      pitchCents: 5700,
     );
     _frames.add(frame);
     return AnalysisBatch(<AnalysisFrame>[frame]);
@@ -48,6 +72,11 @@ final class FakeAnalysisEngine implements AnalysisEngine {
   Future<AnalysisFinalization> finish() async => AnalysisFinalization(
     featureSeries: FeatureSeries(frameRateHz: 100, frames: _frames),
     finalFrames: const <AnalysisFrame>[],
+    segmentSummary: SessionSummary(
+      validFrameCount: _frames.length,
+      totalFrameCount: _frames.length,
+      qualityFlags: const {},
+    ),
   );
 
   @override

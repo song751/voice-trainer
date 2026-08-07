@@ -9,6 +9,7 @@ import '../../../core/domain/analysis/analysis_quality_flag.dart';
 import '../../../core/domain/analysis/feature_series.dart';
 import '../../../core/domain/analysis/session_summary.dart';
 import '../../../core/domain/persistence/recording_locator.dart';
+import '../../../core/domain/persistence/recording_store.dart';
 import '../../../core/domain/persistence/session_repository.dart';
 import '../../../core/domain/practice/practice_target.dart';
 import '../../../core/domain/practice/practice_template.dart';
@@ -20,9 +21,11 @@ import '../database/app_database.dart';
 final class DriftSessionRepository implements SessionRepository {
   DriftSessionRepository(
     this._database, {
+    required this.recordingStore,
     this.codec = const FeatureBlobCodec(),
   });
   final AppDatabase _database;
+  final RecordingStore recordingStore;
   final FeatureBlobCodec codec;
 
   @override
@@ -30,6 +33,7 @@ final class DriftSessionRepository implements SessionRepository {
     final frames = record.features.frames;
     final timeline = _timelineFor(record.features);
     _ensureSupportedFrames(frames);
+    final featureSchemaVersion = _schemaVersionFor(frames);
     final template = jsonEncode({
       'id': record.template.id,
       'version': record.template.version,
@@ -48,6 +52,7 @@ final class DriftSessionRepository implements SessionRepository {
         qualityFlagsJson: jsonEncode(
           record.summary.qualityFlags.map((flag) => flag.name).toList(),
         ),
+        summaryJson: Value(_encodeSummary(record.summary)),
       ),
       recording: record.recording == null
           ? null
@@ -67,8 +72,13 @@ final class DriftSessionRepository implements SessionRepository {
         startSampleIndex: timeline.startSampleIndex,
         samplePeriodSamples: timeline.samplePeriodSamples,
         algorithmVersion: timeline.algorithmVersion,
+        featureSchemaVersion: Value(featureSchemaVersion),
       ),
-      features: _columnsFor(frames, record.features.frameRateHz),
+      features: _columnsFor(
+        frames,
+        record.features.frameRateHz,
+        featureSchemaVersion,
+      ),
     );
   }
 
@@ -114,11 +124,7 @@ final class DriftSessionRepository implements SessionRepository {
           templateMap['review'] as String,
         ),
       ),
-      summary: SessionSummary(
-        validFrameCount: session.validFrameCount,
-        totalFrameCount: session.totalFrameCount,
-        qualityFlags: flags,
-      ),
+      summary: _decodeSummary(session.summaryJson, session, flags),
       features: FeatureSeries(
         frameRateHz: (Duration.microsecondsPerSecond / f0.samplePeriodMicros)
             .round(),
@@ -134,6 +140,12 @@ final class DriftSessionRepository implements SessionRepository {
             algorithmVersion: metadata.algorithmVersion,
             f0Hz: f0.validity[i] ? f0.values[i] : null,
             pitchCents: cents.validity[i] ? cents.values[i] : null,
+            bandPowersDb: _bandPowersFor(
+              columns,
+              metadata.featureSchemaVersion,
+              i,
+              metadata.frameCount,
+            ),
             qualityFlags: _qualityFlags(quality.values[i].round()),
           ),
         ),
@@ -149,9 +161,42 @@ final class DriftSessionRepository implements SessionRepository {
     );
   }
 
+  @override
+  Future<List<PracticeSessionRecord>> listRecent({int limit = 20}) async {
+    if (limit <= 0) return const <PracticeSessionRecord>[];
+    final sessions = await _database.recentSessions(limit: limit);
+    final records = <PracticeSessionRecord>[];
+    for (final session in sessions) {
+      final record = await findById(session.id);
+      if (record != null) records.add(record);
+    }
+    return List<PracticeSessionRecord>.unmodifiable(records);
+  }
+
+  @override
+  Future<void> deleteRecording(String id) async {
+    final recording = await _database.recordingForSession(id);
+    if (recording == null) return;
+    await _database.deleteRecordingWithTombstone(id);
+    await recordingStore.delete(
+      RecordingLocator(
+        value: recording.locator,
+        storageKind: RecordingStorageKind.values.byName(recording.storageKind),
+      ),
+    );
+    await _database.finalizeRecordingDeletion(id);
+  }
+
+  @override
+  Future<void> delete(String id) async {
+    await deleteRecording(id);
+    await _database.deleteSessionData(id);
+  }
+
   List<FeatureSeriesTableCompanion> _columnsFor(
     List<AnalysisFrame> frames,
     int frameRateHz,
+    int featureSchemaVersion,
   ) {
     FeatureSeriesTableCompanion column(
       String kind,
@@ -212,6 +257,13 @@ final class DriftSessionRepository implements SessionRepository {
             .toList(),
         List<bool>.filled(frames.length, true),
       ),
+      if (featureSchemaVersion >= _featureSchemaVersion)
+        for (var band = 0; band < _bandCount; band++)
+          column(
+            'band_${band}_db',
+            frames.map((frame) => frame.bandPowersDb[band]).toList(),
+            List<bool>.filled(frames.length, true),
+          ),
     ];
   }
 
@@ -261,14 +313,37 @@ final class DriftSessionRepository implements SessionRepository {
   }
 
   void _ensureSupportedFrames(List<AnalysisFrame> frames) {
+    final hasBands = frames.any((frame) => frame.bandPowersDb.isNotEmpty);
     if (frames.any(
-      (frame) =>
-          frame.bandPowersDb.isNotEmpty || frame.spectrumBinsDb.isNotEmpty,
+      (frame) => frame.bandPowersDb.length != (hasBands ? _bandCount : 0),
     )) {
       throw UnsupportedError(
-        'Feature-series v1 does not yet define band or spectrum columns.',
+        'Feature-series must contain either no band powers or exactly '
+        '$_bandCount powers per frame.',
       );
     }
+    if (frames.any((frame) => frame.spectrumBinsDb.isNotEmpty)) {
+      throw UnsupportedError('Feature-series v2 does not persist UI spectrum.');
+    }
+  }
+
+  int _schemaVersionFor(List<AnalysisFrame> frames) =>
+      frames.any((frame) => frame.bandPowersDb.isNotEmpty)
+      ? _featureSchemaVersion
+      : 1;
+
+  List<double> _bandPowersFor(
+    Map<String, DecodedFeatureBlob> columns,
+    int schemaVersion,
+    int frameIndex,
+    int frameCount,
+  ) {
+    if (schemaVersion < _featureSchemaVersion) return const <double>[];
+    return List<double>.generate(
+      _bandCount,
+      (band) =>
+          _column(columns, 'band_${band}_db', frameCount).values[frameIndex],
+    );
   }
 
   int _qualityMask(Set<AnalysisQualityFlag> flags) =>
@@ -277,7 +352,58 @@ final class DriftSessionRepository implements SessionRepository {
   Set<AnalysisQualityFlag> _qualityFlags(int mask) => AnalysisQualityFlag.values
       .where((flag) => mask & (1 << flag.index) != 0)
       .toSet();
+
+  String _encodeSummary(SessionSummary summary) => jsonEncode(<String, Object?>{
+    'droppedSamples': summary.droppedSamples,
+    'targetHitRate': summary.targetHitRate,
+    'pitchStability': _encodeStability(summary.pitchStability),
+    'levelStability': _encodeStability(summary.levelStability),
+    'onsetDelaySamples': summary.onsetDelaySamples,
+  });
+
+  Map<String, Object>? _encodeStability(StabilitySummary? stability) =>
+      stability == null
+      ? null
+      : <String, Object>{
+          'median': stability.median,
+          'medianAbsoluteDeviation': stability.medianAbsoluteDeviation,
+          'slopePerSecond': stability.slopePerSecond,
+          'frameCount': stability.frameCount,
+        };
+
+  SessionSummary _decodeSummary(
+    String encoded,
+    PracticeSession session,
+    Set<AnalysisQualityFlag> flags,
+  ) {
+    final data = jsonDecode(encoded) as Map<String, dynamic>;
+    return SessionSummary(
+      validFrameCount: session.validFrameCount,
+      totalFrameCount: session.totalFrameCount,
+      droppedSamples: (data['droppedSamples'] as num?)?.toInt() ?? 0,
+      targetHitRate: (data['targetHitRate'] as num?)?.toDouble(),
+      pitchStability: _decodeStability(data['pitchStability']),
+      levelStability: _decodeStability(data['levelStability']),
+      onsetDelaySamples: (data['onsetDelaySamples'] as num?)?.toInt(),
+      qualityFlags: flags,
+    );
+  }
+
+  StabilitySummary? _decodeStability(Object? raw) {
+    if (raw == null) return null;
+    final data = raw as Map<String, dynamic>;
+    return StabilitySummary(
+      median: (data['median'] as num).toDouble(),
+      medianAbsoluteDeviation: (data['medianAbsoluteDeviation'] as num)
+          .toDouble(),
+      slopePerSecond: (data['slopePerSecond'] as num).toDouble(),
+      frameCount: (data['frameCount'] as num).toInt(),
+    );
+  }
 }
+
+const _featureSchemaVersion = 2;
+const _bandCount = 8;
 
 final class _FeatureTimeline {
   const _FeatureTimeline(

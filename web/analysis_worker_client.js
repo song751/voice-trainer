@@ -22,12 +22,21 @@ class VoiceTrainerAnalysisWorker {
     return this._request('initialize', { sampleRate });
   }
 
-  pushPcm(pcm) {
-    return this._request('pushPcm', { pcm: pcm.buffer }, [pcm.buffer]);
+  pushPcm(pcm, startSample, droppedSamplesBefore, discontinuityBefore) {
+    return this._request('pushPcm', {
+      pcm: pcm.buffer,
+      startSample,
+      droppedSamplesBefore,
+      discontinuityBefore,
+    }, [pcm.buffer]);
   }
 
   reset() {
     return this._request('reset');
+  }
+
+  finish() {
+    return this._request('finish');
   }
 
   dispose() {

@@ -72,15 +72,20 @@ impl SegmentAggregator {
                 flags = flags.union(QualityFlags::DISCONTINUITY);
                 if input.start_sample > expected_start {
                     let missing = input.start_sample - expected_start;
-                    self.dropped_samples += missing;
+                    self.dropped_samples += missing.max(input.dropped_samples as u64);
                     flags = flags.union(QualityFlags::DROPPED_SAMPLES);
+                } else {
+                    self.dropped_samples += input.dropped_samples as u64;
                 }
+            } else {
+                self.dropped_samples += input.dropped_samples as u64;
             }
+        } else {
+            self.dropped_samples += input.dropped_samples as u64;
         }
         self.start_sample.get_or_insert(input.start_sample);
         self.previous_end_sample = Some(input.start_sample + input.hop_samples as u64);
         self.frame_count += 1;
-        self.dropped_samples += input.dropped_samples as u64;
         self.quality_flags = self.quality_flags.union(flags);
         self.onset
             .push(input.start_sample, input.rms_dbfs, input.voiced, flags);
@@ -98,6 +103,19 @@ impl SegmentAggregator {
                 self.valid_pitch.push((input.start_sample, frequency_hz));
             }
         }
+    }
+
+    /// Carries a capture/worker break into the summary without pretending that
+    /// un-emitted tail windows were lost PCM. The next supplied frame is
+    /// explicitly marked discontinuous by the caller and remains excluded
+    /// from cross-breakpoint statistics.
+    pub fn mark_discontinuity(&mut self, dropped_samples: u64, resume_at_sample: u64) {
+        self.quality_flags = self.quality_flags.union(QualityFlags::DISCONTINUITY);
+        if dropped_samples > 0 {
+            self.quality_flags = self.quality_flags.union(QualityFlags::DROPPED_SAMPLES);
+            self.dropped_samples += dropped_samples;
+        }
+        self.previous_end_sample = Some(resume_at_sample);
     }
 
     pub fn finish(self) -> SegmentSummary {

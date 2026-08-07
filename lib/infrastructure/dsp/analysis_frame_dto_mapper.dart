@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import '../../core/domain/analysis/analysis_frame.dart';
 import '../../core/domain/analysis/analysis_quality_flag.dart';
 
@@ -48,10 +50,16 @@ AnalysisFrame mapAnalysisFrameDto({
     voiced: voiced,
     algorithmVersion: 'phase2-yin-spectrum-v1',
     f0Hz: f0Hz,
+    pitchCents: _midiCents(f0Hz),
     bandPowersDb: bandPowersDb,
     qualityFlags: _qualityFlags(qualityFlags),
   );
 }
+
+double? _midiCents(double? frequencyHz) =>
+    frequencyHz == null || frequencyHz <= 0
+    ? null
+    : 6900 + 1200 * (math.log(frequencyHz / 440) / math.ln2);
 
 Set<AnalysisQualityFlag> _qualityFlags(int mask) => <AnalysisQualityFlag>{
   if (mask & 0x01 != 0) AnalysisQualityFlag.clipping,

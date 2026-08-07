@@ -28,4 +28,13 @@ abstract interface class SessionRepository {
   Future<void> save(PracticeSessionRecord record);
 
   Future<PracticeSessionRecord?> findById(String id);
+
+  Future<List<PracticeSessionRecord>> listRecent({int limit = 20});
+
+  /// Removes the recording through its durable deletion path before removing
+  /// the session metadata.
+  Future<void> delete(String id);
+
+  /// Removes only the recording while retaining a session's feature history.
+  Future<void> deleteRecording(String id);
 }

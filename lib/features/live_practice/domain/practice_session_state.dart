@@ -192,6 +192,11 @@ final class PracticeSessionStateMachine {
         failure: failure,
         retryState: PracticeSessionStateKind.ready,
       ),
+      (Ready(:final sessionId), AnalysisFailedEvent(:final failure)) => Failed(
+        sessionId: sessionId,
+        failure: failure,
+        retryState: PracticeSessionStateKind.ready,
+      ),
       (Running(:final sessionId), PauseRequested()) => Paused(
         sessionId: sessionId,
       ),

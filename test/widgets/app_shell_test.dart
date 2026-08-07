@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -6,6 +8,8 @@ import 'package:voice_trainer/app/app_providers.dart';
 import 'package:voice_trainer/app/router/app_router.dart';
 import 'package:voice_trainer/app/router/route_names.dart';
 import 'package:voice_trainer/core/domain/audio/audio_capture.dart';
+import 'package:voice_trainer/core/domain/audio/capture_format.dart';
+import 'package:voice_trainer/core/domain/audio/pcm_chunk.dart';
 import 'package:voice_trainer/core/errors/app_exception.dart';
 import 'package:voice_trainer/core/errors/failure.dart';
 import 'package:voice_trainer/core/logging/app_logger.dart';
@@ -106,6 +110,50 @@ void main() {
     expect(find.text('无法开始：音频采集发生错误。'), findsOneWidget);
   });
 
+  testWidgets('renders the decimated live pitch, level, quality and controls', (
+    tester,
+  ) async {
+    final capture = FakeAudioCapture();
+    final store = InMemoryRecordingStore();
+    await pumpPracticeApp(
+      tester,
+      overrides: <Override>[
+        audioCaptureProvider.overrideWithValue(capture),
+        analysisEngineProvider.overrideWithValue(FakeAnalysisEngine()),
+        recordingStoreProvider.overrideWithValue(store),
+        recordingSinkProvider.overrideWithValue(InMemoryRecordingSink(store)),
+        sessionRepositoryProvider.overrideWithValue(
+          InMemorySessionRepository(recordingStore: store),
+        ),
+      ],
+    );
+
+    await tester.tap(find.byKey(const Key('start-practice')));
+    await tester.pump();
+    capture.emit(
+      PcmChunk(
+        sequenceNumber: 0,
+        firstSampleIndex: 0,
+        format: const CaptureFormat(sampleRate: 48000, channels: 1),
+        bytes: Uint8List(8),
+        captureMonotonicTime: Duration.zero,
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 1));
+    await tester.pump();
+
+    expect(find.byKey(const Key('target-note')), findsOneWidget);
+    expect(find.text('目标音：A3'), findsOneWidget);
+    expect(find.byKey(const Key('live-pitch')), findsOneWidget);
+    expect(find.text('音高：A3 (+0 cents)'), findsOneWidget);
+    expect(find.text('RMS：-12.0 dBFS'), findsOneWidget);
+    expect(find.text('信号良好 · 在目标范围内'), findsOneWidget);
+    expect(find.byKey(const Key('pitch-ring')), findsOneWidget);
+    expect(find.byKey(const Key('pause-practice')), findsOneWidget);
+    expect(find.byKey(const Key('stop-practice')), findsOneWidget);
+  });
+
   testWidgets('shows the no-data result placeholder', (tester) async {
     await tester.pumpWidget(
       ProviderScope(
@@ -120,10 +168,19 @@ void main() {
     expect(find.byKey(const Key('result-no-data')), findsOneWidget);
   });
 
-  testWidgets('shell navigation reaches the minimal placeholder pages', (
+  testWidgets('shell navigation reaches the minimal history page', (
     tester,
   ) async {
-    await tester.pumpWidget(const ProviderScope(child: VoiceTrainerApp()));
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: <Override>[
+          sessionRepositoryProvider.overrideWithValue(
+            InMemorySessionRepository(),
+          ),
+        ],
+        child: const VoiceTrainerApp(),
+      ),
+    );
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('历史'));

@@ -89,6 +89,16 @@ let wasm_bindgen = (function(exports) {
             wasm.__wbg_workerrealtimeanalyzer_free(ptr, 0);
         }
         /**
+         * @returns {any}
+         */
+        finish() {
+            const ret = wasm.workerrealtimeanalyzer_finish(this.__wbg_ptr);
+            if (ret[2]) {
+                throw takeFromExternrefTable0(ret[1]);
+            }
+            return takeFromExternrefTable0(ret[0]);
+        }
+        /**
          * @param {number} sample_rate
          */
         constructor(sample_rate) {
@@ -105,6 +115,36 @@ let wasm_bindgen = (function(exports) {
             const ptr0 = passArray16ToWasm0(pcm, wasm.__wbindgen_malloc);
             const len0 = WASM_VECTOR_LEN;
             const ret = wasm.workerrealtimeanalyzer_pushPcm16(this.__wbg_ptr, ptr0, len0);
+            if (ret[2]) {
+                throw takeFromExternrefTable0(ret[1]);
+            }
+            return takeFromExternrefTable0(ret[0]);
+        }
+        /**
+         * @param {bigint} start_sample
+         * @param {Int16Array} pcm
+         * @returns {any}
+         */
+        pushPcm16At(start_sample, pcm) {
+            const ptr0 = passArray16ToWasm0(pcm, wasm.__wbindgen_malloc);
+            const len0 = WASM_VECTOR_LEN;
+            const ret = wasm.workerrealtimeanalyzer_pushPcm16At(this.__wbg_ptr, start_sample, ptr0, len0);
+            if (ret[2]) {
+                throw takeFromExternrefTable0(ret[1]);
+            }
+            return takeFromExternrefTable0(ret[0]);
+        }
+        /**
+         * @param {bigint} start_sample
+         * @param {Int16Array} pcm
+         * @param {number} dropped_samples_before
+         * @param {boolean} discontinuity_before
+         * @returns {any}
+         */
+        pushPcm16WithMetadata(start_sample, pcm, dropped_samples_before, discontinuity_before) {
+            const ptr0 = passArray16ToWasm0(pcm, wasm.__wbindgen_malloc);
+            const len0 = WASM_VECTOR_LEN;
+            const ret = wasm.workerrealtimeanalyzer_pushPcm16WithMetadata(this.__wbg_ptr, start_sample, ptr0, len0, dropped_samples_before, discontinuity_before);
             if (ret[2]) {
                 throw takeFromExternrefTable0(ret[1]);
             }
@@ -475,7 +515,7 @@ let wasm_bindgen = (function(exports) {
                 return ret;
             }, arguments); },
             __wbindgen_cast_0000000000000001: function(arg0, arg1) {
-                // Cast intrinsic for `Closure(Closure { dtor_idx: 229, function: Function { arguments: [NamedExternref("Event")], shim_idx: 230, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
+                // Cast intrinsic for `Closure(Closure { dtor_idx: 232, function: Function { arguments: [NamedExternref("Event")], shim_idx: 233, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
                 const ret = makeMutClosure(arg0, arg1, wasm.wasm_bindgen_a62da35390889e41___closure__destroy___dyn_core_e1842794e77f10a0___ops__function__FnMut__web_sys_14fd0f663984ef7___features__gen_Event__Event____Output_______, wasm_bindgen_a62da35390889e41___convert__closures_____invoke___web_sys_14fd0f663984ef7___features__gen_Event__Event______true_);
                 return ret;
             },

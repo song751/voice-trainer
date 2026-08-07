@@ -9,6 +9,7 @@ class PracticeSessions extends Table {
   IntColumn get validFrameCount => integer()();
   IntColumn get totalFrameCount => integer()();
   TextColumn get qualityFlagsJson => text()();
+  TextColumn get summaryJson => text().withDefault(const Constant('{}'))();
   @override
   Set<Column<Object>> get primaryKey => {id};
 }
@@ -52,6 +53,8 @@ class FeatureSeriesMetadata extends Table {
   IntColumn get startSampleIndex => integer()();
   IntColumn get samplePeriodSamples => integer()();
   TextColumn get algorithmVersion => text()();
+  IntColumn get featureSchemaVersion =>
+      integer().withDefault(const Constant(1))();
 
   @override
   Set<Column<Object>> get primaryKey => {runId};
@@ -70,14 +73,30 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.executor);
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
     onCreate: (migrator) => migrator.createAll(),
     onUpgrade: (migrator, from, to) async {
-      if (from < 1) await migrator.createAll();
-      if (from < 2) await migrator.createTable(featureSeriesMetadata);
+      if (from < 1) {
+        await migrator.createAll();
+      }
+      if (from < 2) {
+        await migrator.createTable(featureSeriesMetadata);
+      }
+      if (from < 3) {
+        await migrator.addColumn(
+          featureSeriesMetadata,
+          featureSeriesMetadata.featureSchemaVersion,
+        );
+      }
+      if (from < 4) {
+        await migrator.addColumn(
+          practiceSessions,
+          practiceSessions.summaryJson,
+        );
+      }
     },
     beforeOpen: (details) async {
       await customStatement('PRAGMA foreign_keys = ON');
@@ -170,4 +189,33 @@ class AppDatabase extends _$AppDatabase {
   Future<Recording?> recordingForSession(String sessionId) => (select(
     recordings,
   )..where((row) => row.sessionId.equals(sessionId))).getSingleOrNull();
+
+  Future<List<PracticeSession>> recentSessions({required int limit}) =>
+      (select(practiceSessions)
+            ..orderBy([(row) => OrderingTerm.desc(row.startedAt)])
+            ..limit(limit))
+          .get();
+
+  Future<void> deleteSessionData(String sessionId) => transaction(() async {
+    final runs = await (select(
+      analysisRuns,
+    )..where((row) => row.sessionId.equals(sessionId))).get();
+    for (final run in runs) {
+      await (delete(
+        featureSeriesTable,
+      )..where((row) => row.runId.equals(run.id))).go();
+      await (delete(
+        featureSeriesMetadata,
+      )..where((row) => row.runId.equals(run.id))).go();
+    }
+    await (delete(
+      analysisRuns,
+    )..where((row) => row.sessionId.equals(sessionId))).go();
+    await (delete(
+      recordings,
+    )..where((row) => row.sessionId.equals(sessionId))).go();
+    await (delete(
+      practiceSessions,
+    )..where((row) => row.id.equals(sessionId))).go();
+  });
 }

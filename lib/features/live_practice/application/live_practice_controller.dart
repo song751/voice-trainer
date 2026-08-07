@@ -3,8 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../app/app_providers.dart';
 import '../../../core/domain/persistence/session_repository.dart';
 import '../../../core/domain/practice/practice_template.dart';
+import '../../../core/domain/analysis/ui_analysis_frame.dart';
 import '../domain/practice_session_state.dart';
 import 'practice_session_coordinator.dart';
+import 'ui_frame_decimator.dart';
 
 final latestPracticeSessionProvider = StateProvider<PracticeSessionRecord?>(
   (ref) => null,
@@ -14,6 +16,16 @@ final livePracticeControllerProvider =
     NotifierProvider<LivePracticeController, PracticeSessionState>(
       LivePracticeController.new,
     );
+
+/// The presentation layer watches only this 25 Hz stream. The coordinator's
+/// 100 Hz raw stream remains an input to the decimator, never a page state.
+final liveUiAnalysisFrameProvider = StreamProvider.autoDispose<UiAnalysisFrame>(
+  (ref) {
+    final coordinator = ref.watch(practiceSessionCoordinatorProvider);
+    final target = ref.watch(practiceTemplateProvider).target;
+    return decimateUiAnalysisFrames(coordinator.realtimeFrames, target: target);
+  },
+);
 
 final class LivePracticeController extends Notifier<PracticeSessionState> {
   late final PracticeSessionCoordinator _coordinator;

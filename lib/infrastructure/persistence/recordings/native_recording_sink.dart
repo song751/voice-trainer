@@ -14,6 +14,7 @@ final class NativeRecordingSink implements RecordingSink {
   final Directory _directory;
   RecordingMetadata? _metadata;
   File? _partialFile;
+  File? _completedFile;
   WavStreamWriter? _writer;
   bool _finished = false;
 
@@ -56,6 +57,7 @@ final class NativeRecordingSink implements RecordingSink {
       '${_directory.path}${Platform.pathSeparator}$_fileStem.wav',
     );
     final file = await partial.rename(completed.path);
+    _completedFile = file;
     _finished = true;
     return RecordingLocator(
       value: file.path,
@@ -65,7 +67,13 @@ final class NativeRecordingSink implements RecordingSink {
 
   @override
   Future<void> abort() async {
-    if (_finished) return;
+    if (_finished) {
+      final completed = _completedFile;
+      if (completed != null && await completed.exists()) {
+        await completed.delete();
+      }
+      return;
+    }
     final writer = _writer;
     if (writer != null) {
       await writer.abort();

@@ -8,6 +8,7 @@ import '../../core/domain/audio/pcm_chunk.dart';
 import '../../src/rust/api/realtime.dart';
 import 'analysis_frame_dto_mapper.dart';
 import 'analysis_worker_supervisor.dart';
+import 'segment_summary_dto_mapper.dart';
 
 /// FRB-backed worker used on native platforms.
 ///
@@ -17,52 +18,46 @@ import 'analysis_worker_supervisor.dart';
 final class FrbAnalysisWorker implements AnalysisWorker {
   RealtimeAnalyzer? _analyzer;
   final List<domain.AnalysisFrame> _frames = <domain.AnalysisFrame>[];
-  int? _originSampleIndex;
-  int? _nextInputSampleIndex;
 
   @override
   Future<void> initialize(AnalysisConfig config) async {
     _analyzer = RealtimeAnalyzer(sampleRate: config.inputFormatSampleRate);
     _frames.clear();
-    _originSampleIndex = null;
-    _nextInputSampleIndex = null;
   }
 
   @override
   Future<domain.AnalysisBatch> pushPcm(PcmBatch batch) async {
     final analyzer = _requireAnalyzer();
-    if (_nextInputSampleIndex != null &&
-        batch.firstSampleIndex != _nextInputSampleIndex) {
-      analyzer.reset();
-      _originSampleIndex = batch.firstSampleIndex;
-    }
-    _originSampleIndex ??= batch.firstSampleIndex;
-    _nextInputSampleIndex = batch.firstSampleIndex + batch.frameCount;
     final pcm = Int16List.view(
       batch.bytes.buffer,
       batch.bytes.offsetInBytes,
       batch.bytes.lengthInBytes ~/ Int16List.bytesPerElement,
     );
-    final result = analyzer.pushPcm16(pcm: pcm);
-    final frames = result
-        .map((frame) => _mapFrame(frame, _originSampleIndex!))
-        .toList(growable: false);
+    final result = analyzer.pushPcm16WithMetadata(
+      startSample: BigInt.from(batch.firstSampleIndex),
+      pcm: pcm,
+      droppedSamplesBefore: batch.droppedSamplesBefore,
+      discontinuityBefore: batch.discontinuityBefore,
+    );
+    final frames = result.map(_mapFrame).toList(growable: false);
     _frames.addAll(frames);
     return domain.AnalysisBatch(frames);
   }
 
   @override
-  Future<AnalysisFinalization> finish() async => AnalysisFinalization(
-    featureSeries: FeatureSeries(frameRateHz: 100, frames: _frames),
-    finalFrames: _frames,
-  );
+  Future<AnalysisFinalization> finish() async {
+    final summary = _requireAnalyzer().finish();
+    return AnalysisFinalization(
+      featureSeries: FeatureSeries(frameRateHz: 100, frames: _frames),
+      finalFrames: _frames,
+      segmentSummary: mapSegmentSummaryDto(summary),
+    );
+  }
 
   @override
   Future<void> reset() async {
     _requireAnalyzer().reset();
     _frames.clear();
-    _originSampleIndex = null;
-    _nextInputSampleIndex = null;
   }
 
   @override
@@ -82,17 +77,16 @@ final class FrbAnalysisWorker implements AnalysisWorker {
     _frames.clear();
   }
 
-  domain.AnalysisFrame _mapFrame(AnalysisFrameDto frame, int origin) =>
-      mapAnalysisFrameDto(
-        startSample: origin + frame.startSample.toInt(),
-        rmsDbfs: frame.rmsDbfs,
-        peakDbfs: frame.peakDbfs,
-        pitchClarity: frame.pitchClarity,
-        voiced: frame.voiced,
-        f0Hz: frame.pitchHz,
-        bandPowersDb: frame.bandPowersDbfs,
-        qualityFlags: frame.qualityFlags,
-      );
+  domain.AnalysisFrame _mapFrame(AnalysisFrameDto frame) => mapAnalysisFrameDto(
+    startSample: frame.startSample.toInt(),
+    rmsDbfs: frame.rmsDbfs,
+    peakDbfs: frame.peakDbfs,
+    pitchClarity: frame.pitchClarity,
+    voiced: frame.voiced,
+    f0Hz: frame.pitchHz,
+    bandPowersDb: frame.bandPowersDbfs,
+    qualityFlags: frame.qualityFlags,
+  );
 
   RealtimeAnalyzer _requireAnalyzer() =>
       _analyzer ?? (throw StateError('FRB analyzer is not initialized.'));

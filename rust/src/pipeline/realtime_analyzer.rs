@@ -1,199 +1,245 @@
-use std::sync::Arc;
-
-use rustfft::{num_complex::Complex32, Fft, FftPlanner};
+use std::collections::VecDeque;
 
 use crate::{
-    features::{FeatureInput, QualityConfig},
+    features::{FeatureInput, QualityConfig, SegmentAggregator, SegmentConfig, SegmentSummary},
     model::AnalysisFrame,
-    signal::{dc_blocker::DcBlocker, pcm::pcm16_to_f32, ring_buffer::RingBuffer},
-    spectrum::{band_index_for_frequency, BAND_POWER_COUNT},
+    pitch::{PitchFrame, PitchTracker, VoicedDecisionConfig, YinEstimator},
+    signal::{pcm::pcm16_to_f32, ring_buffer::RingBuffer},
+    spectrum::{SpectrumAnalyzer, SpectrumFrame, SPECTRUM_HOP_SIZE, SPECTRUM_WINDOW_SIZE},
 };
 
-pub const WINDOW_SIZE: usize = 2048;
-pub const HOP_SIZE: usize = 512;
-const AUTOCORRELATION_FFT_SIZE: usize = WINDOW_SIZE * 2;
-const MIN_PITCH_HZ: f32 = 60.0;
-const MAX_PITCH_HZ: f32 = 1000.0;
-const MIN_PITCH_CLARITY: f32 = 0.55;
-
+/// The only production DSP composition. It deliberately contains no capture,
+/// wall-clock, persistence, or UI concerns: callers provide the monotonic PCM
+/// sample position and this core derives every analysis timestamp from it.
 pub struct RealtimeAnalyzerCore {
-    sample_rate: u32,
-    pending: RingBuffer<f32>,
-    frame_buffer: Vec<f32>,
-    dc_blocker: DcBlocker,
-    next_frame_start: u64,
-    hann: Vec<f32>,
-    spectrum_buffer: Vec<Complex32>,
-    autocorrelation_buffer: Vec<Complex32>,
-    spectrum_fft: Arc<dyn Fft<f32>>,
-    autocorrelation_forward: Arc<dyn Fft<f32>>,
-    autocorrelation_inverse: Arc<dyn Fft<f32>>,
+    spectrum: SpectrumAnalyzer,
+    pitch: PitchTracker<YinEstimator>,
+    segment: SegmentAggregator,
+    quality_window: RingBuffer<f32>,
+    quality_frame_buffer: Vec<f32>,
+    sample_scratch: Vec<f32>,
+    pending_full_band: VecDeque<PendingFullBandFrame>,
+    pending_pitch: VecDeque<PitchFrame>,
+    next_full_band_start: u64,
+    epoch_start_sample: Option<u64>,
+    next_input_sample: Option<u64>,
+    pending_dropped_quality: bool,
+    pending_discontinuity: bool,
+}
+
+#[derive(Clone, Debug)]
+struct PendingFullBandFrame {
+    spectrum: SpectrumFrame,
+    feature: FeatureInput,
 }
 
 impl RealtimeAnalyzerCore {
+    pub const SAMPLE_RATE_HZ: u32 = 48_000;
+
     pub fn new(sample_rate: u32) -> Self {
-        assert!(sample_rate > 0, "sample rate must be positive");
-        let mut planner = FftPlanner::new();
-        let spectrum_fft = planner.plan_fft_forward(WINDOW_SIZE);
-        let autocorrelation_forward = planner.plan_fft_forward(AUTOCORRELATION_FFT_SIZE);
-        let autocorrelation_inverse = planner.plan_fft_inverse(AUTOCORRELATION_FFT_SIZE);
-        let hann = (0..WINDOW_SIZE)
-            .map(|index| {
-                0.5 - 0.5 * (std::f32::consts::TAU * index as f32 / (WINDOW_SIZE - 1) as f32).cos()
-            })
-            .collect();
-        Self {
+        assert_eq!(
             sample_rate,
-            pending: RingBuffer::new(WINDOW_SIZE + HOP_SIZE),
-            frame_buffer: vec![0.0; WINDOW_SIZE],
-            dc_blocker: DcBlocker::new(sample_rate, 20.0),
-            next_frame_start: 0,
-            hann,
-            spectrum_buffer: vec![Complex32::default(); WINDOW_SIZE],
-            autocorrelation_buffer: vec![Complex32::default(); AUTOCORRELATION_FFT_SIZE],
-            spectrum_fft,
-            autocorrelation_forward,
-            autocorrelation_inverse,
+            Self::SAMPLE_RATE_HZ,
+            "production DSP currently requires 48 kHz PCM16 mono"
+        );
+        Self {
+            spectrum: SpectrumAnalyzer::new(),
+            pitch: PitchTracker::new(YinEstimator, VoicedDecisionConfig::default()),
+            segment: SegmentAggregator::new(SegmentConfig::default()),
+            quality_window: RingBuffer::new(SPECTRUM_WINDOW_SIZE + SPECTRUM_HOP_SIZE),
+            quality_frame_buffer: vec![0.0; SPECTRUM_WINDOW_SIZE],
+            sample_scratch: Vec::with_capacity(1_024),
+            pending_full_band: VecDeque::with_capacity(2),
+            pending_pitch: VecDeque::with_capacity(2),
+            next_full_band_start: 0,
+            epoch_start_sample: None,
+            next_input_sample: None,
+            pending_dropped_quality: false,
+            pending_discontinuity: false,
         }
     }
 
+    /// Push PCM16 at its capture-sample position. A forward index gap restarts
+    /// only streaming windows and is carried into quality/segment evidence.
+    pub fn push_pcm16_at(&mut self, start_sample: u64, pcm: &[i16]) -> Vec<AnalysisFrame> {
+        self.push_pcm16_with_metadata(start_sample, pcm, 0, false)
+    }
+
+    pub fn push_pcm16_with_metadata(
+        &mut self,
+        start_sample: u64,
+        pcm: &[i16],
+        dropped_samples_before: u32,
+        discontinuity_before: bool,
+    ) -> Vec<AnalysisFrame> {
+        if pcm.is_empty() {
+            return Vec::new();
+        }
+        match self.next_input_sample {
+            None => self.epoch_start_sample = Some(start_sample),
+            Some(expected) if start_sample == expected && !discontinuity_before && dropped_samples_before == 0 => {}
+            Some(expected) if start_sample == expected => {
+                self.restart_after_discontinuity(start_sample, dropped_samples_before as u64);
+            }
+            Some(expected) if start_sample > expected => {
+                self.restart_after_discontinuity(
+                    start_sample,
+                    (start_sample - expected).max(dropped_samples_before as u64),
+                );
+            }
+            Some(expected) => panic!(
+                "PCM sample timeline moved backwards: expected at least {expected}, got {start_sample}"
+            ),
+        }
+
+        self.sample_scratch.clear();
+        self.sample_scratch
+            .extend(pcm.iter().copied().map(pcm16_to_f32));
+        let spectrum_frames = self.spectrum.push(&self.sample_scratch);
+        let quality_features = self.push_quality_windows();
+        debug_assert_eq!(spectrum_frames.len(), quality_features.len());
+        for (spectrum, feature) in spectrum_frames.into_iter().zip(quality_features) {
+            debug_assert_eq!(spectrum.start_sample, feature.start_sample);
+            self.pending_full_band
+                .push_back(PendingFullBandFrame { spectrum, feature });
+        }
+        self.pending_pitch
+            .extend(self.pitch.push(&self.sample_scratch));
+        self.next_input_sample = Some(start_sample + pcm.len() as u64);
+        self.emit_matched_frames()
+    }
+
+    /// Compatibility helper for deterministic unit callers. Production bridge
+    /// entries must call [`Self::push_pcm16_at`] so capture positions remain
+    /// explicit instead of being reconstructed per batch.
     pub fn push_pcm16(&mut self, pcm: &[i16]) -> Vec<AnalysisFrame> {
-        let expected_frame_count = (self.pending.len() + pcm.len())
-            .saturating_sub(WINDOW_SIZE)
-            .checked_div(HOP_SIZE)
+        self.push_pcm16_at(self.next_input_sample(), pcm)
+    }
+
+    pub fn next_input_sample(&self) -> u64 {
+        self.next_input_sample.unwrap_or(0)
+    }
+
+    /// Returns the summary for all fully composed 100 Hz frames received so
+    /// far. It does not fabricate tail frames by padding incomplete windows.
+    pub fn finish(&mut self) -> SegmentSummary {
+        std::mem::replace(
+            &mut self.segment,
+            SegmentAggregator::new(SegmentConfig::default()),
+        )
+        .finish()
+    }
+
+    pub fn reset(&mut self) {
+        self.spectrum.reset();
+        self.pitch.reset();
+        self.segment = SegmentAggregator::new(SegmentConfig::default());
+        self.quality_window.clear();
+        self.sample_scratch.clear();
+        self.pending_full_band.clear();
+        self.pending_pitch.clear();
+        self.next_full_band_start = 0;
+        self.epoch_start_sample = None;
+        self.next_input_sample = None;
+        self.pending_dropped_quality = false;
+        self.pending_discontinuity = false;
+    }
+
+    fn push_quality_windows(&mut self) -> Vec<FeatureInput> {
+        let expected_frame_count = (self.quality_window.len() + self.sample_scratch.len())
+            .saturating_sub(SPECTRUM_WINDOW_SIZE)
+            .checked_div(SPECTRUM_HOP_SIZE)
             .unwrap_or(0)
-            + usize::from(self.pending.len() + pcm.len() >= WINDOW_SIZE);
-        let mut frames = Vec::with_capacity(expected_frame_count);
-        for &sample in pcm {
-            let overwritten = self
-                .pending
-                .push(self.dc_blocker.process(pcm16_to_f32(sample)));
+            + usize::from(
+                self.quality_window.len() + self.sample_scratch.len() >= SPECTRUM_WINDOW_SIZE,
+            );
+        let mut features = Vec::with_capacity(expected_frame_count);
+        for &sample in &self.sample_scratch {
+            let overwritten = self.quality_window.push(sample);
             debug_assert!(
                 overwritten.is_none(),
-                "frame production must prevent ring overflow"
+                "quality windows must keep pace with STFT"
             );
-            if self.pending.len() >= WINDOW_SIZE {
-                frames.push(self.analyze_current_frame());
-                self.pending.discard_oldest(HOP_SIZE);
-                self.next_frame_start += HOP_SIZE as u64;
+            if self.quality_window.len() >= SPECTRUM_WINDOW_SIZE {
+                self.quality_window
+                    .copy_oldest_into(&mut self.quality_frame_buffer);
+                features.push(FeatureInput::from_samples(
+                    self.next_full_band_start,
+                    SPECTRUM_HOP_SIZE as u32,
+                    &self.quality_frame_buffer,
+                    None,
+                    false,
+                ));
+                self.quality_window.discard_oldest(SPECTRUM_HOP_SIZE);
+                self.next_full_band_start += SPECTRUM_HOP_SIZE as u64;
             }
+        }
+        features
+    }
+
+    fn emit_matched_frames(&mut self) -> Vec<AnalysisFrame> {
+        let mut frames = Vec::with_capacity(self.pending_pitch.len());
+        let base = self
+            .epoch_start_sample
+            .expect("timeline is initialized before output");
+        while let (Some(full_band), Some(pitch)) =
+            (self.pending_full_band.front(), self.pending_pitch.front())
+        {
+            assert_eq!(
+                full_band.spectrum.start_sample, pitch.start_sample,
+                "P2 pitch and spectrum branches must share the 100 Hz sample timeline"
+            );
+            let full_band = self.pending_full_band.pop_front().expect("front checked");
+            let pitch = self.pending_pitch.pop_front().expect("front checked");
+            let mut feature = full_band.feature;
+            feature.start_sample += base;
+            feature.frequency_hz = pitch.frequency_hz;
+            feature.voiced = pitch.voiced;
+            feature.dropped_samples = 0;
+            feature.discontinuity = self.pending_discontinuity;
+            let add_dropped_quality = self.pending_dropped_quality;
+            self.pending_dropped_quality = false;
+            self.pending_discontinuity = false;
+            let mut quality_flags = feature.quality_flags(QualityConfig::default()).bits();
+            if add_dropped_quality {
+                quality_flags |= crate::features::QualityFlags::DROPPED_SAMPLES.bits();
+            }
+            self.segment.push(feature);
+            frames.push(AnalysisFrame {
+                start_sample: full_band.spectrum.start_sample + base,
+                rms: dbfs_to_amplitude(full_band.feature.rms_dbfs),
+                peak: dbfs_to_amplitude(full_band.feature.peak_dbfs),
+                spectral_centroid_hz: full_band.spectrum.spectral_centroid_hz,
+                pitch_hz: pitch.frequency_hz,
+                pitch_clarity: pitch.clarity,
+                band_powers_dbfs: full_band.spectrum.band_powers_dbfs,
+                quality_flags,
+            });
         }
         frames
     }
 
-    pub fn reset(&mut self) {
-        self.pending.clear();
-        self.dc_blocker.reset();
-        self.next_frame_start = 0;
-    }
-
-    fn analyze_current_frame(&mut self) -> AnalysisFrame {
-        self.pending.copy_oldest_into(&mut self.frame_buffer);
-        let frame = &self.frame_buffer;
-        let mut sum_squares = 0.0_f32;
-        let mut peak = 0.0_f32;
-        for sample in frame {
-            sum_squares += sample * sample;
-            peak = peak.max(sample.abs());
-        }
-        let rms = (sum_squares / WINDOW_SIZE as f32).sqrt();
-
-        for (index, (sample, window)) in frame.iter().zip(&self.hann).enumerate() {
-            self.spectrum_buffer[index] = Complex32::new(sample * window, 0.0);
-        }
-        self.spectrum_fft.process(&mut self.spectrum_buffer);
-        let bin_hz = self.sample_rate as f32 / WINDOW_SIZE as f32;
-        let mut magnitude_sum = 0.0_f32;
-        let mut weighted_sum = 0.0_f32;
-        let mut band_power_sum = [0.0_f32; BAND_POWER_COUNT];
-        for (index, bin) in self.spectrum_buffer[..=WINDOW_SIZE / 2].iter().enumerate() {
-            let magnitude = bin.norm();
-            magnitude_sum += magnitude;
-            weighted_sum += magnitude * index as f32 * bin_hz;
-            let power = magnitude * magnitude / (WINDOW_SIZE * WINDOW_SIZE) as f32;
-            if let Some(band_index) = band_index_for_frequency(index as f32 * bin_hz) {
-                band_power_sum[band_index] += power;
-            }
-        }
-        let spectral_centroid_hz = if magnitude_sum > f32::EPSILON {
-            weighted_sum / magnitude_sum
-        } else {
-            0.0
-        };
-
-        let quality_flags =
-            FeatureInput::from_samples(self.next_frame_start, HOP_SIZE as u32, frame, None, false)
-                .quality_flags(QualityConfig::default())
-                .bits();
-        let (pitch_hz, pitch_clarity) = self.estimate_pitch();
-        AnalysisFrame {
-            start_sample: self.next_frame_start,
-            rms,
-            peak,
-            spectral_centroid_hz,
-            pitch_hz,
-            pitch_clarity,
-            band_powers_dbfs: band_power_sum.map(power_to_dbfs),
-            quality_flags,
-        }
-    }
-
-    fn estimate_pitch(&mut self) -> (Option<f32>, f32) {
-        let frame = &self.frame_buffer;
-        let mean = frame.iter().sum::<f32>() / WINDOW_SIZE as f32;
-        self.autocorrelation_buffer.fill(Complex32::default());
-        for (target, sample) in self.autocorrelation_buffer[..WINDOW_SIZE]
-            .iter_mut()
-            .zip(frame)
-        {
-            target.re = sample - mean;
-        }
-        self.autocorrelation_forward
-            .process(&mut self.autocorrelation_buffer);
-        for bin in &mut self.autocorrelation_buffer {
-            *bin = Complex32::new(bin.norm_sqr(), 0.0);
-        }
-        self.autocorrelation_inverse
-            .process(&mut self.autocorrelation_buffer);
-
-        let zero_lag = self.autocorrelation_buffer[0].re;
-        if zero_lag <= f32::EPSILON {
-            return (None, 0.0);
-        }
-        let min_lag = (self.sample_rate as f32 / MAX_PITCH_HZ).floor() as usize;
-        let max_lag =
-            ((self.sample_rate as f32 / MIN_PITCH_HZ).ceil() as usize).min(WINDOW_SIZE - 2);
-        let mut best_lag = min_lag.max(1);
-        let mut best_clarity = f32::NEG_INFINITY;
-        for lag in min_lag.max(1)..=max_lag {
-            let clarity = self.autocorrelation_buffer[lag].re / zero_lag;
-            let previous = self.autocorrelation_buffer[lag - 1].re / zero_lag;
-            let next = self.autocorrelation_buffer[lag + 1].re / zero_lag;
-            if clarity >= previous && clarity > next && clarity > best_clarity {
-                best_clarity = clarity;
-                best_lag = lag;
-            }
-        }
-        if best_clarity < MIN_PITCH_CLARITY {
-            return (None, best_clarity.max(0.0));
-        }
-
-        let left = self.autocorrelation_buffer[best_lag - 1].re / zero_lag;
-        let center = self.autocorrelation_buffer[best_lag].re / zero_lag;
-        let right = self.autocorrelation_buffer[best_lag + 1].re / zero_lag;
-        let denominator = left - 2.0 * center + right;
-        let offset = if denominator.abs() > 1.0e-12 {
-            0.5 * (left - right) / denominator
-        } else {
-            0.0
-        };
-        let refined_lag = best_lag as f32 + offset.clamp(-0.5, 0.5);
-        (Some(self.sample_rate as f32 / refined_lag), best_clarity)
+    fn restart_after_discontinuity(&mut self, start_sample: u64, dropped_samples: u64) {
+        self.spectrum.reset();
+        self.pitch.reset();
+        self.quality_window.clear();
+        self.pending_full_band.clear();
+        self.pending_pitch.clear();
+        self.next_full_band_start = 0;
+        self.epoch_start_sample = Some(start_sample);
+        self.segment
+            .mark_discontinuity(dropped_samples, start_sample);
+        self.pending_dropped_quality = dropped_samples > 0;
+        self.pending_discontinuity = true;
     }
 }
 
-fn power_to_dbfs(power: f32) -> f32 {
-    (10.0 * power.max(10.0_f32.powf(-12.0)).log10()).max(-120.0)
+fn dbfs_to_amplitude(dbfs: f32) -> f32 {
+    if dbfs <= -120.0 {
+        0.0
+    } else {
+        10.0_f32.powf(dbfs / 20.0)
+    }
 }
 
 #[cfg(test)]
@@ -210,33 +256,16 @@ mod tests {
     }
 
     #[test]
-    fn detects_a_220_hz_sine() {
+    fn composes_yin_spectrum_and_quality_on_one_timeline() {
         let mut analyzer = RealtimeAnalyzerCore::new(48_000);
-        let frames = analyzer.push_pcm16(&sine(48_000, 220.0));
-        let pitch = frames[frames.len() / 2].pitch_hz.unwrap();
-        assert!((pitch - 220.0).abs() < 1.0, "pitch was {pitch}");
+        let frames = analyzer.push_pcm16_at(12_000, &sine(48_000, 220.0));
+        assert!(frames.iter().all(|frame| frame.pitch_hz.is_some()));
+        assert!(frames
+            .windows(2)
+            .all(|pair| pair[1].start_sample - pair[0].start_sample == 480));
+        assert_eq!(frames[0].start_sample, 12_000);
         assert!(frames[0].rms > 0.3);
         assert!(frames[0].peak > 0.45);
-    }
-
-    #[test]
-    fn arbitrary_chunking_keeps_the_frame_sequence() {
-        let signal = sine(48_000 * 3, 233.08);
-        let mut whole = RealtimeAnalyzerCore::new(48_000);
-        let expected = whole.push_pcm16(&signal);
-
-        let mut chunked = RealtimeAnalyzerCore::new(48_000);
-        let pattern = [1, 17, 511, 1024, 37, 2048, 3, 777];
-        let mut actual = Vec::new();
-        let mut offset = 0;
-        let mut pattern_index = 0;
-        while offset < signal.len() {
-            let end = (offset + pattern[pattern_index % pattern.len()]).min(signal.len());
-            actual.extend(chunked.push_pcm16(&signal[offset..end]));
-            offset = end;
-            pattern_index += 1;
-        }
-
-        assert_eq!(actual, expected);
+        assert!(analyzer.finish().valid_frame_count >= 30);
     }
 }

@@ -67,7 +67,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.12.0';
 
   @override
-  int get rustContentHash => -2085262526;
+  int get rustContentHash => -80312999;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -79,6 +79,10 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
 }
 
 abstract class RustLibApi extends BaseApi {
+  SegmentSummaryDto crateApiRealtimeRealtimeAnalyzerFinish({
+    required RealtimeAnalyzer that,
+  });
+
   RealtimeAnalyzer crateApiRealtimeRealtimeAnalyzerNew({
     required int sampleRate,
   });
@@ -86,6 +90,20 @@ abstract class RustLibApi extends BaseApi {
   List<AnalysisFrameDto> crateApiRealtimeRealtimeAnalyzerPushPcm16({
     required RealtimeAnalyzer that,
     required List<int> pcm,
+  });
+
+  List<AnalysisFrameDto> crateApiRealtimeRealtimeAnalyzerPushPcm16At({
+    required RealtimeAnalyzer that,
+    required BigInt startSample,
+    required List<int> pcm,
+  });
+
+  List<AnalysisFrameDto> crateApiRealtimeRealtimeAnalyzerPushPcm16WithMetadata({
+    required RealtimeAnalyzer that,
+    required BigInt startSample,
+    required List<int> pcm,
+    required int droppedSamplesBefore,
+    required bool discontinuityBefore,
   });
 
   void crateApiRealtimeRealtimeAnalyzerReset({required RealtimeAnalyzer that});
@@ -113,6 +131,37 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   });
 
   @override
+  SegmentSummaryDto crateApiRealtimeRealtimeAnalyzerFinish({
+    required RealtimeAnalyzer that,
+  }) {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_Auto_RefMut_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerRealtimeAnalyzer(
+            that,
+            serializer,
+          );
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 1)!;
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_segment_summary_dto,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiRealtimeRealtimeAnalyzerFinishConstMeta,
+        argValues: [that],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiRealtimeRealtimeAnalyzerFinishConstMeta =>
+      const TaskConstMeta(
+        debugName: "RealtimeAnalyzer_finish",
+        argNames: ["that"],
+      );
+
+  @override
   RealtimeAnalyzer crateApiRealtimeRealtimeAnalyzerNew({
     required int sampleRate,
   }) {
@@ -121,7 +170,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         callFfi: () {
           final serializer = SseSerializer(generalizedFrbRustBinding);
           sse_encode_u_32(sampleRate, serializer);
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 1)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 2)!;
         },
         codec: SseCodec(
           decodeSuccessData:
@@ -155,7 +204,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             serializer,
           );
           sse_encode_list_prim_i_16_loose(pcm, serializer);
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 2)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 3)!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_list_analysis_frame_dto,
@@ -175,6 +224,94 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
+  List<AnalysisFrameDto> crateApiRealtimeRealtimeAnalyzerPushPcm16At({
+    required RealtimeAnalyzer that,
+    required BigInt startSample,
+    required List<int> pcm,
+  }) {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_Auto_RefMut_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerRealtimeAnalyzer(
+            that,
+            serializer,
+          );
+          sse_encode_u_64(startSample, serializer);
+          sse_encode_list_prim_i_16_loose(pcm, serializer);
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 4)!;
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_list_analysis_frame_dto,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiRealtimeRealtimeAnalyzerPushPcm16AtConstMeta,
+        argValues: [that, startSample, pcm],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiRealtimeRealtimeAnalyzerPushPcm16AtConstMeta =>
+      const TaskConstMeta(
+        debugName: "RealtimeAnalyzer_push_pcm16_at",
+        argNames: ["that", "startSample", "pcm"],
+      );
+
+  @override
+  List<AnalysisFrameDto> crateApiRealtimeRealtimeAnalyzerPushPcm16WithMetadata({
+    required RealtimeAnalyzer that,
+    required BigInt startSample,
+    required List<int> pcm,
+    required int droppedSamplesBefore,
+    required bool discontinuityBefore,
+  }) {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_Auto_RefMut_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerRealtimeAnalyzer(
+            that,
+            serializer,
+          );
+          sse_encode_u_64(startSample, serializer);
+          sse_encode_list_prim_i_16_loose(pcm, serializer);
+          sse_encode_u_32(droppedSamplesBefore, serializer);
+          sse_encode_bool(discontinuityBefore, serializer);
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 5)!;
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_list_analysis_frame_dto,
+          decodeErrorData: null,
+        ),
+        constMeta:
+            kCrateApiRealtimeRealtimeAnalyzerPushPcm16WithMetadataConstMeta,
+        argValues: [
+          that,
+          startSample,
+          pcm,
+          droppedSamplesBefore,
+          discontinuityBefore,
+        ],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta
+  get kCrateApiRealtimeRealtimeAnalyzerPushPcm16WithMetadataConstMeta =>
+      const TaskConstMeta(
+        debugName: "RealtimeAnalyzer_push_pcm16_with_metadata",
+        argNames: [
+          "that",
+          "startSample",
+          "pcm",
+          "droppedSamplesBefore",
+          "discontinuityBefore",
+        ],
+      );
+
+  @override
   void crateApiRealtimeRealtimeAnalyzerReset({required RealtimeAnalyzer that}) {
     return handler.executeSync(
       SyncTask(
@@ -184,7 +321,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             that,
             serializer,
           );
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 3)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 6)!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_unit,
@@ -210,7 +347,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         callFfi: () {
           final serializer = SseSerializer(generalizedFrbRustBinding);
           sse_encode_String(name, serializer);
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 4)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 7)!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_String,
@@ -232,7 +369,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       SyncTask(
         callFfi: () {
           final serializer = SseSerializer(generalizedFrbRustBinding);
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 5)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 8)!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_unit,
@@ -320,6 +457,18 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  RobustStabilityDto dco_decode_box_autoadd_robust_stability_dto(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return dco_decode_robust_stability_dto(raw);
+  }
+
+  @protected
+  BigInt dco_decode_box_autoadd_u_64(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return dco_decode_u_64(raw);
+  }
+
+  @protected
   double dco_decode_f_32(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw as double;
@@ -365,6 +514,55 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   double? dco_decode_opt_box_autoadd_f_32(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw == null ? null : dco_decode_box_autoadd_f_32(raw);
+  }
+
+  @protected
+  RobustStabilityDto? dco_decode_opt_box_autoadd_robust_stability_dto(
+    dynamic raw,
+  ) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw == null
+        ? null
+        : dco_decode_box_autoadd_robust_stability_dto(raw);
+  }
+
+  @protected
+  BigInt? dco_decode_opt_box_autoadd_u_64(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw == null ? null : dco_decode_box_autoadd_u_64(raw);
+  }
+
+  @protected
+  RobustStabilityDto dco_decode_robust_stability_dto(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 4)
+      throw Exception('unexpected arr length: expect 4 but see ${arr.length}');
+    return RobustStabilityDto(
+      median: dco_decode_f_32(arr[0]),
+      medianAbsoluteDeviation: dco_decode_f_32(arr[1]),
+      slopePerSecond: dco_decode_f_32(arr[2]),
+      frameCount: dco_decode_u_32(arr[3]),
+    );
+  }
+
+  @protected
+  SegmentSummaryDto dco_decode_segment_summary_dto(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 9)
+      throw Exception('unexpected arr length: expect 9 but see ${arr.length}');
+    return SegmentSummaryDto(
+      startSample: dco_decode_opt_box_autoadd_u_64(arr[0]),
+      endSample: dco_decode_opt_box_autoadd_u_64(arr[1]),
+      frameCount: dco_decode_u_32(arr[2]),
+      validFrameCount: dco_decode_u_32(arr[3]),
+      droppedSamples: dco_decode_u_64(arr[4]),
+      qualityFlags: dco_decode_u_16(arr[5]),
+      pitchStability: dco_decode_opt_box_autoadd_robust_stability_dto(arr[6]),
+      levelStability: dco_decode_opt_box_autoadd_robust_stability_dto(arr[7]),
+      onsetDelaySamples: dco_decode_opt_box_autoadd_u_64(arr[8]),
+    );
   }
 
   @protected
@@ -482,6 +680,20 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  RobustStabilityDto sse_decode_box_autoadd_robust_stability_dto(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return (sse_decode_robust_stability_dto(deserializer));
+  }
+
+  @protected
+  BigInt sse_decode_box_autoadd_u_64(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return (sse_decode_u_64(deserializer));
+  }
+
+  @protected
   double sse_decode_f_32(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     return deserializer.buffer.getFloat32();
@@ -544,6 +756,78 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     } else {
       return null;
     }
+  }
+
+  @protected
+  RobustStabilityDto? sse_decode_opt_box_autoadd_robust_stability_dto(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    if (sse_decode_bool(deserializer)) {
+      return (sse_decode_box_autoadd_robust_stability_dto(deserializer));
+    } else {
+      return null;
+    }
+  }
+
+  @protected
+  BigInt? sse_decode_opt_box_autoadd_u_64(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    if (sse_decode_bool(deserializer)) {
+      return (sse_decode_box_autoadd_u_64(deserializer));
+    } else {
+      return null;
+    }
+  }
+
+  @protected
+  RobustStabilityDto sse_decode_robust_stability_dto(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_median = sse_decode_f_32(deserializer);
+    var var_medianAbsoluteDeviation = sse_decode_f_32(deserializer);
+    var var_slopePerSecond = sse_decode_f_32(deserializer);
+    var var_frameCount = sse_decode_u_32(deserializer);
+    return RobustStabilityDto(
+      median: var_median,
+      medianAbsoluteDeviation: var_medianAbsoluteDeviation,
+      slopePerSecond: var_slopePerSecond,
+      frameCount: var_frameCount,
+    );
+  }
+
+  @protected
+  SegmentSummaryDto sse_decode_segment_summary_dto(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_startSample = sse_decode_opt_box_autoadd_u_64(deserializer);
+    var var_endSample = sse_decode_opt_box_autoadd_u_64(deserializer);
+    var var_frameCount = sse_decode_u_32(deserializer);
+    var var_validFrameCount = sse_decode_u_32(deserializer);
+    var var_droppedSamples = sse_decode_u_64(deserializer);
+    var var_qualityFlags = sse_decode_u_16(deserializer);
+    var var_pitchStability = sse_decode_opt_box_autoadd_robust_stability_dto(
+      deserializer,
+    );
+    var var_levelStability = sse_decode_opt_box_autoadd_robust_stability_dto(
+      deserializer,
+    );
+    var var_onsetDelaySamples = sse_decode_opt_box_autoadd_u_64(deserializer);
+    return SegmentSummaryDto(
+      startSample: var_startSample,
+      endSample: var_endSample,
+      frameCount: var_frameCount,
+      validFrameCount: var_validFrameCount,
+      droppedSamples: var_droppedSamples,
+      qualityFlags: var_qualityFlags,
+      pitchStability: var_pitchStability,
+      levelStability: var_levelStability,
+      onsetDelaySamples: var_onsetDelaySamples,
+    );
   }
 
   @protected
@@ -661,6 +945,21 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_box_autoadd_robust_stability_dto(
+    RobustStabilityDto self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_robust_stability_dto(self, serializer);
+  }
+
+  @protected
+  void sse_encode_box_autoadd_u_64(BigInt self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_u_64(self, serializer);
+  }
+
+  @protected
   void sse_encode_f_32(double self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     serializer.buffer.putFloat32(self);
@@ -737,6 +1036,64 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_opt_box_autoadd_robust_stability_dto(
+    RobustStabilityDto? self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    sse_encode_bool(self != null, serializer);
+    if (self != null) {
+      sse_encode_box_autoadd_robust_stability_dto(self, serializer);
+    }
+  }
+
+  @protected
+  void sse_encode_opt_box_autoadd_u_64(BigInt? self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    sse_encode_bool(self != null, serializer);
+    if (self != null) {
+      sse_encode_box_autoadd_u_64(self, serializer);
+    }
+  }
+
+  @protected
+  void sse_encode_robust_stability_dto(
+    RobustStabilityDto self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_f_32(self.median, serializer);
+    sse_encode_f_32(self.medianAbsoluteDeviation, serializer);
+    sse_encode_f_32(self.slopePerSecond, serializer);
+    sse_encode_u_32(self.frameCount, serializer);
+  }
+
+  @protected
+  void sse_encode_segment_summary_dto(
+    SegmentSummaryDto self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_opt_box_autoadd_u_64(self.startSample, serializer);
+    sse_encode_opt_box_autoadd_u_64(self.endSample, serializer);
+    sse_encode_u_32(self.frameCount, serializer);
+    sse_encode_u_32(self.validFrameCount, serializer);
+    sse_encode_u_64(self.droppedSamples, serializer);
+    sse_encode_u_16(self.qualityFlags, serializer);
+    sse_encode_opt_box_autoadd_robust_stability_dto(
+      self.pitchStability,
+      serializer,
+    );
+    sse_encode_opt_box_autoadd_robust_stability_dto(
+      self.levelStability,
+      serializer,
+    );
+    sse_encode_opt_box_autoadd_u_64(self.onsetDelaySamples, serializer);
+  }
+
+  @protected
   void sse_encode_u_16(int self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     serializer.buffer.putUint16(self);
@@ -801,10 +1158,38 @@ class RealtimeAnalyzerImpl extends RustOpaque implements RealtimeAnalyzer {
         .rust_arc_decrement_strong_count_RealtimeAnalyzerPtr,
   );
 
+  SegmentSummaryDto finish() =>
+      RustLib.instance.api.crateApiRealtimeRealtimeAnalyzerFinish(that: this);
+
   List<AnalysisFrameDto> pushPcm16({required List<int> pcm}) => RustLib
       .instance
       .api
       .crateApiRealtimeRealtimeAnalyzerPushPcm16(that: this, pcm: pcm);
+
+  /// Production entry point. Capture owns the monotonically increasing
+  /// sample position; the DSP never invents a per-batch clock.
+  List<AnalysisFrameDto> pushPcm16At({
+    required BigInt startSample,
+    required List<int> pcm,
+  }) => RustLib.instance.api.crateApiRealtimeRealtimeAnalyzerPushPcm16At(
+    that: this,
+    startSample: startSample,
+    pcm: pcm,
+  );
+
+  List<AnalysisFrameDto> pushPcm16WithMetadata({
+    required BigInt startSample,
+    required List<int> pcm,
+    required int droppedSamplesBefore,
+    required bool discontinuityBefore,
+  }) => RustLib.instance.api
+      .crateApiRealtimeRealtimeAnalyzerPushPcm16WithMetadata(
+        that: this,
+        startSample: startSample,
+        pcm: pcm,
+        droppedSamplesBefore: droppedSamplesBefore,
+        discontinuityBefore: discontinuityBefore,
+      );
 
   void reset() =>
       RustLib.instance.api.crateApiRealtimeRealtimeAnalyzerReset(that: this);
