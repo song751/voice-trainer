@@ -18,4 +18,6 @@ P3-07 尚未完成：权限拒绝/撤回、全部输入端点不可用、可观�
 
 `docs/specs/P3_07_EVIDENCE_V1.md` 与 `tool/p3_07_evidence_runner.dart` 现为 P3-07 原始报告合同和校验入口；`tool/p3_07_fixtures/partial_capture.json` 仅作为已知 capture-only 字段迁移示例，仍为 pending，不是本矩阵的额外通过项。
 
+现场执行剩余项时使用 `docs/P3_07_WINDOWS_RUNBOOK.md` 与 `tool/p3_07_fault_gate.dart`。helper 仅支持 dry-run 与目标验证；任何 real-device result 都须由人工操作后另存脱敏 evidence bundle。
+
 每个新手动结果须记录设备类别、有效采样率/声道/处理器设置、chunk cadence、持续时间、dropped/discontinuity，以及应用版本和日期；不得提交录音内容。

@@ -165,8 +165,8 @@ Phase 3 将已验收的 P2 DSP 组件接入真实 Windows 采集、实时 UI、�
 | P3-07P | 已接受 P3 工作树核验与封存 | 远程可执行，不新增功能 | 已接受 |
 | P3-07A | 证据合同与 Windows gate runner | P3-07P 接受后，远程可执行 | 已接受 |
 | P3-07B | 正式产品链路性能观测 | P3-07A 接受后，远程可执行 | 已接受 |
-| P3-07C | 真实故障 runbook 与安全 gate hook | P3-07B 接受后，远程可执行 | **当前解锁** |
-| P3-07D | Windows 实机剩余矩阵 | P3-07C 接受且仓库所有者在电脑旁 | **外部条件阻塞** |
+| P3-07C | 真实故障 runbook 与安全 gate hook | P3-07B 接受后，远程可执行 | 已接受 |
+| P3-07D | Windows 实机剩余矩阵 | P3-07C 接受且仓库所有者在电脑旁 | **等待现场** |
 | P3-07E | 证据校验与 P3-07 结论 | P3-07D 产生完整原始报告后，远程可执行 | 锁定 |
 
 ### P3-07P — 已接受 P3 工作树核验与封存
@@ -244,6 +244,12 @@ Phase 3 将已验收的 P2 DSP 组件接入真实 Windows 采集、实时 UI、�
 ### P3-07C — 真实故障 runbook 与安全 gate hook
 
 **目标结果：** 把剩余人工场景写成一次可完成、可恢复的操作手册，并只在确有必要时增加显式 gate-only 注入点/录音根目录 override；真实故障仍由 P3-07D 产生，fake/注入仅验证应用预期状态。
+
+#### P3-07C 执行记录（2026-08-07，已接受；P3-07D 等待现场）
+
+- 新增 `docs/P3_07_WINDOWS_RUNBOOK.md`：逐项说明初始/运行中权限、无输入、USB 拔插/回插、格式变化、真实写盘失败、crash/restart 与 product performance 的前置、人工动作、typed 状态、证据、清理和停止条件。真实写盘失败只允许仓库所有者指定并确认可丢弃目录/介质；helper 不执行任何有副作用的操作。
+- 新增 `tool/p3_07_fault_gate.dart`，只接受 `--dry-run`。它能打印场景计划、验证显式 recording root，并拒绝 workspace、用户目录、盘符根、相对路径和未解析变量。它不自动变更 Windows 隐私设置/设备、终止进程、创建或删除文件；自动化结果固定为 runbook/helper 证据，不能替代 `real_device`。
+- 实际命令：`flutter test test/tool/p3_07_fault_gate_test.dart`（2 项）、有效 disk-failure plan dry-run、危险 workspace target 的非零拒绝均通过。全量 `dart format --output=none --set-exit-if-changed lib test integration_test test_driver tool`（137 files / 0 changed）、`flutter analyze`、`flutter test`（64 项）、Rust fmt/clippy/test（52 项）均通过。仓库所有者在现场确认手册后，P3-07D 才能开始；未发生任何真实权限、设备、磁盘或 crash 操作。
 
 **允许修改：** `tool/` 下 P3-07 启动/收集脚本、`integration_test/`、`test/`、明确隔离的 gate configuration、`docs/test-matrices/windows.md` 和本文件。
 

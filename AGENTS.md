@@ -14,12 +14,12 @@ The desktop source guide is historical input. Repository documents are authorita
 ## Current phase
 
 Phase 0, Phase 1, closure cards C1–C4, and `P2-01` through `P2-07` are complete.
-`P3-00` through `P3-06`, checkpoint card `P3-07P`, evidence-contract card
-`P3-07A`, and performance-observation card `P3-07B` are accepted and complete.
-`P3-07` remains incomplete and has ordered subcards in `docs/PHASE3_TASKS.md`.
-The **only** card now allowed is `P3-07C`, which creates the real-fault runbook
-and safe gate hooks; do not begin `P3-07D` without the repository owner at the
-Windows workstation.
+`P3-00` through `P3-06`, checkpoint card `P3-07P`, and remote-preparation
+cards `P3-07A` through `P3-07C` are accepted and complete. `P3-07D` is the
+only remaining Phase 3 subcard before evidence conclusion, and requires the
+repository owner at the Windows workstation; do not claim it from fake,
+synthetic, emulator, capture-only, or remote-only runs. If the owner is not
+at the workstation, the authorized remote path starts at `P4-00`.
 Execute one subcard at a time. `P3-07D` requires the repository owner at the
 Windows workstation; do not claim it from fake capture or remote-only runs.
 After `P3-07P` and `P3-07A` through `P3-07C` are accepted, the owner has explicitly
