@@ -162,9 +162,9 @@ Phase 3 将已验收的 P2 DSP 组件接入真实 Windows 采集、实时 UI、�
 
 | 顺序 | 子卡 | 执行条件 | 状态 |
 |---|---|---|---|
-| P3-07P | 已接受 P3 工作树核验与封存 | 远程可执行，不新增功能 | **当前解锁** |
-| P3-07A | 证据合同与 Windows gate runner | P3-07P 接受后，远程可执行 | 锁定 |
-| P3-07B | 正式产品链路性能观测 | P3-07A 接受后，远程可执行 | 锁定 |
+| P3-07P | 已接受 P3 工作树核验与封存 | 远程可执行，不新增功能 | 已接受 |
+| P3-07A | 证据合同与 Windows gate runner | P3-07P 接受后，远程可执行 | 已接受 |
+| P3-07B | 正式产品链路性能观测 | P3-07A 接受后，远程可执行 | **当前解锁** |
 | P3-07C | 真实故障 runbook 与安全 gate hook | P3-07B 接受后，远程可执行 | 锁定 |
 | P3-07D | Windows 实机剩余矩阵 | P3-07C 接受且仓库所有者在电脑旁 | **外部条件阻塞** |
 | P3-07E | 证据校验与 P3-07 结论 | P3-07D 产生完整原始报告后，远程可执行 | 锁定 |
@@ -196,6 +196,12 @@ Phase 3 将已验收的 P2 DSP 组件接入真实 Windows 采集、实时 UI、�
 ### P3-07A — 证据合同与 Windows gate runner
 
 **目标结果：** 建立一个版本化、机器可读且不含隐私数据的 P3-07 报告合同与校验 runner，使后续每次实机操作都能产生相同字段和明确的 pass/fail/pending，而不是靠聊天记录验收。
+
+#### P3-07A 执行记录（2026-08-07，已接受）
+
+- 新增 `docs/specs/P3_07_EVIDENCE_V1.md`、`tool/p3_07_evidence.dart` 与 `tool/p3_07_evidence_runner.dart`。合同固定 commit、日期、build mode、已知场景、脱敏设备类别、请求/有效 PCM16LE 格式、处理开关、时长/样本/丢样/断点、pipeline/UI P50/P95、内存样本、结果和未覆盖原因；禁止 PCM、设备 ID、用户备注和绝对路径。
+- runner 提供 `create`、`merge`、`validate`；其 `tool/p3_07_fixtures/partial_capture.json` 只迁入可证明的 USB capture-only 与拔插恢复字段，所有 product-pipeline 结果保持 `pending`。`invalid_privacy.json` 是故意损坏 fixture，包含禁止字段，必须非零退出。
+- 实际命令：`dart format --output=none --set-exit-if-changed tool test`（22 files / 0 changed）、`flutter analyze`、`flutter test`（62 项）和 `dart run tool/p3_07_evidence_runner.dart validate tool/p3_07_fixtures/partial_capture.json` 均通过；对 `invalid_privacy.json` 的 validate 非零退出。未将 synthetic/capture-only 解释为 real-device pass。
 
 **允许修改：** `tool/` 下新建的 P3-07 runner/validator、对应 `test/`、`docs/specs/`、`docs/test-matrices/windows.md` 与本文件。
 

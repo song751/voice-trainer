@@ -1,0 +1,8 @@
+{
+  "schema_version": "P3_07_EVIDENCE_V1",
+  "commit": "e80e028",
+  "captured_on": "2026-08-06",
+  "build_mode": "release",
+  "device_id": "private-device-identifier",
+  "scenarios": []
+}

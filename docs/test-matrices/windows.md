@@ -16,4 +16,6 @@ P3-07 尚未完成：权限拒绝/撤回、全部输入端点不可用、可观�
 
 剩余工作按 `docs/PHASE3_TASKS.md` 的 P3-07A→E 执行。A–C 为远程证据工具与 runbook，D 为需要仓库所有者在电脑旁操作的真实矩阵，E 为远程汇总。A–C 的 synthetic/fake 报告必须保留标记，不能把本表的 Pending 改为通过。
 
+`docs/specs/P3_07_EVIDENCE_V1.md` 与 `tool/p3_07_evidence_runner.dart` 现为 P3-07 原始报告合同和校验入口；`tool/p3_07_fixtures/partial_capture.json` 仅作为已知 capture-only 字段迁移示例，仍为 pending，不是本矩阵的额外通过项。
+
 每个新手动结果须记录设备类别、有效采样率/声道/处理器设置、chunk cadence、持续时间、dropped/discontinuity，以及应用版本和日期；不得提交录音内容。

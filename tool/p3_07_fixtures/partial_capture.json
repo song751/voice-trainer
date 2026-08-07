@@ -1,0 +1,42 @@
+{
+  "schema_version": "P3_07_EVIDENCE_V1",
+  "commit": "e80e028",
+  "captured_on": "2026-08-06",
+  "build_mode": "release",
+  "scenarios": [
+    {
+      "scenario_id": "windows_usb_capture",
+      "evidence_kind": "capture_only",
+      "device_category": "usb",
+      "requested_format": {"sample_rate_hz": 48000, "channels": 1, "encoding": "pcm16le"},
+      "effective_format": {"sample_rate_hz": 48000, "channels": 1, "encoding": "pcm16le"},
+      "processing": {"agc": false, "echo_cancellation": false, "noise_suppression": false},
+      "duration_seconds": 1800,
+      "sample_count": 86400000,
+      "dropped_samples": null,
+      "discontinuity_count": 0,
+      "pipeline_latency_ms": {"p50": null, "p95": null},
+      "ui_frame_ms": {"p50": null, "p95": null},
+      "memory_samples": [],
+      "result": {"status": "pending", "reason": "Capture inspector does not measure the production pipeline."},
+      "uncovered_reasons": ["Production DSP/UI/streaming-recorder metrics are not collected."]
+    },
+    {
+      "scenario_id": "windows_usb_unplug_replug",
+      "evidence_kind": "real_device",
+      "device_category": "usb",
+      "requested_format": {"sample_rate_hz": 48000, "channels": 1, "encoding": "pcm16le"},
+      "effective_format": {"sample_rate_hz": 48000, "channels": 1, "encoding": "pcm16le"},
+      "processing": {"agc": false, "echo_cancellation": false, "noise_suppression": false},
+      "duration_seconds": 10,
+      "sample_count": 480960,
+      "dropped_samples": null,
+      "discontinuity_count": 0,
+      "pipeline_latency_ms": {"p50": null, "p95": null},
+      "ui_frame_ms": {"p50": null, "p95": null},
+      "memory_samples": [],
+      "result": {"status": "pending", "reason": "The capture-only recovery does not prove product recovery."},
+      "uncovered_reasons": ["Production pipeline recovery remains unmeasured."]
+    }
+  ]
+}
