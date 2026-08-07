@@ -164,8 +164,8 @@ Phase 3 将已验收的 P2 DSP 组件接入真实 Windows 采集、实时 UI、�
 |---|---|---|---|
 | P3-07P | 已接受 P3 工作树核验与封存 | 远程可执行，不新增功能 | 已接受 |
 | P3-07A | 证据合同与 Windows gate runner | P3-07P 接受后，远程可执行 | 已接受 |
-| P3-07B | 正式产品链路性能观测 | P3-07A 接受后，远程可执行 | **当前解锁** |
-| P3-07C | 真实故障 runbook 与安全 gate hook | P3-07B 接受后，远程可执行 | 锁定 |
+| P3-07B | 正式产品链路性能观测 | P3-07A 接受后，远程可执行 | 已接受 |
+| P3-07C | 真实故障 runbook 与安全 gate hook | P3-07B 接受后，远程可执行 | **当前解锁** |
 | P3-07D | Windows 实机剩余矩阵 | P3-07C 接受且仓库所有者在电脑旁 | **外部条件阻塞** |
 | P3-07E | 证据校验与 P3-07 结论 | P3-07D 产生完整原始报告后，远程可执行 | 锁定 |
 
@@ -219,6 +219,12 @@ Phase 3 将已验收的 P2 DSP 组件接入真实 Windows 采集、实时 UI、�
 ### P3-07B — 正式产品链路性能观测
 
 **目标结果：** 在显式 gate 模式下，从 production `RecordAudioCapture` → bounded queues → Rust DSP → 25 Hz UI → streaming WAV/Drift 路径收集可关联的性能数据；默认产品运行不增加敏感日志或无限缓存。
+
+#### P3-07B 执行记录（2026-08-07，已接受）
+
+- 新增 `P3PerformanceObserver`（`lib/core/metrics/`），仅在显式 `enabled` 注入时关联 capture monotonic time、分析发布、queue drop/discontinuity、worker 状态、UI build/raster timing 与 host 提供的内存抽样；关联表最多 128 chunks、每类 quantile 最多 256 值、内存最多 32 点。默认 coordinator 创建 disabled observer，不产生报告、额外逐帧日志或无界列表。
+- coordinator 在 production capture → bounded queues → Rust analysis 发布路径上调用 observer，保留 sample-index 作为关联键。observer snapshot 与 `tool/p3_07_synthetic_performance.dart` 映射为 P3-07A 合同中的 synthetic/pending report；它验证测量字段、P50/P95、断点和 bounded-memory 映射，不声明实机门槛通过。
+- 实际命令：窄测 `flutter test test/core/metrics/p3_performance_observer_test.dart`、Windows fake integration（6 项）、synthetic report generation/validation 均通过。全量 `dart format --output=none --set-exit-if-changed lib test integration_test test_driver tool`（135 files / 0 changed）、`flutter analyze`、`flutter test`（64 项）和 `flutter build windows --release` 均通过。Synthetic report 写入临时目录并未加入 Git。
 
 **允许修改：** `lib/infrastructure/audio/`、`lib/features/live_practice/` 中独立的 metrics adapter、`lib/core/` 中不含插件依赖的 metrics value object、`tool/`、`integration_test/` 和测试。若必须改既有 DTO，只能增加 gate-local 映射，不扩大 FRB 实时 payload。
 

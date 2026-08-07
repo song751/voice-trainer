@@ -94,7 +94,8 @@ Map<String, dynamic> createBlankP3_07Evidence({
             'dropped_samples': null,
             'discontinuity_count': null,
             'pipeline_latency_ms': _blankQuantiles(),
-            'ui_frame_ms': _blankQuantiles(),
+            'ui_build_ms': _blankQuantiles(),
+            'ui_raster_ms': _blankQuantiles(),
             'memory_samples': <Object?>[],
             'result': <String, String>{
               'status': 'pending',
@@ -216,7 +217,8 @@ void _validateScenario(
     '$prefix.pipeline_latency_ms',
     issues,
   );
-  _validateQuantiles(scenario['ui_frame_ms'], '$prefix.ui_frame_ms', issues);
+  _validateQuantiles(scenario['ui_build_ms'], '$prefix.ui_build_ms', issues);
+  _validateQuantiles(scenario['ui_raster_ms'], '$prefix.ui_raster_ms', issues);
   _validateMemory(scenario['memory_samples'], '$prefix.memory_samples', issues);
 
   final result = scenario['result'];

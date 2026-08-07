@@ -8,7 +8,7 @@ then one or more scenario objects.
 Every scenario requires a known `scenario_id`, `evidence_kind`
 (`real_device`, `capture_only`, or `synthetic`), a coarse `device_category`,
 requested/effective PCM16LE format, processing flags, duration/sample/drop and
-discontinuity counters, pipeline/UI P50/P95 milliseconds, memory samples,
+discontinuity counters, pipeline/UI-build/UI-raster P50/P95 milliseconds, memory samples,
 result and uncovered reasons. Unknown measurements are `null`; their scenario
 result must remain `pending` and name why. `pending`, `synthetic`, and
 `capture_only` never satisfy a real-device requirement.

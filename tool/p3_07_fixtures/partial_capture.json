@@ -16,7 +16,8 @@
       "dropped_samples": null,
       "discontinuity_count": 0,
       "pipeline_latency_ms": {"p50": null, "p95": null},
-      "ui_frame_ms": {"p50": null, "p95": null},
+      "ui_build_ms": {"p50": null, "p95": null},
+      "ui_raster_ms": {"p50": null, "p95": null},
       "memory_samples": [],
       "result": {"status": "pending", "reason": "Capture inspector does not measure the production pipeline."},
       "uncovered_reasons": ["Production DSP/UI/streaming-recorder metrics are not collected."]
@@ -33,7 +34,8 @@
       "dropped_samples": null,
       "discontinuity_count": 0,
       "pipeline_latency_ms": {"p50": null, "p95": null},
-      "ui_frame_ms": {"p50": null, "p95": null},
+      "ui_build_ms": {"p50": null, "p95": null},
+      "ui_raster_ms": {"p50": null, "p95": null},
       "memory_samples": [],
       "result": {"status": "pending", "reason": "The capture-only recovery does not prove product recovery."},
       "uncovered_reasons": ["Production pipeline recovery remains unmeasured."]

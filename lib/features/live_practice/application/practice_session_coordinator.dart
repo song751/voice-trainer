@@ -15,6 +15,7 @@ import '../../../core/domain/persistence/recording_store.dart';
 import '../../../core/domain/persistence/session_repository.dart';
 import '../../../core/domain/practice/practice_template.dart';
 import '../../../core/errors/failure.dart';
+import '../../../core/metrics/p3_performance_observer.dart';
 import '../domain/practice_session_state.dart';
 import '../../session_result/application/session_result_calculator.dart';
 
@@ -51,6 +52,7 @@ final class PracticeSessionCoordinator {
     required RecordingStore recordingStore,
     required SessionRepository sessionRepository,
     int maxQueuedSamples = 12000,
+    P3PerformanceObserver? performanceObserver,
     PracticeSessionStateMachine stateMachine =
         const PracticeSessionStateMachine(),
   }) {
@@ -61,6 +63,8 @@ final class PracticeSessionCoordinator {
       recordingStore: recordingStore,
       sessionRepository: sessionRepository,
       maxQueuedSamples: maxQueuedSamples,
+      performanceObserver:
+          performanceObserver ?? P3PerformanceObserver.disabled(),
       stateMachine: stateMachine,
     );
   }
@@ -72,6 +76,7 @@ final class PracticeSessionCoordinator {
     required this._recordingStore,
     required this._sessionRepository,
     required this.maxQueuedSamples,
+    required this.performanceObserver,
     required this._stateMachine,
   }) : assert(maxQueuedSamples > 0),
        _analysisQueue = _BoundedPcmQueue(maxQueuedSamples),
@@ -84,6 +89,7 @@ final class PracticeSessionCoordinator {
   final SessionRepository _sessionRepository;
   final PracticeSessionStateMachine _stateMachine;
   final int maxQueuedSamples;
+  final P3PerformanceObserver performanceObserver;
   final _BoundedPcmQueue _analysisQueue;
   final _BoundedPcmQueue _recordingQueue;
   final StreamController<AnalysisFrame> _realtimeFrames =
@@ -155,9 +161,13 @@ final class PracticeSessionCoordinator {
       );
       _analysisFormat = captureSession.effectiveFormat;
       await _workerMetricsSubscription?.cancel();
-      _workerMetricsSubscription = _analysisEngine.workerMetricsStream.listen(
-        _workerMetrics.add,
-      );
+      _workerMetricsSubscription = _analysisEngine.workerMetricsStream.listen((
+        metrics,
+      ) {
+        performanceObserver.onWorkerMetrics(metrics);
+        _workerMetrics.add(metrics);
+      });
+      performanceObserver.onWorkerMetrics(_analysisEngine.workerMetrics);
       _workerMetrics.add(_analysisEngine.workerMetrics);
       await _recordingSink.open(
         RecordingMetadata(
@@ -337,6 +347,7 @@ final class PracticeSessionCoordinator {
     _expectedSampleIndex = chunk.endSampleIndexExclusive;
     _droppedSamples += dropped;
     _hasDiscontinuity = _hasDiscontinuity || chunk.discontinuityBefore;
+    performanceObserver.onCaptureChunk(chunk);
     final analysisResult = _analysisQueue.add(chunk);
     _droppedSamples += analysisResult.droppedSamples;
     _hasDiscontinuity = _hasDiscontinuity || analysisResult.droppedSamples > 0;
@@ -350,6 +361,10 @@ final class PracticeSessionCoordinator {
       unawaited(_stopCapture());
       return;
     }
+    performanceObserver.onQueueAccounting(
+      analysisDroppedSamples: _droppedSamples,
+      recordingDroppedSamples: 0,
+    );
     _scheduleAnalysisDrain();
     _scheduleRecordingDrain();
   }
@@ -397,6 +412,7 @@ final class PracticeSessionCoordinator {
           ),
         );
         for (final frame in result.frames) {
+          performanceObserver.onAnalysisPublished(frame);
           if (!_realtimeFrames.isClosed) {
             _realtimeFrames.add(frame);
           }
