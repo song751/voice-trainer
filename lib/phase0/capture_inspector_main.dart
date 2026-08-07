@@ -68,6 +68,7 @@ class _CaptureInspectorPageState extends State<CaptureInspectorPage> {
     } catch (error, stack) {
       debugPrint('PHASE0_CAPTURE_ERROR=$error\n$stack');
       if (mounted) setState(() => _status = 'ERROR: $error');
+      if (_autoExit) exitCaptureProcess();
     } finally {
       if (mounted) setState(() => _running = false);
     }

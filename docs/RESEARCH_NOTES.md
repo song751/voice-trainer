@@ -543,3 +543,57 @@ Phase-boundary 回归：FRB codegen 连续两次 7 个生成文件 SHA-256 不�
 - 验收结论：通过。P2-07 的 Rust golden/invariance、bench、Windows native runtime 与实际 Edge/WASM runtime 均已通过，Phase 2 DSP MVP 固定卡正式关闭。
 - 未覆盖项：Phase 3 尚未定义；真实麦克风平台矩阵仍须按其独立任务和设备证据执行，不能由本合成流 gate 替代。
 - 下一步：在开始任何后续实现前，先定义、审查并接受单独的 Phase 3 任务卡。
+
+### P3-01 执行记录（2026-08-06，已接受）
+
+- `RealtimeAnalyzerCore` 已从 Phase 0 autocorrelation 骨架换为 P2 YIN、48→16 kHz FIR pitch branch、48 kHz 2048/480 full-band STFT、质量帧和 `SegmentAggregator` 的单一生产合成路径。输出只在对应的 100 Hz pitch/full-band frame 都可用时生成；没有为尾窗补零。
+- 生产桥新增显式 `startSample` entry，所有 frame/summary timeline 来自该单调 sample index；本卡只允许连续 48 kHz 输入并拒绝不连续 index。有效格式、间隙和 backpressure 的 typed failure 仍留给 P3-02。
+- 新 production-entry golden/invariance gate 覆盖 P2-01 全部 8 输入、任意 split、timeline、YIN truth、quality/segment summary 与受限 8-band DTO。当前本地复验：Rust fmt、Clippy `-D warnings`、`cargo test`（49）；Dart format、`flutter analyze`、`flutter test`（45）；FRB generate/build-web、Web worker syntax 和 Flutter Web release build 均通过。
+- 未覆盖：未把真实 capture、format 变化、drop/gap、UI、录音或数据库混入该卡；这些不应被本地合成 production gate 冒充为已通过。仓库所有者已接受，P3-02 已解锁。
+
+### P3-02 执行记录（2026-08-06，已接受）
+
+- 完整 `CaptureFormat` 现在进入分析配置；生产 Rust adapter 在 bridge 前明确拒绝 44.1 kHz、非 mono、非 PCM16、奇数字节/非完整 frame、格式变化及倒退 sample index，并保留可映射的 `AnalysisFailureReason`。
+- FRB 和 dedicated Web Worker 都改为传递绝对 `startSample` 与断点元数据。Rust 在 gap/pause-resume 后重启内部 streaming windows、保持 sample timeline 单调、设置 frame/summary 的 dropped/discontinuity 证据并使跨断点统计无效；同一缺口不会被重复计数。
+- Coordinator 使用 `CaptureSession.effectiveFormat` 初始化 analyzer、在 resume 和格式变化时显式传播状态。自动化复验：Rust fmt/Clippy/tests（51）、Dart format/analyze/tests（47）、Windows fake-capture integration（4）、FRB Web build、Web syntax 与 Flutter Web release 均通过；native smoke 为 48,000 samples、94 frames、8 bands。未把 fake/runtime build 视作真实麦克风或 P3-03 默认装配的替代证据。仓库所有者已接受，P3-03 已解锁。
+
+### P3-03 执行记录（2026-08-06，已接受）
+
+- Windows default provider 已由 fake 改为 `RecordAudioCapture` + `RustAnalysisEngine`，而非 Windows/Web/其他 native 继续各自默认启用。Coordinator 发布 raw frame、capture health、worker metrics；worker metric 包含 drop/restart/fallback/state，且仍通过有界队列防止 capture callback 等待分析/UI/存储。
+- Fake override 保持可用。Windows integration 已在真实 plugin runner 检查 default composition；fake integration 覆盖 typed analysis init failure、format/pause/drop 和三类 stream。完整 Rust（51）、Flutter（47）、Windows integrations（6+1）和 Web release build 均通过。
+- 未运行真实麦克风，不把 default composition、fake flow 或构建结果表述为 P3-07 的设备证据；仓库所有者已接受，P3-04 的 UI decimator 已解锁。
+
+### P3-04 执行记录（2026-08-06，已接受）
+
+- 以 sample-index 而非 wall clock 将 100 Hz `AnalysisFrame` 降至 25 Hz `UiAnalysisFrame`；每秒 100 个 480-sample raw frames 的确定性测试只产生 25 个 UI snapshots。pitch history 始终限制为 600 个 raw points，并携带 unvoiced/null 与 discontinuity，避免伪造连续 pitch curve。
+- Live 页面只 watch decimated StreamProvider，而非 Coordinator 的 raw stream/PCM。它以 `CustomPainter` + `RepaintBoundary` 显示固定 ring，并展示目标音、note/cents、RMS 与描述性 quality chips；未引入 chart 或其他生产依赖。
+- 本机复验：窄 Flutter tests 8 项、Dart format、Flutter analyze、Flutter test 50 项、Rust fmt/Clippy/tests 51 项和 Flutter Web release build 都通过。Web build 的 Cupertino font 提示及 Wasm dry-run 信息均非失败。
+- 未作真实麦克风、Windows UI frame time、延迟或 soak 量测；不得把该自动化/构建结果视为 P3-07 的设备或性能证据。仓库所有者已接受，P3-05 的录音与持久化已解锁。
+
+### P3-05 执行记录（2026-08-06，已接受）
+
+- Windows persistence 默认通过 application-support 路径懒打开 Native Drift database 与 WAV recordings；`RecordingSink.open` 等待 `.partial` 清理和 recording tombstone recovery，避免恢复尚未完成时写入新 PCM。没有加入新的生产依赖。
+- Packed feature schema v2 增加固定 8 个 P2 physical band power 列，仍是 100 Hz shared sample-index timeline 和版本化/校验 BLOB；旧无 band 的 v1 feature series 仍可读取。录音删除使用先 durable tombstone、再删 blob、最后删 locator 的顺序；session delete 在录音成功处理后删除所有 runs/feature metadata/BLOB rows。
+- 注入覆盖 append、finalize、DB save、foreign-key transaction、blob deletion tombstone/recovery；全量 Dart 55、Rust 51、Windows default-composition integration 和 Web release build 均通过。Windows real microphone、旧磁盘 migration fixture、磁盘失败、crash/restart、soak 与性能数据仍未执行，均保留给 P3-07。
+
+### P3-06 执行记录（2026-08-06，已接受）
+
+- 将 Rust `SegmentSummary` 增加为 finalization-only DTO，并在 native FRB 和 explicit Web WASM worker 中完成映射；Dart domain 保存 valid/total frame、dropped samples、quality flags、MAD/slope 与 onset measurement。没有扩大 raw frame 或 Web message payload。
+- 命中率在 Dart 根据 template target 计算；只计入 voiced、无 clipping/input-too-low/drop/discontinuity 的有效帧。确定性规则先执行 quality gate：低质量/不足帧只建议改善录音，不输出任何医学、声门或发声机理判断。
+- session summary 扩展数据经 Drift v4 `summaryJson` 持久化，旧 v3 session 保持可读；结果页和最近历史列表仅消费 session summary/repository，未监听 100 Hz frame stream。
+- 新增 hit-rate、quality suppression、determinism、summary persistence/history read 和 Rust finalization bridge 测试。Dart 58 项、Rust 52 项、静态检查、FRB Web build、Web worker syntax 和 Flutter Web release build 通过。仓库所有者已接受；真实设备 P3-07 现已解锁。
+
+### P3-07 剩余工作重排（2026-08-07，规划记录）
+
+- P3-07 仍是未完成状态。已经取得内置/USB 真实 capture、USB 拔插/回插和 30 分钟 capture-only 证据；它们不会因本次重排失效，也不会被扩大解释为正式 product pipeline 通过。
+- 仍缺权限拒绝/撤回、全部输入不可用、可观察的格式变化、真实写盘失败、进程崩溃/重启恢复、production 端到端 P50/P95、Live UI frame time 和 streaming recorder 内存趋势。仓库所有者当前远程办公，无法完成 Windows 设置、物理设备和故障介质操作。
+- 为避免远程模型反复卡在人工步骤，P3-07 固定拆为 P 工作树核验/封存、A 证据合同、B production metrics、C 故障 runbook/gate hook、D 现场实机矩阵、E 证据汇总。由于已接受的 P3-01→06 仍在大量未提交改动中，当前先解锁 P3-07P；A–C 的 synthetic/fake 结果不得满足 D 的真实设备项。
+- Phase 4 Android/Web 固定任务卡已写入 `docs/PHASE4_TASKS.md`。仓库所有者随后授权：P3-07P 与 P3-07A→C 接受后，若现场条件仍不可用，可以逐卡执行 P4-00→P4-13 的远程实现路径；P3-07D/P3-08、Android 真机、真实浏览器麦克风和 P4 Closure 仍保持硬 Gate，模拟器/root/fake 不得替代。
+
+### Android emulator/ADB 远程基线（2026-08-07，规划证据）
+
+- 当前运行 MuMu Player 12；Android SDK `platform-tools` 的 `adb 37.0.1` 已显式连接 `127.0.0.1:7555`，`flutter devices --device-timeout 10` 将其识别为 Android mobile device。
+- 设备报告 Android 15/API 35、x86_64、1080×1920、480 dpi，产品/模型伪装字段为 `PD2362`/`V2362A`。这些字段只用于 emulator compatibility，不得记录为 vivo 真机覆盖。
+- PackageManager 声明 microphone 与 low-latency audio；AudioFlinger 历史 input path 包含 48 kHz PCM16（同时也存在 16 kHz path）。这足以安排 record/format/bridge smoke，但不能证明宿主转发麦克风的真实性、AGC、路由、延迟、掉帧或音质。
+- MuMu 私有 ADB 支持 `adb root`，重启后标准 SDK ADB shell 为 uid 0；镜像没有普通 `su` 命令。root 只允许用于测试包沙箱/明确可丢弃路径的可恢复故障注入，不能成为产品或通过条件。
+- 当前 shell PATH 不包含 SDK `adb.exe`，后续 preflight helper 必须从 Android SDK 解析绝对路径或接收显式参数，不能假定裸 `adb` 命令可用。

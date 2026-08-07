@@ -14,9 +14,20 @@ The desktop source guide is historical input. Repository documents are authorita
 ## Current phase
 
 Phase 0, Phase 1, closure cards C1–C4, and `P2-01` through `P2-07` are complete.
-`P3-00` is accepted and complete. The **only** Phase 3 implementation card now
-allowed is `P3-01` in `docs/PHASE3_TASKS.md`; execute one card at a time and do
-not start `P3-02+` until the prior card is independently accepted and recorded.
+`P3-00` through `P3-06` and checkpoint card `P3-07P` are accepted and complete.
+`P3-07` remains incomplete and has ordered subcards in `docs/PHASE3_TASKS.md`.
+The **only** card now allowed is `P3-07A`, which creates the versioned evidence
+contract and Windows gate runner; do not begin `P3-07B` until `P3-07A` is
+accepted and recorded.
+Execute one subcard at a time. `P3-07D` requires the repository owner at the
+Windows workstation; do not claim it from fake capture or remote-only runs.
+After `P3-07P` and `P3-07A` through `P3-07C` are accepted, the owner has explicitly
+authorized the provisional remote path `P4-00` through `P4-13` in
+`docs/PHASE4_TASKS.md` while `P3-07D` waits. This exception advances tested
+implementation only: it does not close Phase 3 or satisfy real-device gates.
+Do not start `P3-08`, `P4-14+`, or Phase 4 closure without their recorded
+human/device prerequisites. Switch paths only at an accepted card boundary
+with a clean, traceable checkpoint; never interleave two cards' edits.
 
 ## Non-negotiable architecture
 
