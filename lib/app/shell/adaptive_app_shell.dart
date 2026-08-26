@@ -27,7 +27,7 @@ class AdaptiveAppShell extends StatelessWidget {
       (destination) => destination.path == currentPath,
     );
     final index = selectedIndex < 0 ? 0 : selectedIndex;
-    final isWide = MediaQuery.sizeOf(context).width >= 720;
+    final isWide = MediaQuery.sizeOf(context).width >= 840;
     final navigation = isWide
         ? NavigationRail(
             selectedIndex: index,
@@ -44,30 +44,40 @@ class AdaptiveAppShell extends StatelessWidget {
           )
         : null;
 
-    return Scaffold(
-      body: isWide
-          ? Row(
-              children: <Widget>[
-                navigation!,
-                const VerticalDivider(width: 1),
-                Expanded(child: child),
-              ],
-            )
-          : child,
-      bottomNavigationBar: isWide
-          ? null
-          : NavigationBar(
-              selectedIndex: index,
-              onDestinationSelected: (value) => _go(context, value),
-              destinations: _destinations
-                  .map(
-                    (destination) => NavigationDestination(
-                      icon: Icon(destination.icon),
-                      label: destination.label,
-                    ),
-                  )
-                  .toList(),
-            ),
+    return PopScope(
+      canPop: currentPath == RoutePaths.home,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop && currentPath != RoutePaths.home) {
+          context.go(RoutePaths.home);
+        }
+      },
+      child: Scaffold(
+        body: isWide
+            ? Row(
+                children: <Widget>[
+                  SafeArea(child: navigation!),
+                  const VerticalDivider(width: 1),
+                  Expanded(child: child),
+                ],
+              )
+            : child,
+        bottomNavigationBar: isWide
+            ? null
+            : NavigationBar(
+                selectedIndex: index,
+                labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+                onDestinationSelected: (value) => _go(context, value),
+                destinations: _destinations
+                    .map(
+                      (destination) => NavigationDestination(
+                        icon: Icon(destination.icon),
+                        label: destination.label,
+                        tooltip: destination.label,
+                      ),
+                    )
+                    .toList(),
+              ),
+      ),
     );
   }
 

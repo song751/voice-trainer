@@ -47,6 +47,7 @@ final class LivePracticeController extends Notifier<PracticeSessionState> {
     final id = _newSessionId();
     _activeSessionId = id;
     ref.read(latestPracticeSessionProvider.notifier).state = null;
+    state = RequestingPermission(sessionId: id);
     state = await _coordinator.start(
       PracticeSessionRequest(
         sessionId: id,
@@ -65,6 +66,10 @@ final class LivePracticeController extends Notifier<PracticeSessionState> {
   }
 
   Future<void> stop() async {
+    final current = state;
+    if (current is Running || current is Paused) {
+      state = Finalizing(sessionId: _activeSessionId!);
+    }
     state = await _coordinator.stop();
     final id = _activeSessionId;
     if (state is Completed && id != null) {

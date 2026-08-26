@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
+import '../../../app/app_providers.dart';
+import '../../../app/router/route_names.dart';
 import '../../../core/domain/analysis/analysis_quality_flag.dart';
 import '../../../core/domain/analysis/ui_analysis_frame.dart';
 import '../../../core/errors/failure.dart';
-import '../../../app/app_providers.dart';
+import '../../../core/platform/platform_capabilities.dart';
+import '../../../core/widgets/responsive_page_body.dart';
 import '../application/live_practice_controller.dart';
 import '../domain/practice_session_state.dart';
 
@@ -21,34 +25,52 @@ class LivePracticePage extends ConsumerWidget {
         .target
         .targetMidiNote;
     final controller = ref.read(livePracticeControllerProvider.notifier);
+    final capabilities = ref.watch(platformCapabilitiesProvider);
     final hasNoData =
         sessionState is Completed &&
         (completedSession == null || completedSession.features.frames.isEmpty);
 
     return Scaffold(
       appBar: AppBar(title: const Text('实时练习')),
-      body: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+      body: ResponsivePageBody(
+        child: ListView(
+          key: const Key('live-page-scroll'),
           children: <Widget>[
-            Text(_messageFor(sessionState), key: const Key('practice-status')),
-            const SizedBox(height: 16),
+            if (capabilities.capture == PlatformAdapterMode.fallback)
+              const Card(
+                child: ListTile(
+                  leading: Icon(Icons.science_outlined),
+                  title: Text('当前使用测试适配器'),
+                  subtitle: Text('页面展示的是确定性测试输入，不代表真实麦克风已通过。'),
+                ),
+              ),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Text(
+                  _messageFor(sessionState),
+                  key: const Key('practice-status'),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
             _LiveReadout(frame: uiFrame, targetMidiNote: targetMidiNote),
-            if (hasNoData)
+            if (hasNoData) ...<Widget>[
+              const SizedBox(height: 12),
               const Text(
                 '暂无分析数据。请开始新的练习并确认麦克风输入正常。',
                 key: Key('no-analysis-data'),
               ),
+            ],
             if (sessionState is Failed) ...<Widget>[
-              const SizedBox(height: 8),
+              const SizedBox(height: 12),
               Text(
                 _failureMessage(sessionState.failure),
                 key: const Key('practice-error'),
               ),
             ],
-            const Spacer(),
-            _controls(sessionState, controller),
+            const SizedBox(height: 20),
+            _controls(context, sessionState, controller),
           ],
         ),
       ),
@@ -56,6 +78,7 @@ class LivePracticePage extends ConsumerWidget {
   }
 
   Widget _controls(
+    BuildContext context,
     PracticeSessionState state,
     LivePracticeController controller,
   ) {
@@ -99,6 +122,14 @@ class LivePracticePage extends ConsumerWidget {
             key: const Key('retry-practice'),
             onPressed: controller.retry,
             child: const Text('重试'),
+          ),
+        ],
+        Completed() => <Widget>[
+          FilledButton.icon(
+            key: const Key('view-practice-result'),
+            onPressed: () => context.go(RoutePaths.result),
+            icon: const Icon(Icons.summarize_outlined),
+            label: const Text('查看结果'),
           ),
         ],
         _ => const <Widget>[],
@@ -165,6 +196,12 @@ class _LiveReadout extends StatelessWidget {
                 : 'RMS：${frame!.rmsDbfs.toStringAsFixed(1)} dBFS',
             key: const Key('live-rms'),
           ),
+          if (frame != null)
+            Text(
+              'Peak：${frame!.peakDbfs.toStringAsFixed(1)} dBFS · '
+              '清晰度 ${(frame!.pitchClarity * 100).toStringAsFixed(0)}%',
+              key: const Key('live-signal-details'),
+            ),
           const SizedBox(height: 8),
           Wrap(
             spacing: 8,
