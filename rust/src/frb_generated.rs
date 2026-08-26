@@ -890,11 +890,11 @@ impl SseDecode for crate::api::song_compare::ReferenceAnalysisReportDto {
 impl SseDecode for crate::api::song_compare::ReferenceAnalysisRequestDto {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
-        let mut var_vocalsPath = <String>::sse_decode(deserializer);
+        let mut var_vocalsBytes = <Vec<u8>>::sse_decode(deserializer);
         let mut var_maximumDecodedFrames = <u64>::sse_decode(deserializer);
         let mut var_cancelMarker = <String>::sse_decode(deserializer);
         return crate::api::song_compare::ReferenceAnalysisRequestDto {
-            vocals_path: var_vocalsPath,
+            vocals_bytes: var_vocalsBytes,
             maximum_decoded_frames: var_maximumDecodedFrames,
             cancel_marker: var_cancelMarker,
         };
@@ -1309,7 +1309,7 @@ impl flutter_rust_bridge::IntoIntoDart<crate::api::song_compare::ReferenceAnalys
 impl flutter_rust_bridge::IntoDart for crate::api::song_compare::ReferenceAnalysisRequestDto {
     fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
         [
-            self.vocals_path.into_into_dart().into_dart(),
+            self.vocals_bytes.into_into_dart().into_dart(),
             self.maximum_decoded_frames.into_into_dart().into_dart(),
             self.cancel_marker.into_into_dart().into_dart(),
         ]
@@ -1871,7 +1871,7 @@ impl SseEncode for crate::api::song_compare::ReferenceAnalysisReportDto {
 impl SseEncode for crate::api::song_compare::ReferenceAnalysisRequestDto {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        <String>::sse_encode(self.vocals_path, serializer);
+        <Vec<u8>>::sse_encode(self.vocals_bytes, serializer);
         <u64>::sse_encode(self.maximum_decoded_frames, serializer);
         <String>::sse_encode(self.cancel_marker, serializer);
     }

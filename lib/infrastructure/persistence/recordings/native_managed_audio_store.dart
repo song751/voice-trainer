@@ -1,14 +1,20 @@
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
 
 import '../../../core/domain/persistence/audio_content_identity.dart';
 
+Future<void> recoverVerifiedAudioRoots(Iterable<Directory> roots) async {
+  for (final root in roots) {
+    await NativeManagedAudioStore(root).recoverVerifiedLeases();
+  }
+}
+
 final class NativeManagedAudioStore {
   NativeManagedAudioStore(this.root);
 
   final Directory root;
-  static int _nextLease = 0;
 
   Future<File> resolveManaged(String locator) async {
     await root.create(recursive: true);
@@ -48,17 +54,9 @@ final class NativeManagedAudioStore {
       throw const AudioContentFailure(AudioContentFailureReason.legacyUnbound);
     }
     final source = await resolveManaged(locator);
-    final snapshots = Directory(
-      '${root.path}${Platform.pathSeparator}.verified',
-    );
-    await snapshots.create(recursive: true);
-    final snapshot = File(
-      '${snapshots.path}${Platform.pathSeparator}'
-      'lease_${DateTime.now().microsecondsSinceEpoch}_${_nextLease++}.wav',
-    );
     try {
-      await source.copy(snapshot.path);
-      final actual = await identify(snapshot);
+      final bytes = await source.readAsBytes();
+      final actual = identityForBytes(bytes);
       if (actual.byteLength != expected.byteLength) {
         throw const AudioContentFailure(
           AudioContentFailureReason.lengthMismatch,
@@ -67,12 +65,10 @@ final class NativeManagedAudioStore {
       if (actual.sha256 != expected.sha256) {
         throw const AudioContentFailure(AudioContentFailureReason.hashMismatch);
       }
-      return _NativeVerifiedAudioLease(snapshot, actual);
+      return _NativeVerifiedAudioLease(bytes, actual);
     } on AudioContentFailure {
-      if (await snapshot.exists()) await snapshot.delete();
       rethrow;
     } catch (error) {
-      if (await snapshot.exists()) await snapshot.delete();
       throw AudioContentFailure(
         AudioContentFailureReason.ioFailure,
         detail: error.runtimeType.toString(),
@@ -85,6 +81,59 @@ final class NativeManagedAudioStore {
         sha256: (await sha256.bind(file.openRead()).first).toString(),
         byteLength: await file.length(),
       );
+
+  static AudioContentIdentity identityForBytes(Uint8List bytes) =>
+      AudioContentIdentity(
+        sha256: sha256.convert(bytes).toString(),
+        byteLength: bytes.lengthInBytes,
+      );
+
+  /// Removes only legacy on-disk verified snapshots created by older builds.
+  /// Links and non-directory containers are rejected without being followed.
+  Future<void> recoverVerifiedLeases() async {
+    if (!await root.exists()) return;
+    final rootPath = await root.resolveSymbolicLinks();
+    final snapshots = Directory(
+      '${root.path}${Platform.pathSeparator}.verified',
+    );
+    final snapshotType = await FileSystemEntity.type(
+      snapshots.path,
+      followLinks: false,
+    );
+    if (snapshotType == FileSystemEntityType.notFound) return;
+    if (snapshotType != FileSystemEntityType.directory) {
+      throw const AudioContentFailure(
+        AudioContentFailureReason.outsideManagedRoot,
+      );
+    }
+    final snapshotsPath = await snapshots.resolveSymbolicLinks();
+    _requireInside(rootPath, snapshotsPath);
+    final stale = <File>[];
+    await for (final entity in snapshots.list(followLinks: false)) {
+      final type = await FileSystemEntity.type(entity.path, followLinks: false);
+      if (type == FileSystemEntityType.link) {
+        throw const AudioContentFailure(
+          AudioContentFailureReason.outsideManagedRoot,
+        );
+      }
+      if (type != FileSystemEntityType.file || !_isLeaseName(entity.path)) {
+        continue;
+      }
+      final path = await File(entity.path).resolveSymbolicLinks();
+      _requireInside(snapshotsPath, path);
+      stale.add(File(path));
+    }
+    for (final file in stale) {
+      if (await file.exists()) await file.delete();
+    }
+    if (!await snapshots.list(followLinks: false).isEmpty) return;
+    await snapshots.delete();
+  }
+
+  bool _isLeaseName(String path) {
+    final name = File(path).uri.pathSegments.last;
+    return RegExp(r'^lease_[0-9]+_[0-9]+\.wav$').hasMatch(name);
+  }
 
   File _sourceFor(String locator) {
     if (locator.isEmpty) {
@@ -138,13 +187,16 @@ final class NativeManagedAudioStore {
 }
 
 final class _NativeVerifiedAudioLease implements VerifiedAudioLease {
-  _NativeVerifiedAudioLease(this._snapshot, this.identity);
+  _NativeVerifiedAudioLease(this._bytes, this.identity);
 
-  final File _snapshot;
+  Uint8List _bytes;
   var _disposed = false;
 
   @override
-  String get path => _snapshot.path;
+  Uint8List get bytes {
+    if (_disposed) throw StateError('Verified audio lease is disposed.');
+    return _bytes.asUnmodifiableView();
+  }
 
   @override
   final AudioContentIdentity identity;
@@ -153,6 +205,7 @@ final class _NativeVerifiedAudioLease implements VerifiedAudioLease {
   Future<void> dispose() async {
     if (_disposed) return;
     _disposed = true;
-    if (await _snapshot.exists()) await _snapshot.delete();
+    _bytes.fillRange(0, _bytes.length, 0);
+    _bytes = Uint8List(0);
   }
 }

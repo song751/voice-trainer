@@ -1,12 +1,12 @@
 use super::pipeline::{SeparationError, SeparationFailureReason, StereoWaveform};
-use std::fs::File;
 use std::path::Path;
+use std::{fs::File, io::Cursor};
 use symphonia::core::{
     audio::SampleBuffer,
     codecs::DecoderOptions,
     errors::Error as SymphoniaError,
     formats::FormatOptions,
-    io::{MediaSourceStream, MediaSourceStreamOptions},
+    io::{MediaSource, MediaSourceStream, MediaSourceStreamOptions},
     meta::MetadataOptions,
     probe::Hint,
 };
@@ -21,7 +21,7 @@ pub struct DecodedAudio {
 pub fn decode_audio_file<C>(
     path: &Path,
     maximum_decoded_frames: u64,
-    mut should_cancel: C,
+    should_cancel: C,
 ) -> Result<DecodedAudio, SeparationError>
 where
     C: FnMut() -> bool,
@@ -36,11 +36,41 @@ where
     let file = File::open(path).map_err(|error| {
         SeparationError::io("open_song", "the selected song could not be opened", error)
     })?;
-    let stream = MediaSourceStream::new(Box::new(file), MediaSourceStreamOptions::default());
     let mut hint = Hint::new();
     if let Some(extension) = path.extension().and_then(|value| value.to_str()) {
         hint.with_extension(extension);
     }
+    decode_audio_source(Box::new(file), hint, maximum_decoded_frames, should_cancel)
+}
+
+pub fn decode_audio_bytes<C>(
+    bytes: Vec<u8>,
+    maximum_decoded_frames: u64,
+    should_cancel: C,
+) -> Result<DecodedAudio, SeparationError>
+where
+    C: FnMut() -> bool,
+{
+    let mut hint = Hint::new();
+    hint.with_extension("wav");
+    decode_audio_source(
+        Box::new(Cursor::new(bytes)),
+        hint,
+        maximum_decoded_frames,
+        should_cancel,
+    )
+}
+
+fn decode_audio_source<C>(
+    source: Box<dyn MediaSource>,
+    hint: Hint,
+    maximum_decoded_frames: u64,
+    mut should_cancel: C,
+) -> Result<DecodedAudio, SeparationError>
+where
+    C: FnMut() -> bool,
+{
+    let stream = MediaSourceStream::new(source, MediaSourceStreamOptions::default());
     let probed = symphonia::default::get_probe()
         .format(
             &hint,
@@ -166,5 +196,37 @@ where
         Err(SeparationError::cancelled("decode_song"))
     } else {
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::decode_audio_bytes;
+
+    #[test]
+    fn verified_wav_bytes_decode_without_a_pathname() {
+        let samples = [0_i16, 8_192, -8_192, 16_384];
+        let data_length = (samples.len() * std::mem::size_of::<i16>()) as u32;
+        let mut wav = Vec::with_capacity(44 + data_length as usize);
+        wav.extend_from_slice(b"RIFF");
+        wav.extend_from_slice(&(36 + data_length).to_le_bytes());
+        wav.extend_from_slice(b"WAVEfmt ");
+        wav.extend_from_slice(&16_u32.to_le_bytes());
+        wav.extend_from_slice(&1_u16.to_le_bytes());
+        wav.extend_from_slice(&1_u16.to_le_bytes());
+        wav.extend_from_slice(&44_100_u32.to_le_bytes());
+        wav.extend_from_slice(&(44_100_u32 * 2).to_le_bytes());
+        wav.extend_from_slice(&2_u16.to_le_bytes());
+        wav.extend_from_slice(&16_u16.to_le_bytes());
+        wav.extend_from_slice(b"data");
+        wav.extend_from_slice(&data_length.to_le_bytes());
+        for sample in samples {
+            wav.extend_from_slice(&sample.to_le_bytes());
+        }
+
+        let decoded = decode_audio_bytes(wav, 4, || false).expect("valid in-memory WAV");
+        assert_eq!(decoded.source_sample_rate, 44_100);
+        assert_eq!(decoded.source_channels, 1);
+        assert_eq!(decoded.waveform.frame_count(), 4);
     }
 }

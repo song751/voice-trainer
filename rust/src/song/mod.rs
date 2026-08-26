@@ -8,7 +8,7 @@ mod stft;
 #[cfg(not(target_family = "wasm"))]
 mod tract_backend;
 
-pub use decode::{decode_audio_file, DecodedAudio};
+pub use decode::{decode_audio_bytes, decode_audio_file, DecodedAudio};
 pub use pipeline::{
     separate_waveform, MagnitudeModel, SeparationError, SeparationFailureReason,
     SeparationProgress, SeparationStage, StereoWaveform, WaveformSeparation,

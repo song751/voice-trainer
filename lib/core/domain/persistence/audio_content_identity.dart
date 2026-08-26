@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 final class AudioContentIdentity {
   const AudioContentIdentity({required this.sha256, required this.byteLength})
     : assert(byteLength >= 0);
@@ -38,10 +40,11 @@ final class AudioContentFailure implements Exception {
   final String? detail;
 }
 
-/// An immutable, verified local snapshot. Consumers must not retain [path]
-/// after [dispose], and must never substitute the unverified source locator.
+/// An immutable, verified audio snapshot held independently of its source
+/// pathname. [bytes] is read-only so filesystem changes or callers cannot
+/// alter the consumer's input after verification.
 abstract interface class VerifiedAudioLease {
-  String get path;
+  Uint8List get bytes;
   AudioContentIdentity get identity;
   Future<void> dispose();
 }

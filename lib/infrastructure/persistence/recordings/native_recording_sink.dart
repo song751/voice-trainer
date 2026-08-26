@@ -144,6 +144,7 @@ final class NativeRecordingStore
   @override
   Future<void> recoverIncompleteRecordings() async {
     if (!await _directory.exists()) return;
+    await _managed.recoverVerifiedLeases();
     await for (final entity in _directory.list()) {
       if (entity is File && entity.path.endsWith('.partial')) {
         await entity.delete();

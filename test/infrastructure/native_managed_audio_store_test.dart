@@ -112,7 +112,7 @@ void main() {
   });
 
   test(
-    'verified lease stays stable when source is replaced afterwards',
+    'verified bytes stay stable when source changes and reject caller mutation',
     () async {
       final file = File('${root.path}${Platform.pathSeparator}take.wav');
       await file.writeAsBytes(<int>[1, 2, 3]);
@@ -127,8 +127,118 @@ void main() {
       addTearDown(lease.dispose);
 
       await file.writeAsBytes(<int>[7, 8, 9]);
-      expect(await File(lease.path).readAsBytes(), <int>[1, 2, 3]);
+      expect(() => lease.bytes[0] = 99, throwsUnsupportedError);
+      expect(lease.bytes, <int>[1, 2, 3]);
       expect(lease.identity, identity);
+      expect(
+        await Directory(
+          '${root.path}${Platform.pathSeparator}.verified',
+        ).exists(),
+        isFalse,
+      );
+    },
+  );
+
+  test('legacy verified snapshots are cleaned idempotently', () async {
+    final snapshots = Directory(
+      '${root.path}${Platform.pathSeparator}.verified',
+    );
+    await snapshots.create();
+    final stale = File(
+      '${snapshots.path}${Platform.pathSeparator}lease_123_0.wav',
+    );
+    final unrelated = File(
+      '${snapshots.path}${Platform.pathSeparator}keep.txt',
+    );
+    await stale.writeAsBytes(<int>[1, 2, 3]);
+    await unrelated.writeAsString('keep');
+
+    final managed = NativeManagedAudioStore(root);
+    await managed.recoverVerifiedLeases();
+    await managed.recoverVerifiedLeases();
+
+    expect(await stale.exists(), isFalse);
+    expect(await unrelated.readAsString(), 'keep');
+  });
+
+  test('startup recovery cleans recording and stem managed roots', () async {
+    final recordings = Directory(
+      '${sandbox.path}${Platform.pathSeparator}recordings-startup',
+    );
+    final stems = Directory(
+      '${sandbox.path}${Platform.pathSeparator}stems-startup',
+    );
+    for (final managedRoot in <Directory>[recordings, stems]) {
+      final verified = Directory(
+        '${managedRoot.path}${Platform.pathSeparator}.verified',
+      );
+      await verified.create(recursive: true);
+      await File(
+        '${verified.path}${Platform.pathSeparator}lease_123_0.wav',
+      ).writeAsBytes(<int>[1, 2, 3]);
+    }
+
+    await recoverVerifiedAudioRoots(<Directory>[recordings, stems]);
+    await recoverVerifiedAudioRoots(<Directory>[recordings, stems]);
+
+    for (final managedRoot in <Directory>[recordings, stems]) {
+      expect(
+        await Directory(
+          '${managedRoot.path}${Platform.pathSeparator}.verified',
+        ).exists(),
+        isFalse,
+      );
+    }
+  });
+
+  test('verified recovery rejects a linked snapshot directory', () async {
+    final outside = Directory(
+      '${sandbox.path}${Platform.pathSeparator}outside-verified',
+    );
+    await outside.create();
+    final outsideLease = File(
+      '${outside.path}${Platform.pathSeparator}lease_123_0.wav',
+    );
+    await outsideLease.writeAsBytes(<int>[9, 8, 7]);
+    final link = Link('${root.path}${Platform.pathSeparator}.verified');
+    try {
+      await link.create(outside.path);
+    } on FileSystemException {
+      return;
+    }
+
+    await expectLater(
+      NativeManagedAudioStore(root).recoverVerifiedLeases(),
+      throwsA(_failure(AudioContentFailureReason.outsideManagedRoot)),
+    );
+    expect(await outsideLease.readAsBytes(), <int>[9, 8, 7]);
+  });
+
+  test(
+    'verified recovery rejects linked entries without following them',
+    () async {
+      final snapshots = Directory(
+        '${root.path}${Platform.pathSeparator}.verified',
+      );
+      await snapshots.create();
+      final outside = File(
+        '${sandbox.path}${Platform.pathSeparator}outside.wav',
+      );
+      await outside.writeAsBytes(<int>[4, 5, 6]);
+      final link = Link(
+        '${snapshots.path}${Platform.pathSeparator}lease_123_0.wav',
+      );
+      try {
+        await link.create(outside.path);
+      } on FileSystemException {
+        return;
+      }
+
+      await expectLater(
+        NativeManagedAudioStore(root).recoverVerifiedLeases(),
+        throwsA(_failure(AudioContentFailureReason.outsideManagedRoot)),
+      );
+      expect(await outside.readAsBytes(), <int>[4, 5, 6]);
     },
   );
 }

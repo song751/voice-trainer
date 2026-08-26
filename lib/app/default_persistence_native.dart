@@ -19,6 +19,7 @@ import '../infrastructure/persistence/in_memory_recording_store.dart';
 import '../infrastructure/persistence/in_memory_session_repository.dart';
 import '../infrastructure/persistence/in_memory_voice_comparison_plan_store.dart';
 import '../infrastructure/persistence/recordings/native_recording_sink.dart';
+import '../infrastructure/persistence/recordings/native_managed_audio_store.dart';
 import '../infrastructure/persistence/recordings/recording_recovery_service.dart';
 import '../infrastructure/persistence/repositories/drift_session_repository.dart';
 import '../infrastructure/persistence/repositories/drift_voice_comparison_plan_store.dart';
@@ -119,6 +120,10 @@ final class _NativePersistenceHost {
     final recordings = Directory(
       '${root.path}${Platform.pathSeparator}recordings',
     );
+    final stems = Directory(
+      '${support.path}${Platform.pathSeparator}song-separation'
+      '${Platform.pathSeparator}stems',
+    );
     final database = AppDatabase(
       NativeDatabase.createInBackground(
         File('${root.path}${Platform.pathSeparator}voice_trainer.sqlite'),
@@ -127,6 +132,7 @@ final class _NativePersistenceHost {
     final store = NativeRecordingStore(recordings);
     final repository = DriftSessionRepository(database, recordingStore: store);
     final voiceComparisonPlanStore = DriftVoiceComparisonPlanStore(database);
+    await recoverVerifiedAudioRoots(<Directory>[recordings, stems]);
     await RecordingRecoveryService(database: database, store: store).recover();
     return _NativePersistence(
       database: database,

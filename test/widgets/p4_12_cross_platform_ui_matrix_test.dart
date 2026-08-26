@@ -795,8 +795,10 @@ final class _ReadySongSeparator implements SongSeparator, SongModelManager {
 final class _FixtureLease implements VerifiedAudioLease {
   const _FixtureLease(this.path);
 
-  @override
   final String path;
+
+  @override
+  Uint8List get bytes => Uint8List.fromList(const <int>[1, 2, 3]);
 
   @override
   AudioContentIdentity get identity => _referenceIdentity;

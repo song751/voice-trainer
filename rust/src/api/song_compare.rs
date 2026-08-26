@@ -2,7 +2,7 @@ use crate::frb_generated::StreamSink;
 
 #[derive(Clone, Debug)]
 pub struct ReferenceAnalysisRequestDto {
-    pub vocals_path: String,
+    pub vocals_bytes: Vec<u8>,
     pub maximum_decoded_frames: u64,
     pub cancel_marker: String,
 }
@@ -39,8 +39,8 @@ pub struct ReferenceAnalysisEventDto {
     pub failure: Option<ReferenceAnalysisFailureDto>,
 }
 
-/// Analyzes a local separated-vocals WAV on a native worker. Web has no
-/// reviewed separator/reference file pipeline and returns typed unavailable.
+/// Analyzes verified separated-vocals WAV bytes on a native worker. Web has no
+/// reviewed separator/reference pipeline and returns typed unavailable.
 #[flutter_rust_bridge::frb(sync)]
 pub fn start_reference_analysis(
     request: ReferenceAnalysisRequestDto,
@@ -79,8 +79,8 @@ fn run_native_analysis(
     sink: StreamSink<ReferenceAnalysisEventDto>,
 ) {
     let cancel_marker = std::path::Path::new(&request.cancel_marker);
-    let result = analyze_reference_file(
-        std::path::Path::new(&request.vocals_path),
+    let result = analyze_reference_bytes(
+        request.vocals_bytes,
         request.maximum_decoded_frames,
         || cancel_marker.exists(),
         |progress| {
@@ -110,8 +110,8 @@ fn run_native_analysis(
 }
 
 #[cfg(not(target_family = "wasm"))]
-fn analyze_reference_file<C, P>(
-    path: &std::path::Path,
+fn analyze_reference_bytes<C, P>(
+    bytes: Vec<u8>,
     maximum_decoded_frames: u64,
     mut should_cancel: C,
     mut on_progress: P,
@@ -121,9 +121,9 @@ where
     P: FnMut(f64),
 {
     use crate::pitch::{PitchConfig, PitchEstimator, YinEstimator};
-    use crate::song::decode_audio_file;
+    use crate::song::decode_audio_bytes;
 
-    let decoded = decode_audio_file(path, maximum_decoded_frames, &mut should_cancel)
+    let decoded = decode_audio_bytes(bytes, maximum_decoded_frames, &mut should_cancel)
         .map_err(|error| (failure_reason(error.reason).to_owned(), error.detail))?;
     on_progress(0.15);
     if should_cancel() {

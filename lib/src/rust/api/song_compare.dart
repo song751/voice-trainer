@@ -6,11 +6,11 @@
 import '../frb_generated.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-// These functions are ignored because they are not marked as `pub`: `analyze_reference_file`, `failure_reason`, `run_native_analysis`, `spawn_platform_analysis`
+// These functions are ignored because they are not marked as `pub`: `analyze_reference_bytes`, `failure_reason`, `raw_stereo_window_clips`, `run_native_analysis`, `spawn_platform_analysis`
 // These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `clone`, `clone`, `clone`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`
 
-/// Analyzes a local separated-vocals WAV on a native worker. Web has no
-/// reviewed separator/reference file pipeline and returns typed unavailable.
+/// Analyzes verified separated-vocals WAV bytes on a native worker. Web has no
+/// reviewed separator/reference pipeline and returns typed unavailable.
 Stream<ReferenceAnalysisEventDto> startReferenceAnalysis({
   required ReferenceAnalysisRequestDto request,
 }) => RustLib.instance.api.crateApiSongCompareStartReferenceAnalysis(
@@ -98,19 +98,19 @@ class ReferenceAnalysisReportDto {
 }
 
 class ReferenceAnalysisRequestDto {
-  final String vocalsPath;
+  final Uint8List vocalsBytes;
   final BigInt maximumDecodedFrames;
   final String cancelMarker;
 
   const ReferenceAnalysisRequestDto({
-    required this.vocalsPath,
+    required this.vocalsBytes,
     required this.maximumDecodedFrames,
     required this.cancelMarker,
   });
 
   @override
   int get hashCode =>
-      vocalsPath.hashCode ^
+      vocalsBytes.hashCode ^
       maximumDecodedFrames.hashCode ^
       cancelMarker.hashCode;
 
@@ -119,7 +119,7 @@ class ReferenceAnalysisRequestDto {
       identical(this, other) ||
       other is ReferenceAnalysisRequestDto &&
           runtimeType == other.runtimeType &&
-          vocalsPath == other.vocalsPath &&
+          vocalsBytes == other.vocalsBytes &&
           maximumDecodedFrames == other.maximumDecodedFrames &&
           cancelMarker == other.cancelMarker;
 }

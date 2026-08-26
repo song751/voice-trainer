@@ -99,10 +99,6 @@ final class ReferenceComparisonController
   late AudioPreview _preview;
   late VerifiedRecordingResolver _recordingResolver;
   late VerifiedSongStemResolver _stemResolver;
-  VerifiedAudioLease? _referenceLease;
-  VerifiedAudioLease? _userLease;
-  AudioContentIdentity? _referenceLeaseKey;
-  AudioContentIdentity? _userLeaseKey;
   var _operationEpoch = 0;
   var _previewGeneration = 0;
   var _disposed = false;
@@ -121,7 +117,6 @@ final class ReferenceComparisonController
       _previewGeneration++;
       unawaited(_extractor.cancel().catchError((_) {}));
       unawaited(_enqueuePreview(_preview.stop).catchError((_) {}));
-      unawaited(_disposeLeases());
     });
     return const ReferenceComparisonState();
   }
@@ -176,7 +171,6 @@ final class ReferenceComparisonController
       clearReport: true,
       clearFailure: true,
     );
-    unawaited(_disposeUserLease());
   }
 
   void setReferenceRange(PhraseRange range) {
@@ -226,8 +220,9 @@ final class ReferenceComparisonController
       clearFailure: true,
       clearReport: true,
     );
+    _VerifiedComparisonInputs? leases;
     try {
-      final leases = await _verifiedInputs(vocals, session);
+      leases = await _verifiedInputs(vocals, session);
       if (!_isCurrent(epoch)) return;
       final referenceFeatures = await _extractor.analyze(
         vocals: leases.reference,
@@ -271,8 +266,8 @@ final class ReferenceComparisonController
               referenceRange: referenceRange,
               userRange: userRange,
               review: review,
-              referenceLeaseIdentity: _referenceLease?.identity,
-              userLeaseIdentity: _userLease?.identity,
+              referenceLeaseIdentity: failure.referenceLeaseIdentity,
+              userLeaseIdentity: null,
               referenceIntegrityFailure: failure.reference
                   ? failure.failure.reason
                   : null,
@@ -298,6 +293,8 @@ final class ReferenceComparisonController
         status: ReferenceComparisonStatus.failed,
         failure: ReferenceAnalysisFailureReason.processingFailed,
       );
+    } finally {
+      await leases?.dispose();
     }
   }
 
@@ -309,11 +306,14 @@ final class ReferenceComparisonController
     final generation = ++_previewGeneration;
     final vocals = ref.read(songReferenceControllerProvider).reference?.vocals;
     if (vocals == null) return;
+    VerifiedAudioLease? lease;
     try {
-      final lease = await _verifiedReference(vocals);
+      lease = await _stemResolver.openVerified(vocals);
       await _play(lease, state.referenceRange, generation: generation);
     } on AudioContentFailure catch (failure) {
       if (_isPreviewCurrent(generation)) _showContentPreviewFailure(failure);
+    } finally {
+      await lease?.dispose();
     }
   }
 
@@ -326,11 +326,14 @@ final class ReferenceComparisonController
       );
       return;
     }
+    VerifiedAudioLease? lease;
     try {
-      final lease = await _verifiedUser(locator!);
+      lease = await _recordingResolver.openVerified(locator!);
       await _play(lease, state.userRange, generation: generation);
     } on AudioContentFailure catch (failure) {
       if (_isPreviewCurrent(generation)) _showContentPreviewFailure(failure);
+    } finally {
+      await lease?.dispose();
     }
   }
 
@@ -406,63 +409,22 @@ final class ReferenceComparisonController
     }
     late final VerifiedAudioLease reference;
     try {
-      reference = await _verifiedReference(vocals);
+      reference = await _stemResolver.openVerified(vocals);
     } on AudioContentFailure catch (failure) {
       throw _InputIntegrityFailure(reference: true, failure: failure);
     }
     try {
-      final user = await _verifiedUser(recording);
+      final user = await _recordingResolver.openVerified(recording);
       return _VerifiedComparisonInputs(reference: reference, user: user);
     } on AudioContentFailure catch (failure) {
-      if (_referenceLeaseKey != vocals.identity) {
-        await reference.dispose();
-      }
-      throw _InputIntegrityFailure(reference: false, failure: failure);
+      final referenceIdentity = reference.identity;
+      await reference.dispose();
+      throw _InputIntegrityFailure(
+        reference: false,
+        failure: failure,
+        referenceLeaseIdentity: referenceIdentity,
+      );
     }
-  }
-
-  Future<VerifiedAudioLease> _verifiedReference(
-    SongStemReference vocals,
-  ) async {
-    final existing = _referenceLease;
-    if (existing != null && _referenceLeaseKey == vocals.identity) {
-      return existing;
-    }
-    await _disposeReferenceLease();
-    final lease = await _stemResolver.openVerified(vocals);
-    _referenceLease = lease;
-    _referenceLeaseKey = vocals.identity;
-    return lease;
-  }
-
-  Future<VerifiedAudioLease> _verifiedUser(RecordingLocator recording) async {
-    final identity = recording.identity;
-    final existing = _userLease;
-    if (existing != null && _userLeaseKey == identity) return existing;
-    await _disposeUserLease();
-    final lease = await _recordingResolver.openVerified(recording);
-    _userLease = lease;
-    _userLeaseKey = identity;
-    return lease;
-  }
-
-  Future<void> _disposeReferenceLease() async {
-    final lease = _referenceLease;
-    _referenceLease = null;
-    _referenceLeaseKey = null;
-    await lease?.dispose();
-  }
-
-  Future<void> _disposeUserLease() async {
-    final lease = _userLease;
-    _userLease = null;
-    _userLeaseKey = null;
-    await lease?.dispose();
-  }
-
-  Future<void> _disposeLeases() async {
-    await _disposeReferenceLease();
-    await _disposeUserLease();
   }
 
   void _showContentPreviewFailure(AudioContentFailure failure) {
@@ -496,14 +458,24 @@ final class _VerifiedComparisonInputs {
 
   final VerifiedAudioLease reference;
   final VerifiedAudioLease user;
+
+  Future<void> dispose() async {
+    try {
+      await reference.dispose();
+    } finally {
+      await user.dispose();
+    }
+  }
 }
 
 final class _InputIntegrityFailure implements Exception {
   const _InputIntegrityFailure({
     required this.reference,
     required this.failure,
+    this.referenceLeaseIdentity,
   });
 
   final bool reference;
   final AudioContentFailure failure;
+  final AudioContentIdentity? referenceLeaseIdentity;
 }

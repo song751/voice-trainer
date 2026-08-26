@@ -61,12 +61,6 @@ final class NativeReferenceFeatureExtractor
         ReferenceAnalysisFailureReason.unavailable,
       );
     }
-    final source = File(vocals.path);
-    if (!await source.exists()) {
-      throw const ReferenceAnalysisFailure(
-        ReferenceAnalysisFailureReason.inputMissing,
-      );
-    }
     final temporary = await getTemporaryDirectory();
     final marker = File(
       '${temporary.path}${Platform.pathSeparator}'
@@ -79,7 +73,7 @@ final class NativeReferenceFeatureExtractor
       rust_compare.ReferenceAnalysisReportDto? terminal;
       await for (final event in rust_compare.startReferenceAnalysis(
         request: rust_compare.ReferenceAnalysisRequestDto(
-          vocalsPath: source.path,
+          vocalsBytes: vocals.bytes,
           maximumDecodedFrames: BigInt.from(
             44_100 * 60 * (Platform.isAndroid ? 1 : 5),
           ),
@@ -170,15 +164,11 @@ final class NativeAudioPreview implements AudioPreview {
     if (!available) {
       throw const AudioPreviewFailure(AudioPreviewFailureReason.unavailable);
     }
-    final file = File(source.path);
-    if (!await file.exists()) {
-      throw const AudioPreviewFailure(AudioPreviewFailureReason.sourceMissing);
-    }
     try {
       _stopTimer?.cancel();
       await _player.stop();
       await _player.play(
-        DeviceFileSource(file.path),
+        BytesSource(source.bytes),
         position: Duration(milliseconds: (range.startSeconds * 1000).round()),
         mode: PlayerMode.mediaPlayer,
       );

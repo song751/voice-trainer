@@ -267,8 +267,9 @@ const _identity = AudioContentIdentity(
 
 final class _Lease implements VerifiedAudioLease {
   const _Lease(this.path);
-  @override
   final String path;
+  @override
+  Uint8List get bytes => Uint8List.fromList(const <int>[1, 2, 3]);
   @override
   AudioContentIdentity get identity => _identity;
   @override

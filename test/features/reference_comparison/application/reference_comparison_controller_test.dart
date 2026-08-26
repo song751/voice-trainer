@@ -140,6 +140,35 @@ void main() {
     expect(report.suppressedReason, 'user_content_hashMismatch');
     expect(report.metrics, isNull);
   });
+
+  test('comparison and preview dispose verified bytes immediately', () async {
+    final referenceLease = _Lease(r'C:\test\vocals.wav');
+    final comparisonUserLease = _Lease(r'C:\test\practice.wav');
+    final previewUserLease = _Lease(r'C:\test\practice.wav');
+    final recordingResolver = _LeaseQueueRecordingResolver(<_Lease>[
+      comparisonUserLease,
+      previewUserLease,
+    ]);
+    final harness = await _createHarness(
+      extractor: const _ImmediateExtractor(),
+      recordingResolver: recordingResolver,
+      stemResolver: _LeaseStemResolver(referenceLease),
+    );
+    addTearDown(harness.dispose);
+    final controller = harness.container.read(
+      referenceComparisonControllerProvider.notifier,
+    );
+    controller
+      ..setArtifactsAcceptable(true)
+      ..setMonophonicLeadConfirmed(true);
+
+    await controller.compare();
+    await controller.previewUser();
+
+    expect(referenceLease.disposeCalls, 1);
+    expect(comparisonUserLease.disposeCalls, 1);
+    expect(previewUserLease.disposeCalls, 1);
+  });
 }
 
 Future<_Harness> _createHarness({
@@ -147,6 +176,7 @@ Future<_Harness> _createHarness({
   AudioPreview? preview,
   PracticeSessionRecord? session,
   VerifiedRecordingResolver? recordingResolver,
+  VerifiedSongStemResolver? stemResolver,
 }) async {
   final repository = InMemorySessionRepository();
   await repository.save(session ?? _session());
@@ -160,7 +190,9 @@ Future<_Harness> _createHarness({
       verifiedRecordingResolverProvider.overrideWithValue(
         recordingResolver ?? const _RecordingResolver(),
       ),
-      verifiedSongStemResolverProvider.overrideWithValue(const _StemResolver()),
+      verifiedSongStemResolverProvider.overrideWithValue(
+        stemResolver ?? const _StemResolver(),
+      ),
     ],
   );
   final subscription = container.listen(
@@ -178,6 +210,22 @@ Future<_Harness> _createHarness({
       .read(referenceComparisonControllerProvider.notifier)
       .loadSessions();
   return _Harness(container, subscription);
+}
+
+final class _ImmediateExtractor implements ReferenceFeatureExtractor {
+  const _ImmediateExtractor();
+
+  @override
+  bool get available => true;
+
+  @override
+  Future<ReferenceAnalysisSeries> analyze({
+    required VerifiedAudioLease vocals,
+    required void Function(double progress) onProgress,
+  }) async => _series();
+
+  @override
+  Future<void> cancel() async {}
 }
 
 final class _Harness {
@@ -251,7 +299,7 @@ final class _PreviewProbe implements AudioPreview {
     required VerifiedAudioLease source,
     required PhraseRange range,
   }) async {
-    events.add('play:${source.path}');
+    events.add('play:${(source as _Lease).path}');
   }
 
   @override
@@ -391,16 +439,21 @@ const _identity = AudioContentIdentity(
 );
 
 final class _Lease implements VerifiedAudioLease {
-  const _Lease(this.path);
+  _Lease(this.path);
+
+  final String path;
+  var disposeCalls = 0;
 
   @override
-  final String path;
+  Uint8List get bytes => Uint8List.fromList(const <int>[1, 2, 3]);
 
   @override
   AudioContentIdentity get identity => _identity;
 
   @override
-  Future<void> dispose() async {}
+  Future<void> dispose() async {
+    disposeCalls++;
+  }
 }
 
 final class _RecordingResolver implements VerifiedRecordingResolver {
@@ -437,6 +490,32 @@ final class _StemResolver implements VerifiedSongStemResolver {
   @override
   Future<VerifiedAudioLease> openVerified(SongStemReference stem) async =>
       _Lease(stem.locator);
+}
+
+final class _LeaseQueueRecordingResolver implements VerifiedRecordingResolver {
+  _LeaseQueueRecordingResolver(this.leases);
+
+  final List<_Lease> leases;
+
+  @override
+  bool get available => true;
+
+  @override
+  Future<VerifiedAudioLease> openVerified(RecordingLocator locator) async =>
+      leases.removeAt(0);
+}
+
+final class _LeaseStemResolver implements VerifiedSongStemResolver {
+  const _LeaseStemResolver(this.lease);
+
+  final _Lease lease;
+
+  @override
+  bool get available => true;
+
+  @override
+  Future<VerifiedAudioLease> openVerified(SongStemReference stem) async =>
+      lease;
 }
 
 List<AnalysisFrame> _frames() => List<AnalysisFrame>.generate(

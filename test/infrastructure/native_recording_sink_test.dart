@@ -68,6 +68,14 @@ void main() {
         '${directory.path}${Platform.pathSeparator}saved.wav',
       );
       await completed.writeAsBytes(<int>[1, 2]);
+      final verified = Directory(
+        '${directory.path}${Platform.pathSeparator}.verified',
+      );
+      await verified.create();
+      final staleLease = File(
+        '${verified.path}${Platform.pathSeparator}lease_123_0.wav',
+      );
+      await staleLease.writeAsBytes(<int>[3, 4]);
 
       final database = AppDatabase(NativeDatabase.memory());
       addTearDown(database.close);
@@ -98,9 +106,15 @@ void main() {
         database: database,
         store: store,
       ).recover();
+      await RecordingRecoveryService(
+        database: database,
+        store: store,
+      ).recover();
 
       expect(await orphan.exists(), isFalse);
       expect(await completed.exists(), isFalse);
+      expect(await staleLease.exists(), isFalse);
+      expect(await verified.exists(), isFalse);
       expect(await database.select(database.recordings).get(), isEmpty);
     },
   );

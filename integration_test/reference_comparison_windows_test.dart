@@ -37,7 +37,7 @@ void main() {
     final wav = File('${directory.path}${Platform.pathSeparator}vocals.wav');
     await wav.writeAsBytes(_stereoToneWav(), flush: true);
     final identity = await NativeManagedAudioStore.identify(wav);
-    final lease = _FixtureLease(wav.path, identity);
+    final lease = _FixtureLease(await wav.readAsBytes(), identity);
     final stem = SongStemReference(
       locator: wav.path,
       sha256: identity.sha256,
@@ -148,10 +148,12 @@ void main() {
 }
 
 final class _FixtureLease implements VerifiedAudioLease {
-  const _FixtureLease(this.path, this.identity);
+  const _FixtureLease(this._bytes, this.identity);
 
   @override
-  final String path;
+  Uint8List get bytes => Uint8List.fromList(_bytes);
+
+  final Uint8List _bytes;
 
   @override
   final AudioContentIdentity identity;

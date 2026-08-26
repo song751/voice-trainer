@@ -867,7 +867,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     if (arr.length != 3)
       throw Exception('unexpected arr length: expect 3 but see ${arr.length}');
     return ReferenceAnalysisRequestDto(
-      vocalsPath: dco_decode_String(arr[0]),
+      vocalsBytes: dco_decode_list_prim_u_8_strict(arr[0]),
       maximumDecodedFrames: dco_decode_u_64(arr[1]),
       cancelMarker: dco_decode_String(arr[2]),
     );
@@ -1515,11 +1515,11 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     SseDeserializer deserializer,
   ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    var var_vocalsPath = sse_decode_String(deserializer);
+    var var_vocalsBytes = sse_decode_list_prim_u_8_strict(deserializer);
     var var_maximumDecodedFrames = sse_decode_u_64(deserializer);
     var var_cancelMarker = sse_decode_String(deserializer);
     return ReferenceAnalysisRequestDto(
-      vocalsPath: var_vocalsPath,
+      vocalsBytes: var_vocalsBytes,
       maximumDecodedFrames: var_maximumDecodedFrames,
       cancelMarker: var_cancelMarker,
     );
@@ -2237,7 +2237,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     SseSerializer serializer,
   ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_String(self.vocalsPath, serializer);
+    sse_encode_list_prim_u_8_strict(self.vocalsBytes, serializer);
     sse_encode_u_64(self.maximumDecodedFrames, serializer);
     sse_encode_String(self.cancelMarker, serializer);
   }
