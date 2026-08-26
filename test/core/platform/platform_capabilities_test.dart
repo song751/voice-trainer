@@ -21,7 +21,7 @@ void main() {
     expect(capabilities.analysisWorker, AnalysisWorkerCapability.nativeWorker);
     expect(capabilities.maximumRecordingDuration, isNull);
     expect(capabilities.supportsDeviceSelection, isFalse);
-    expect(capabilities.supportsLifecycleEvents, isFalse);
+    expect(capabilities.supportsLifecycleEvents, isTrue);
   });
 
   test('Web promotes capture, dedicated worker, and durable persistence', () {

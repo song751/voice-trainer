@@ -29,8 +29,8 @@ final class PlatformCapabilities {
     supportsLifecycleEvents: false,
   );
 
-  /// P4-04 promotes Android persistence to the shared native Drift/WAV stack.
-  /// Lifecycle remains an explicit fallback until its own card passes.
+  /// P4-04 promotes Android persistence to the shared native Drift/WAV stack;
+  /// P4-05 adds application-level lifecycle handling.
   static const android = PlatformCapabilities(
     target: PlatformTarget.android,
     capture: PlatformAdapterMode.production,
@@ -38,7 +38,7 @@ final class PlatformCapabilities {
     analysisWorker: AnalysisWorkerCapability.nativeWorker,
     maximumRecordingDuration: null,
     supportsDeviceSelection: false,
-    supportsLifecycleEvents: false,
+    supportsLifecycleEvents: true,
   );
 
   /// P4-09 promotes Web capture and the dedicated Rust WASM worker. P4-10

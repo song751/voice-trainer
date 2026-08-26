@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/app_providers.dart';
+import '../../../core/platform/application_lifecycle.dart';
 import '../../../core/domain/persistence/session_repository.dart';
 import '../../../core/domain/practice/practice_template.dart';
 import '../../../core/domain/analysis/ui_analysis_frame.dart';
@@ -36,6 +37,8 @@ final class LivePracticeController extends Notifier<PracticeSessionState> {
   late SessionRepository _repository;
   late String Function() _newSessionId;
   String? _activeSessionId;
+  Future<void> _lifecycleSerial = Future<void>.value();
+  bool _pausedByLifecycle = false;
 
   @override
   PracticeSessionState build() {
@@ -61,11 +64,37 @@ final class LivePracticeController extends Notifier<PracticeSessionState> {
   }
 
   Future<void> pause() async {
+    _pausedByLifecycle = false;
     state = await _coordinator.pause();
   }
 
   Future<void> resume() async {
+    _pausedByLifecycle = false;
     state = await _coordinator.resume();
+  }
+
+  Future<void> handleApplicationLifecycle(ApplicationLifecyclePhase phase) {
+    final operation = _lifecycleSerial.then((_) async {
+      switch (phase) {
+        case ApplicationLifecyclePhase.background:
+          if (state is Running) {
+            state = await _coordinator.pause();
+            _pausedByLifecycle = true;
+          }
+        case ApplicationLifecyclePhase.detached:
+          if (state is Running) {
+            state = await _coordinator.pause();
+          }
+          _pausedByLifecycle = false;
+        case ApplicationLifecyclePhase.foreground:
+          if (_pausedByLifecycle && state is Paused) {
+            state = await _coordinator.resume();
+            _pausedByLifecycle = false;
+          }
+      }
+    });
+    _lifecycleSerial = operation.catchError((_) {});
+    return operation;
   }
 
   Future<void> stop() async {

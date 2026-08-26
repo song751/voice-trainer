@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'app_lifecycle_observer.dart';
 import 'router/app_router.dart';
 import 'theme/app_theme.dart';
 
@@ -9,6 +10,7 @@ class VoiceTrainerApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    ref.watch(applicationLifecycleBindingProvider);
     final router = ref.watch(appRouterProvider);
     return MaterialApp.router(
       title: '练声助手',
