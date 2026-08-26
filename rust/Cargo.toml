@@ -16,11 +16,13 @@ frb = []
 rustfft = "=6.4.1"
 serde = { version = "=1.0.228", features = ["derive"] }
 sha2 = "=0.10.9"
+symphonia = { version = "=0.5.5", features = ["all-codecs", "all-formats"] }
 
 [target.'cfg(not(target_family = "wasm"))'.dependencies]
 # Native keeps FRB's normal worker pool so Rust work stays off the Flutter UI
 # isolate.
 flutter_rust_bridge = "=2.12.0"
+tract-onnx = "=0.23.5"
 
 [target.'cfg(target_family = "wasm")'.dependencies]
 # Phase 0's Web baseline is deliberately single-threaded. FRB 2.12 enables its

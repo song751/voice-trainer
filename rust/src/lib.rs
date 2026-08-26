@@ -26,6 +26,11 @@ mod signal;
 pub mod signal;
 #[cfg(feature = "frb")]
 mod spectrum;
+
+#[cfg(feature = "frb")]
+mod song;
+#[cfg(not(feature = "frb"))]
+pub mod song;
 #[cfg(not(feature = "frb"))]
 pub mod spectrum;
 
