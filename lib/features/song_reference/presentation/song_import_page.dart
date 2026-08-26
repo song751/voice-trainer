@@ -31,9 +31,10 @@ class _SongImportPageState extends ConsumerState<SongImportPage> {
     final controller = ref.read(songReferenceControllerProvider.notifier);
     final automaticAvailable =
         state.modelStatus?.availability == SongModelAvailability.ready;
-    final busy =
-        state.status == SongReferenceStatus.separating ||
-        state.status == SongReferenceStatus.installingModel;
+    final separating = state.status == SongReferenceStatus.separating;
+    final installingModel = state.status == SongReferenceStatus.installingModel;
+    final deleting = state.status == SongReferenceStatus.deleting;
+    final busy = separating || installingModel || deleting;
     return Scaffold(
       appBar: AppBar(title: const Text('导入歌曲参考')),
       body: ResponsivePageBody(
@@ -95,14 +96,30 @@ class _SongImportPageState extends ConsumerState<SongImportPage> {
                 label: Text(automaticAvailable ? '自动分离歌手人声' : '检查自动分离能力'),
               ),
             ],
-            if (busy) ...<Widget>[
+            if (separating) ...<Widget>[
               const SizedBox(height: 16),
               LinearProgressIndicator(
                 value: state.progress == 0 ? null : state.progress,
               ),
               const SizedBox(height: 8),
               Text('正在本地分离 ${(state.progress * 100).toStringAsFixed(0)}%'),
-              TextButton(onPressed: controller.cancel, child: const Text('取消')),
+              TextButton(
+                key: const Key('cancel-song-separation'),
+                onPressed: controller.cancel,
+                child: const Text('取消'),
+              ),
+            ],
+            if (installingModel) ...<Widget>[
+              const SizedBox(height: 16),
+              const LinearProgressIndicator(),
+              const SizedBox(height: 8),
+              const Text('正在校验并安装本地模型'),
+            ],
+            if (deleting) ...<Widget>[
+              const SizedBox(height: 16),
+              const LinearProgressIndicator(),
+              const SizedBox(height: 8),
+              const Text('正在删除本地分离结果'),
             ],
             if (state.failureReason != null) ...<Widget>[
               const SizedBox(height: 16),
@@ -117,16 +134,7 @@ class _SongImportPageState extends ConsumerState<SongImportPage> {
             ],
             if (state.reference != null) ...<Widget>[
               const SizedBox(height: 16),
-              Card(
-                key: const Key('song-reference-ready'),
-                child: ListTile(
-                  leading: const Icon(Icons.check_circle_outline),
-                  title: const Text('人声参考已就绪'),
-                  subtitle: Text(
-                    '模型 ${state.reference!.modelId}；分离结果可能含伴奏串音或混响，比较时会降低相应置信度。',
-                  ),
-                ),
-              ),
+              _ReferenceReadyCard(state: state),
               const SizedBox(height: 8),
               FilledButton.icon(
                 key: const Key('open-reference-comparison'),
@@ -134,6 +142,17 @@ class _SongImportPageState extends ConsumerState<SongImportPage> {
                 icon: const Icon(Icons.compare_arrows),
                 label: const Text('与我的练唱做 A/B 对比'),
               ),
+              const SizedBox(height: 8),
+              OutlinedButton.icon(
+                key: const Key('delete-song-reference'),
+                onPressed: busy
+                    ? null
+                    : () => _confirmDeleteReference(context, controller),
+                icon: const Icon(Icons.delete_outline),
+                label: const Text('删除本地分离结果'),
+              ),
+              const SizedBox(height: 4),
+              const Text('人声与伴奏 stem 会保留在本机，直到你删除或用新的成功结果替换。'),
             ],
             const SizedBox(height: 20),
             const Card(
@@ -149,6 +168,60 @@ class _SongImportPageState extends ConsumerState<SongImportPage> {
       ),
     );
   }
+}
+
+class _ReferenceReadyCard extends StatelessWidget {
+  const _ReferenceReadyCard({required this.state});
+
+  final SongReferenceState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final reference = state.reference!;
+    final selectedName = state.displayName;
+    final replacementPending =
+        selectedName != null && selectedName != reference.displayName;
+    return Card(
+      key: const Key('song-reference-ready'),
+      child: ListTile(
+        leading: const Icon(Icons.check_circle_outline),
+        title: Text(replacementPending ? '当前仍保留旧参考' : '人声参考已就绪'),
+        subtitle: Text(
+          replacementPending
+              ? '新选择“$selectedName”尚未成功替换；当前参考仍是“${reference.displayName}”。'
+                    '模型 ${reference.modelId}；分离串音或混响会降低比较置信度。'
+              : '当前参考：${reference.displayName}。模型 ${reference.modelId}；'
+                    '分离结果可能含伴奏串音或混响，比较时会降低相应置信度。',
+        ),
+      ),
+    );
+  }
+}
+
+Future<void> _confirmDeleteReference(
+  BuildContext context,
+  SongReferenceController controller,
+) async {
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: const Text('删除本地分离结果？'),
+      content: const Text('将同时删除本机保存的人声与伴奏 stem。若删除失败，当前结果会保留并可重试。'),
+      actions: <Widget>[
+        TextButton(
+          key: const Key('cancel-delete-song-reference'),
+          onPressed: () => Navigator.of(context).pop(false),
+          child: const Text('取消'),
+        ),
+        FilledButton(
+          key: const Key('confirm-delete-song-reference'),
+          onPressed: () => Navigator.of(context).pop(true),
+          child: const Text('删除'),
+        ),
+      ],
+    ),
+  );
+  if (confirmed == true) await controller.deleteReference();
 }
 
 String _sizeLabel(int? bytes) =>

@@ -8,6 +8,7 @@ enum SongReferenceStatus {
   selected,
   installingModel,
   separating,
+  deleting,
   ready,
   failed,
 }
@@ -63,6 +64,7 @@ final songReferenceControllerProvider =
 
 final class SongReferenceController extends Notifier<SongReferenceState> {
   SongFileSource? _source;
+  bool _restorationAttempted = false;
 
   SongFilePicker get _picker => ref.read(songFilePickerProvider);
   SongSeparator get _separator => ref.read(songSeparatorProvider);
@@ -80,6 +82,33 @@ final class SongReferenceController extends Notifier<SongReferenceState> {
         modelStatus: const SongModelStatus(
           availability: SongModelAvailability.unavailable,
         ),
+      );
+    }
+    if (!_restorationAttempted) {
+      _restorationAttempted = true;
+      await _restoreManagedReference();
+    }
+  }
+
+  Future<void> _restoreManagedReference() async {
+    final separator = _separator;
+    if (separator is! ManagedSongReferenceLifecycle) return;
+    final lifecycle = separator as ManagedSongReferenceLifecycle;
+    try {
+      final reference = await lifecycle.restoreReference();
+      if (reference != null && state.reference == null) {
+        state = state.copyWith(
+          status: SongReferenceStatus.ready,
+          displayName: reference.displayName,
+          reference: reference,
+          clearFailure: true,
+        );
+      }
+    } on SongSeparationFailure catch (failure) {
+      state = state.copyWith(failureReason: failure.reason);
+    } catch (_) {
+      state = state.copyWith(
+        failureReason: SongSeparationFailureReason.outputFailed,
       );
     }
   }
@@ -122,30 +151,30 @@ final class SongReferenceController extends Notifier<SongReferenceState> {
     final length = await source.length();
     _source = source;
     if (length == 0) {
-      state = SongReferenceState(
+      state = state.copyWith(
         status: SongReferenceStatus.failed,
         displayName: source.displayName,
         sizeBytes: length,
         failureReason: SongSeparationFailureReason.emptyFile,
-        modelStatus: state.modelStatus,
       );
       return;
     }
     if (length > 500 * 1024 * 1024) {
-      state = SongReferenceState(
+      state = state.copyWith(
         status: SongReferenceStatus.failed,
         displayName: source.displayName,
         sizeBytes: length,
         failureReason: SongSeparationFailureReason.fileTooLarge,
-        modelStatus: state.modelStatus,
       );
       return;
     }
-    state = SongReferenceState(
+    state = state.copyWith(
       status: SongReferenceStatus.selected,
       displayName: source.displayName,
       sizeBytes: length,
-      modelStatus: state.modelStatus,
+      rightsAcknowledged: false,
+      progress: 0,
+      clearFailure: true,
     );
   }
 
@@ -160,7 +189,6 @@ final class SongReferenceController extends Notifier<SongReferenceState> {
       status: SongReferenceStatus.separating,
       progress: 0,
       clearFailure: true,
-      clearReference: true,
     );
     try {
       final reference = await _separator.separate(
@@ -198,5 +226,39 @@ final class SongReferenceController extends Notifier<SongReferenceState> {
       progress: 0,
       failureReason: SongSeparationFailureReason.cancelled,
     );
+  }
+
+  Future<void> deleteReference() async {
+    final reference = state.reference;
+    final separator = _separator;
+    if (reference == null || separator is! ManagedSongReferenceLifecycle) {
+      return;
+    }
+    final lifecycle = separator as ManagedSongReferenceLifecycle;
+    state = state.copyWith(
+      status: SongReferenceStatus.deleting,
+      clearFailure: true,
+    );
+    try {
+      await lifecycle.deleteReference(reference);
+      state = _source == null
+          ? SongReferenceState(modelStatus: state.modelStatus)
+          : state.copyWith(
+              status: SongReferenceStatus.selected,
+              progress: 0,
+              clearReference: true,
+              clearFailure: true,
+            );
+    } on SongSeparationFailure catch (failure) {
+      state = state.copyWith(
+        status: SongReferenceStatus.failed,
+        failureReason: failure.reason,
+      );
+    } catch (_) {
+      state = state.copyWith(
+        status: SongReferenceStatus.failed,
+        failureReason: SongSeparationFailureReason.outputFailed,
+      );
+    }
   }
 }

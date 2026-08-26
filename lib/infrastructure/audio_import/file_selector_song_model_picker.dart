@@ -2,7 +2,7 @@ import 'package:file_selector/file_selector.dart';
 
 import '../../core/domain/reference/song_reference.dart';
 
-final class FileSelectorSongModelPicker {
+final class FileSelectorSongModelPicker implements SongModelFilePicker {
   const FileSelectorSongModelPicker();
 
   static const _modelType = XTypeGroup(
@@ -11,6 +11,7 @@ final class FileSelectorSongModelPicker {
     mimeTypes: <String>['application/octet-stream'],
   );
 
+  @override
   Future<SongFileSource?> pickModel() async {
     final file = await openFile(
       acceptedTypeGroups: const <XTypeGroup>[_modelType],

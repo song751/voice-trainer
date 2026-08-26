@@ -107,7 +107,7 @@ final songFilePickerProvider = Provider<SongFilePicker>(
   (ref) => const FileSelectorSongPicker(),
 );
 
-final songModelFilePickerProvider = Provider<FileSelectorSongModelPicker>(
+final songModelFilePickerProvider = Provider<SongModelFilePicker>(
   (ref) => const FileSelectorSongModelPicker(),
 );
 

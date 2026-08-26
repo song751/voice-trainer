@@ -7,6 +7,7 @@ import 'package:path_provider/path_provider.dart';
 import '../../core/domain/reference/song_reference.dart';
 import '../../core/domain/persistence/audio_content_identity.dart';
 import '../persistence/recordings/native_managed_audio_store.dart';
+import 'native_song_reference_ownership.dart';
 import '../../src/rust/api/song.dart' as rust_song;
 import '../../src/rust/frb_generated.dart';
 
@@ -15,7 +16,8 @@ const reviewedUmxHqModelSha256 =
 
 /// Native, local-only adapter. The reviewed model is user-provisioned and is
 /// never bundled, downloaded, or uploaded by the application.
-final class NativeRustSongSeparator implements SongSeparator, SongModelManager {
+final class NativeRustSongSeparator
+    implements SongSeparator, SongModelManager, ManagedSongReferenceLifecycle {
   NativeRustSongSeparator();
 
   static const _maximumSongBytes = 500 * 1024 * 1024;
@@ -215,7 +217,13 @@ final class NativeRustSongSeparator implements SongSeparator, SongModelManager {
         );
       }
       onProgress(1);
-      return await _toDomain(source.displayName, report, outputDirectory);
+      final reference = await _toDomain(
+        source.displayName,
+        report,
+        outputDirectory,
+      );
+      await _ownership(outputDirectory).activate(reference);
+      return reference;
     } on SongSeparationFailure {
       rethrow;
     } catch (error) {
@@ -238,6 +246,27 @@ final class NativeRustSongSeparator implements SongSeparator, SongModelManager {
       await marker.writeAsString('cancel');
     }
   }
+
+  @override
+  Future<SeparatedSongReference?> restoreReference() async {
+    final support = await getApplicationSupportDirectory();
+    return _ownership(_stemDirectory(support)).restore();
+  }
+
+  @override
+  Future<void> deleteReference(SeparatedSongReference reference) async {
+    final support = await getApplicationSupportDirectory();
+    await _ownership(_stemDirectory(support)).delete(reference);
+  }
+
+  NativeSongReferenceOwnership _ownership(Directory directory) =>
+      NativeSongReferenceOwnership(
+        directory,
+        maximumStemBytes: _maximumFramesForPlatform * 2 * 2 + 44,
+      );
+
+  Directory _stemDirectory(Directory support) =>
+      Directory(_join(support.path, 'song-separation', 'stems'));
 
   Future<void> _spool(
     SongFileSource source,

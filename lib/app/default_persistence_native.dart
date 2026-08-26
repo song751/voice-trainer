@@ -23,6 +23,7 @@ import '../infrastructure/persistence/recordings/native_managed_audio_store.dart
 import '../infrastructure/persistence/recordings/recording_recovery_service.dart';
 import '../infrastructure/persistence/repositories/drift_session_repository.dart';
 import '../infrastructure/persistence/repositories/drift_voice_comparison_plan_store.dart';
+import '../infrastructure/song_separation/native_song_reference_ownership.dart';
 
 /// Lazily opens native files so app composition remains synchronous while the
 /// first recording still waits for recovery before it accepts PCM.
@@ -133,6 +134,7 @@ final class _NativePersistenceHost {
     final repository = DriftSessionRepository(database, recordingStore: store);
     final voiceComparisonPlanStore = DriftVoiceComparisonPlanStore(database);
     await recoverVerifiedAudioRoots(<Directory>[recordings, stems]);
+    await NativeSongReferenceOwnership(stems).recover();
     await RecordingRecoveryService(database: database, store: store).recover();
     return _NativePersistence(
       database: database,

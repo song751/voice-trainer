@@ -10,6 +10,10 @@ abstract interface class SongFilePicker {
   Future<SongFileSource?> pickSong();
 }
 
+abstract interface class SongModelFilePicker {
+  Future<SongFileSource?> pickModel();
+}
+
 enum SongSeparationFailureReason {
   rightsNotAcknowledged,
   emptyFile,
@@ -110,6 +114,15 @@ abstract interface class SongSeparator {
   });
 
   Future<void> cancel();
+}
+
+/// Optional capability for separators that keep generated stems in managed
+/// application storage. Implementations must preserve the last valid
+/// reference until a replacement has been committed successfully.
+abstract interface class ManagedSongReferenceLifecycle {
+  Future<SeparatedSongReference?> restoreReference();
+
+  Future<void> deleteReference(SeparatedSongReference reference);
 }
 
 final class UnavailableSongSeparator
