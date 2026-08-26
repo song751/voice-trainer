@@ -643,3 +643,10 @@ Phase-boundary 回归：FRB codegen 连续两次 7 个生成文件 SHA-256 不�
 - 实际 oracle：Windows CPU、Python 3.13.5、PyTorch `2.11.0+cu128`、Open-Unmix `1.3.0` 对确定性 1 秒、44.1 kHz stereo PCM16 合成输入完成 vocals-only + residual 推理。输入/输出均为 `44,100` frames；warm-run inference `0.021163 s`，进程 peak working set `640,258,048` bytes。vocals 输出 `176,444` bytes / SHA-256 `a6e3ad02db7f07711634f13a810ecaae9507b895f94b4aeb9a04871a614e8488`；accompaniment 输出 `176,444` bytes / SHA-256 `aaa056efd168651f21886fa25491f048c756636d7f15deb5767b1a9d8dd37017`。这是合成 contract smoke，不是分离质量证据。
 - 导出实际结果：同一脚本以 `--export-onnx` 进入 core export stage，但隔离环境未安装开发期 `onnx`，返回 typed `export_dependency_missing`；没有创建伪 ONNX 文件。tract/ONNX Runtime 尚未加入或验证，不能据此进入 production。
 - 自动化：Rust harness 4 项测试覆盖 deterministic fixture、rights gate、取消和 stem mismatch；Clippy `-D warnings` 通过。未覆盖 30 秒/3 分钟/5 分钟性能、真实许可歌曲质量、ONNX 数值一致性、Windows production/Android/Web runtime；这些仍是 ADR 0002 的下一 gate。
+
+### 歌唱反馈与课程证据地图（2026-08-26，R&D draft）
+
+- 新增 `docs/SINGING_PEDAGOGY_EVIDENCE_MAP.md` 与 ADR 0003，将现有 pitch/level/periodicity/onset/spectrum 和未来歌手 stem 对比收敛为 `measurement → Observation → reviewed exercise`，明确列出证据等级、课程模块、content schema、quality suppression 和不可推断事项。
+- 当前最适合先验证的教学路径是舒适音区 pitch matching、3–4 音 pattern 和实时视觉反馈；成人随机训练有正向但短期、个体差异明显的证据。SOVT 有临床 RCT、业余合唱歌手 RCT 和范围综述支持作为候选，但不足以由单一指标自动触发为治疗。
+- timing、level、range、spectrum 与 reference A/B 练习仍标为 `U/PED`。所有内容默认 unreviewed；需声乐教师与 SLP/嗓音医学联合复核后才可进入 production catalog。
+- 安全边界采用 AAO-HNSF dysphonia 指南：应用不从音频诊断症状；疼痛/严重警示症状停止并转介，持续声音异常 4 周未改善应提示喉科/耳鼻喉评估，临床 voice therapy 前需要诊断性喉镜检查。

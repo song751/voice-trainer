@@ -451,3 +451,5 @@ Drift 的 `*.g.dart` 可与源文件相邻；Freezed/Riverpod generated 文件�
 - `docs/adr/0002-song-separation-rd-baseline.md`：UMX-HQ vocals-only、tract/ONNX Runtime 候选、许可与 fallback 决策。
 - `tool/song_separation/`：独立 Cargo package、手工 stem 合同测试和开发期 Python oracle；production crate、Flutter、FRB 均不得依赖它。
 - `tool/song_separation/Cargo.lock` 必须提交以固定 benchmark harness；`target/`、模型、用户音频、分离输出、虚拟环境和报告不得提交。
+- `docs/SINGING_PEDAGOGY_EVIDENCE_MAP.md`：声学指标到 Observation/练习的证据地图、课程骨架、安全语言和不可推断事项；在人工专业复核前保持 R&D draft。
+- `docs/adr/0003-singing-feedback-evidence-boundary.md`：固定 suppression-first、内容审核与非诊断边界；不自行解锁产品实现。
