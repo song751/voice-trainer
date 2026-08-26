@@ -20,7 +20,7 @@ P3-07D 依赖仓库所有者在 Windows 电脑旁执行权限、物理设备、�
 | 项目 | 当前事实 | 验收含义 |
 |---|---|---|
 | 产品 | MuMu Player 12，设备模型伪装为 `V2362A` | 只记录为 emulator，不写成 vivo 真机 |
-| ADB | Android SDK `adb 37.0.1` 可连接 `127.0.0.1:7555` | 可供 Flutter、安装、日志和自动化使用 |
+| ADB | Android SDK `adb 37.0.1` 可连接显式实例端点；2026-08-26 复验竖屏实例为 `127.0.0.1:16384` | 可供 Flutter、安装、日志和自动化使用；多实例时禁止依赖默认端点 |
 | 系统 | Android 15 / API 35，x86_64 | 必须验证 APK 的 x86_64 Rust library 与 FRB runtime |
 | 显示 | 1080×1920，480 dpi，竖屏 | 可做手机 viewport、触摸和文字缩放测试 |
 | 音频声明 | microphone、low-latency audio；AudioFlinger 有 48 kHz PCM16 input path | 可做插件/合同 smoke；不能当真实麦克风质量证据 |
@@ -81,6 +81,14 @@ cargo test --manifest-path rust\Cargo.toml
 
 **目标结果：** 固化可复现的 SDK ADB 连接、emulator identity/capability report、Flutter device detection 和隐私/真实性边界，不改产品代码。
 
+#### P4-00 执行记录（2026-08-07，已接受）
+
+- 新增 `tool/p4_00_android_preflight.dart` 与对应单元测试。helper 只从 Android SDK Platform-Tools 解析 `adb.exe`（或接受显式 SDK 路径），从不调用 MuMu 私有 ADB，也不依赖 shell PATH；它显式连接 `127.0.0.1:7555` 后读取 API、ABI、物理分辨率/density、microphone/low-latency feature、当前 shell root 状态和 Flutter machine device id。
+- 实测报告：API 35、`x86_64`、1080×1920、480 dpi、microphone/low-latency 均为 `true`，Flutter device id 为 `127.0.0.1:7555`，当前 SDK ADB shell 观察到 `rootShellObserved=false`。完整脱敏字段已记录在 Android matrix；没有读取或保存 model/product/serial。
+- 报告固定写入 `evidenceType=emulator`、`emulator=true` 和 `realDevice=false`，并明确声明不能满足真实设备或真实麦克风要求。该 helper 只执行连接和只读查询；不会调用 `adb root`、修改模拟器全局配置或产品/平台工程。
+- 实际命令：`flutter test test/tool/p4_00_android_preflight_test.dart`（6 项）与 `dart run tool/p4_00_android_preflight.dart --endpoint 127.0.0.1:7555` 均通过。完整 repository gate 结果见本卡最终复验。
+- 2026-08-26 多实例复验：仓库所有者确认原竖屏 MuMu 实例，SDK ADB 将其映射为 `127.0.0.1:16384`；只读 preflight 再次得到 API 35、`x86_64`、1080×1920、480 dpi 和相同 emulator-only 边界。后续命令必须显式传入该实例端点，不能误用其他已连接模拟器。
+
 **允许修改：** `tool/` 下 Android preflight helper、对应 tests、Android matrix、`RESEARCH_NOTES.md`、本文件和状态文档。
 
 **禁止修改：** `lib/`、`rust/`、Android 平台工程、依赖、模拟器全局配置。
@@ -90,6 +98,13 @@ cargo test --manifest-path rust\Cargo.toml
 ### P4-01 — PlatformCapabilities 与组合边界
 
 **目标结果：** 建立不可变、可测试的 `PlatformCapabilities`，统一表达 capture、persistence、worker、最大录音时长、设备选择和生命周期能力；平台检测只存在于外层 composition。
+
+#### P4-01 执行记录（2026-08-07，已接受）
+
+- 新增平台无关、不可变的 `core/platform/PlatformCapabilities`：profile 明确涵盖 capture、persistence、analysis worker、最大录音时长、设备选择和 lifecycle。它不导入 Flutter、`dart:io`、JS interop、record、Drift 或 FRB。
+- `app/platform_capabilities_*` 是唯一的运行时平台检测边界：Windows 继续 `RecordAudioCapture` + `RustAnalysisEngine` + native persistence；Android、Web 与其他 native 都是显式 fallback。Web 的公开 60 秒录制上限已集中在 profile，尚不表示 Web capture/persistence 已提升。
+- providers 和 default adapter/persistence composition 只读取该 profile；已删除原 adapter/persistence composition 中散落的 `Platform.isWindows`。features/presentation/domain 未发现 `dart:io`、JS interop、record、Drift、FRB 或 platform-detection import。
+- 新增 profile 与 composition tests：Windows production/native persistence 与 Android/Web/other-native fallback 均被覆盖。完整 repository gate 结果见本卡最终复验。
 
 **允许修改：** `lib/core/platform/`、`lib/app/` composition/providers、对应 tests。
 
@@ -101,13 +116,21 @@ cargo test --manifest-path rust\Cargo.toml
 
 **目标结果：** 在 API 35/x86_64 模拟器安装并运行 debug/release 候选，直接调用 Rust bridge 验证 ABI、native library、批次 DTO 和进程重启。
 
+#### P4-02 执行记录（2026-08-07；2026-08-26 复验并封存）
+
+- `integration_test/p4_02_android_rust_bridge_smoke_test.dart` 通过共享的 `tool/p4_02_bridge_probe.dart` 在 native FRB runtime 实际初始化 Rust、调用 greeting，并向 `FrbAnalysisWorker` 推送一秒 48 kHz PCM16 deterministic 220 Hz synthetic signal（每 batch 1024 samples）。Windows 与 Android emulator 都得到 94 frame、sample checksum `2,098,080`、pitch checksum `20,681.109375`；RMS checksum保持在跨平台 `0.001` 容差内。复验同时补齐最小 widget tree，避免 Windows integration binding 在 teardown 阶段错误使用已释放的 `FocusManager`。
+- Android emulator integration 成功安装并调用 x86_64 Rust bridge；受限 DTO 始终是 8 band powers、无 spectrum payload，且 `voiced == (f0Hz != null)`。这些是 synthetic bridge evidence，不是 microphone/capture evidence。
+- 实际完成 `flutter build apk --debug` 与以 `tool/p4_02_android_release_main.dart` 为目标的 release APK 构建。release APK 包含 `lib/x86_64/librust_lib_voice_trainer.so`；该 release 入口会真实执行同一个 production analyzer probe，只有 greeting、94 frames、sample checksum `2,098,080`、RMS/pitch 容差和受限 DTO 全部满足才显示 `P4_02_RELEASE_BRIDGE_OK`。`tool/p4_02_android_release_smoke.ps1` 要求显式 endpoint，在 `127.0.0.1:16384` 安装 release、两次 force-stop/relaunch、两次读取可见 sentinel，并仅检查本次 app PID/包名相关 crash。报告固定 `evidenceType=emulator`、`emulator=true`、`realDevice=false`。
+- 本卡没有改变 Android default capture/persistence composition、DSP 算法、Observation 规则或 UI；Android 仍是 P4-01 定义的 fallback，P4-03 才能提升 capture/DSP production composition。
+- 仓库所有者于 2026-08-26 明确授权不再以逐卡人工等待阻塞可并行工作；P4-02 以本次完整复验结果作为后续分支基线。该授权不改变 emulator/synthetic 的证据等级，也不解锁真机或真实麦克风 gate。
+
 **允许修改：** Android 构建/manifest 的最小必要配置、Android integration/tool smoke、现有生成流程产生的文件、矩阵。
 
 **禁止修改：** 默认 Android capture/persistence composition、DSP算法、UI功能、新依赖。
 
 **必须交付：** `flutter build apk --debug`、至少一次 release 构建；标准 ADB 安装/启动；设备内 Rust greeting/生产 analyzer deterministic signal 输出与 Windows baseline 对比；检查 APK 含 x86_64 Rust library。保留 fake 默认。
 
-**验收：** smoke 在 `127.0.0.1:7555` 真实返回受限 DTO，app 无 native crash/UnsatisfiedLinkError；生成物可重复，Windows/Web 回归全绿。接受后解锁 P4-03。
+**验收：** smoke 在显式选择的目标 emulator 上真实返回受限 DTO，app 无 native crash/UnsatisfiedLinkError；生成物可重复，Windows/Web 回归全绿。接受后解锁 P4-03。
 
 ### P4-03 — Android capture/DSP production composition
 

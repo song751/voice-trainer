@@ -8,6 +8,7 @@ import '../core/domain/persistence/recording_locator.dart';
 import '../core/domain/persistence/recording_sink.dart';
 import '../core/domain/persistence/recording_store.dart';
 import '../core/domain/persistence/session_repository.dart';
+import '../core/platform/platform_capabilities.dart';
 import '../infrastructure/persistence/database/app_database.dart';
 import '../infrastructure/persistence/in_memory_recording_store.dart';
 import '../infrastructure/persistence/in_memory_session_repository.dart';
@@ -40,8 +41,11 @@ final class DefaultPersistenceAdapters {
   _WindowsPersistence? _native;
 }
 
-DefaultPersistenceAdapters createDefaultPersistenceAdapters() {
-  if (!Platform.isWindows) {
+DefaultPersistenceAdapters createDefaultPersistenceAdapters(
+  PlatformCapabilities capabilities,
+) {
+  if (capabilities.target != PlatformTarget.windows ||
+      capabilities.persistence != PlatformAdapterMode.production) {
     final store = InMemoryRecordingStore();
     return DefaultPersistenceAdapters._(
       store,

@@ -597,3 +597,26 @@ Phase-boundary 回归：FRB codegen 连续两次 7 个生成文件 SHA-256 不�
 - PackageManager 声明 microphone 与 low-latency audio；AudioFlinger 历史 input path 包含 48 kHz PCM16（同时也存在 16 kHz path）。这足以安排 record/format/bridge smoke，但不能证明宿主转发麦克风的真实性、AGC、路由、延迟、掉帧或音质。
 - MuMu 私有 ADB 支持 `adb root`，重启后标准 SDK ADB shell 为 uid 0；镜像没有普通 `su` 命令。root 只允许用于测试包沙箱/明确可丢弃路径的可恢复故障注入，不能成为产品或通过条件。
 - 当前 shell PATH 不包含 SDK `adb.exe`，后续 preflight helper 必须从 Android SDK 解析绝对路径或接收显式参数，不能假定裸 `adb` 命令可用。
+
+### P4-00 Android emulator/ADB 基线（2026-08-07，已接受）
+
+- `tool/p4_00_android_preflight.dart` 已将规划基线固化为可重复命令。它优先使用显式 `--adb-path`，否则只查找 `ANDROID_SDK_ROOT`、`ANDROID_HOME` 或 `%LOCALAPPDATA%\\Android\\Sdk` 下的 Platform-Tools；未找到时提供安装/参数提示，绝不回退到 MuMu 私有 ADB 或裸 `adb`。
+- 实测 `dart run tool/p4_00_android_preflight.dart --endpoint 127.0.0.1:7555`：SDK ADB 连接、Flutter machine detection 均成功；API 35、ABI `x86_64`、physical 1080×1920 / 480 dpi、microphone 和 low-latency feature 都为 true。当前 shell 是非 root（`rootShellObserved=false`）；工具不执行 `adb root`。
+- JSON 仅报告 endpoint、SDK ADB 来源类型、Flutter device id 和能力字段；不输出绝对 SDK 路径或 model/product/serial。每次报告固定 `evidenceType=emulator`、`emulator=true`、`realDevice=false`，因此只能作为模拟器 API/格式/bridge smoke 的入口，不能证明真实麦克风、AGC、路由、延迟、掉帧或真实设备支持。
+
+### P4-01 PlatformCapabilities 与组合边界（2026-08-07，已接受）
+
+- `PlatformCapabilities` 是不含 platform API 的不可变值对象；统一声明 capture/persistence adapter mode、analysis worker mode、maximum recording duration、device selection 和 lifecycle event capability。profile 覆盖 Windows、Android、Web、other native，令未验收平台的 fallback 可由 tests 审核而非散落条件判断。
+- 只有 `lib/app/platform_capabilities_native.dart` 和其 Web conditional peer 执行运行时检测。composition 据此选择默认 adapter/persistence：Windows 保留 P3 已接受的 production 组合；Android/Web/other native 仍用 fake/in-memory fallback。P4-03、P4-04、P4-09、P4-10、P4-11 才可以逐项改变相应 profile。
+- 本卡没有更改任何 capture、DSP、persistence 实现、数据库、页面或 Rust 算法，也没有将 Android emulator 或 Web fake 结果升级为真实设备/浏览器证据。
+
+### P4-02 Android build 与 Rust bridge smoke（2026-08-07；2026-08-26 复验并封存）
+
+- API 35/x86_64 emulator 上的 `p4_02_android_rust_bridge_smoke_test.dart` 已真实运行 Rust greeting 与 `FrbAnalysisWorker`。一秒 48 kHz mono PCM16 synthetic 220 Hz signal 分为 1024-sample batches；Android/Windows 都为 94 frames、start-sample checksum `2,098,080`、pitch checksum `20,681.109375`。RMS checksum 的跨平台绝对差约 `1.8e-5`，保留浮点容差而非要求 byte-identical float。
+- `flutter build apk --debug` 和 release candidate 已实际构建；release archive 检查到 `lib/x86_64/librust_lib_voice_trainer.so`。SDK ADB release smoke 已安装、两次 force-stop/relaunch，并未发现 `UnsatisfiedLinkError`、`FATAL EXCEPTION` 或 `Fatal signal`。
+- 所有本条结果固定为 `emulator` / `synthetic`；它们证明 x86_64 library、FRB runtime、bounded DTO 与 process restart，不证明真实麦克风、route、AGC、延迟、掉样或 Android production capture。Android 的 default composition 因此继续保持 fallback，直到 P4-03。
+- 2026-08-26 多实例复验时，仓库所有者确认原竖屏实例对应 SDK ADB endpoint `127.0.0.1:16384`；preflight 再次报告 API 35、`x86_64`、1080×1920、480 dpi。`7555` 当前属于另一实例，因此 P4-02 工具不再提供默认 endpoint，调用方必须显式选择，防止把不同模拟器的结果混入同一证据。
+- Windows 与该 Android 实例上的 debug integration 均重新通过。Windows 首次受 VS 2022/2026 CMake cache 冲突阻断，`flutter clean` 后复验通过；Android 首次受并发 Gradle/CMake 共享 build 目录文件占用阻断，停止并发、清理后复验通过。这两次均为可再生成缓存/执行串行化问题，不作为产品 gate 通过或失败。
+- release 证据由“APK 内存在 `.so` + 进程存活”加强为真实调用：`tool/p4_02_android_release_main.dart` 执行同一 deterministic production analyzer probe，只有完整合同满足才显示 `P4_02_RELEASE_BRIDGE_OK frames=94 samples=2098080`。release APK 在 `127.0.0.1:16384` 两次 force-stop/relaunch 后均读到该 sentinel，且 app PID/包名相关日志没有 `UnsatisfiedLinkError`、`FATAL EXCEPTION` 或 `Fatal signal`。
+- MuMu 的 `uiautomator dump` 在成功写出 hierarchy 后会以 139 退出并使 crash buffer 记录 `Cmdline: uiautomator`。脚本因此以可读取的 sentinel XML 为实际 UI contract，并把 crash 检查限制到本次 app PID/包名；不会把工具自身崩溃误报为应用崩溃，也不会接受历史/其他 app 的 last-300 日志。
+- 仓库所有者于 2026-08-26 授权在文件边界清楚、证据等级不变的条件下并行推进后续 UI、Android production 和歌曲对比设计。P4-02 因此以本次全 gate 复验作为分支基线，不再等待单独的逐卡口头确认；真实设备、真实麦克风和版权/模型依赖仍分别保留硬 gate。

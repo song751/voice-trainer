@@ -12,25 +12,35 @@ import '../core/domain/practice/practice_target.dart';
 import '../core/domain/practice/practice_template.dart';
 import '../core/errors/app_exception.dart';
 import '../core/logging/app_logger.dart';
+import '../core/platform/platform_capabilities.dart';
 import '../features/live_practice/application/practice_session_coordinator.dart';
 import '../features/session_result/application/deterministic_observation_engine.dart';
 import 'default_adapters.dart';
 import 'default_persistence.dart';
+import 'platform_capabilities.dart';
+
+/// The sole application-level platform detector. Features and presentation
+/// consume this immutable profile instead of importing platform APIs.
+final platformCapabilitiesProvider = Provider<PlatformCapabilities>(
+  (ref) => createDefaultPlatformCapabilities(),
+);
 
 /// Every platform-facing implementation is exposed separately for overrides.
 /// Windows defaults to the P3 production capture/DSP pair; tests and other
 /// platforms retain explicit deterministic replacements until their gates.
 final audioCaptureProvider = Provider<AudioCapture>(
-  (ref) => createDefaultAudioCapture(),
+  (ref) => createDefaultAudioCapture(ref.watch(platformCapabilitiesProvider)),
 );
 
 final analysisEngineProvider = Provider<AnalysisEngine>(
-  (ref) => createDefaultAnalysisEngine(),
+  (ref) => createDefaultAnalysisEngine(ref.watch(platformCapabilitiesProvider)),
 );
 
 final defaultPersistenceAdaptersProvider = Provider<DefaultPersistenceAdapters>(
   (ref) {
-    final adapters = createDefaultPersistenceAdapters();
+    final adapters = createDefaultPersistenceAdapters(
+      ref.watch(platformCapabilitiesProvider),
+    );
     ref.onDispose(() => unawaited(adapters.dispose()));
     return adapters;
   },
