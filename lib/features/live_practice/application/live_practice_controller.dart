@@ -28,10 +28,13 @@ final liveUiAnalysisFrameProvider = StreamProvider.autoDispose<UiAnalysisFrame>(
 );
 
 final class LivePracticeController extends Notifier<PracticeSessionState> {
-  late final PracticeSessionCoordinator _coordinator;
-  late final PracticeTemplate _template;
-  late final SessionRepository _repository;
-  late final String Function() _newSessionId;
+  // Notifier.build may run again when a watched composition dependency changes
+  // (for example a Web/Windows profile override in the same app lifetime).
+  // These references must therefore be rebound instead of initialized once.
+  late PracticeSessionCoordinator _coordinator;
+  late PracticeTemplate _template;
+  late SessionRepository _repository;
+  late String Function() _newSessionId;
   String? _activeSessionId;
 
   @override

@@ -41,7 +41,11 @@ class HomePage extends ConsumerWidget {
               key: const Key('open-live-practice'),
               onPressed: () => context.go(RoutePaths.livePractice),
               icon: const Icon(Icons.mic_none),
-              label: const Text('开始练习'),
+              label: Text(
+                capabilities.capture == PlatformAdapterMode.fallback
+                    ? '开始测试练习'
+                    : '开始练习',
+              ),
             ),
             const SizedBox(height: 8),
             OutlinedButton.icon(

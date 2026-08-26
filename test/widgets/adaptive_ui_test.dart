@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:voice_trainer/app/app.dart';
 import 'package:voice_trainer/app/app_providers.dart';
@@ -16,6 +17,7 @@ void main() {
     double devicePixelRatio = 1,
     double textScaleFactor = 1,
     String initialLocation = RoutePaths.home,
+    PlatformCapabilities capabilities = PlatformCapabilities.android,
   }) async {
     tester.view.devicePixelRatio = devicePixelRatio;
     tester.view.physicalSize = logicalSize * devicePixelRatio;
@@ -27,9 +29,7 @@ void main() {
       ProviderScope(
         overrides: <Override>[
           appInitialLocationProvider.overrideWithValue(initialLocation),
-          platformCapabilitiesProvider.overrideWithValue(
-            PlatformCapabilities.android,
-          ),
+          platformCapabilitiesProvider.overrideWithValue(capabilities),
           sessionRepositoryProvider.overrideWithValue(
             InMemorySessionRepository(),
           ),
@@ -60,6 +60,24 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('wide navigation rail can reach settings by keyboard', (
+    tester,
+  ) async {
+    await pumpAt(tester, logicalSize: const Size(1280, 800));
+
+    final settingsLabel = find.descendant(
+      of: find.byType(NavigationRail),
+      matching: find.text('设置'),
+    );
+    Focus.of(tester.element(settingsLabel)).requestFocus();
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
+
+    expect(find.text('设置与能力'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('phone density and 200 percent text remain scrollable', (
     tester,
   ) async {
@@ -74,6 +92,41 @@ void main() {
     expect(find.byKey(const Key('live-page-scroll')), findsOneWidget);
     expect(find.byType(NavigationBar), findsOneWidget);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Web fallback uses an explicit test-practice action', (
+    tester,
+  ) async {
+    await pumpAt(
+      tester,
+      logicalSize: const Size(393, 852),
+      capabilities: PlatformCapabilities.web,
+    );
+
+    expect(find.text('开始测试练习'), findsOneWidget);
+    expect(find.text('开始练习'), findsNothing);
+    expect(find.textContaining('真实麦克风链路尚未通过'), findsOneWidget);
+  });
+
+  testWidgets('all five pages remain scrollable at 200 percent text', (
+    tester,
+  ) async {
+    for (final route in <String>[
+      RoutePaths.home,
+      RoutePaths.livePractice,
+      RoutePaths.result,
+      RoutePaths.history,
+      RoutePaths.settings,
+    ]) {
+      await pumpAt(
+        tester,
+        logicalSize: const Size(393, 852),
+        textScaleFactor: 2,
+        initialLocation: route,
+        capabilities: PlatformCapabilities.web,
+      );
+      expect(tester.takeException(), isNull, reason: 'route $route');
+    }
   });
 
   test('theme exposes distinct light, dark, and high contrast schemes', () {
