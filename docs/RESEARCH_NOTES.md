@@ -701,3 +701,10 @@ Phase-boundary 回归：FRB codegen 连续两次 7 个生成文件 SHA-256 不�
 - JS deterministic contract 覆盖 OPFS 成功/reload/delete、OPFS quota append 失败清理后 IndexedDB fallback、两侧不可用的 `privateMode` 结果与 quota typed 结果。Dart tests 覆盖结果到 `PersistenceFailureReason` 的映射以及 Drift `inMemory` 拒绝。录音 bytes 没有 SQLite column，repository 只存 locator/storage kind。
 - 60 秒 Web MVP 上限由首块 PCM sample index 与有效 sample rate计算；边界 chunk 按 frame 裁剪，之后不再累积 PCM。测试覆盖非零起始 sample、跨界、discontinuity、sample-rate change 和暂停 wall-clock 远大于录音时长但 sample index 连续的情况。Edge runtime 用 1 秒同构 gate 验证 finalize/reload，避免生成不必要的 5.76 MB 合成 PCM。
 - 本机普通 Web release 会尝试从 gstatic 获取 CanvasKit；网络阻断时页面白屏与 persistence 无关。本卡 browser gate 使用 `--no-web-resources-cdn` 自包含构建隔离该变量，不改变正式部署策略；P4-11 必须固化自包含资源、MIME、CSP、cache/version 合同。
+
+### P4-05 Android lifecycle/fault automation（2026-08-27，已完成，待集成接受）
+
+- Android lifecycle 由 app composition 的唯一 Flutter binding adapter 转为 `foreground/background/detached` application state；页面不处理系统事件。运行会话后台自动 pause，只有该自动 pause 会在 foreground resume；手动 pause 与 detached 不会被误恢复。coordinator 既有 resume discontinuity 合同保证 sample timeline 不跨中断伪连续。
+- API 35/x86_64 竖屏 MuMu `127.0.0.1:16384` 的 SDK ADB gate 实测通过 permission grant/revoke、HOME/foreground、force-stop/relaunch、gate-only read-only directory 的 typed `recordingUnavailable` 与 `.partial` recovery。证据固定 `emulator=true`、`real_device=false`、`root_used=false`。脚本读取并恢复原 permission/app-op、目录 mode、普通 app entry 与原运行状态，且删除 gate-only 目录。
+- incoming call、Bluetooth 与真实有线/硬件 route 无法由 emulator 真实产生，继续 Pending。read-only mode injection 是 synthetic storage failure，不是磁盘 quota、厂商清理策略或真机文件系统通过。
+- 新增 `file_selector_android 0.5.2+9` 后，fresh/offline Gradle 还会在插件内嵌 AGP `8.13.1` 的 `com.android.databinding:baseLibrary` 未缓存时失败，online 则受本机 Google Maven TLS 影响。本卡实际 Flutter build 的首次直连又先在 sqlite3 官方 GitHub native asset 超时；使用显式、进程级可信 HTTP CONNECT proxy 后下载成功，sqlite3 hook 按发布包固定 SHA-256 验证，构建完成。没有关闭 TLS、替换仓库或留下全局 init script。插件的长期可复现修复单独提交，禁止降级到受 GHSA-r465-vhm9-7r5h 影响的 `<=0.5.1+11`。

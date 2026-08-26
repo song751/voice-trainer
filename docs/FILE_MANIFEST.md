@@ -48,6 +48,8 @@ voice-trainer/
 │  │  └─ shell/
 │  │     └─ adaptive_app_shell.dart
 │  ├─ core/
+│  │  ├─ platform/
+│  │  │  └─ application_lifecycle.dart
 │  │  ├─ domain/
 │  │  │  ├─ audio/
 │  │  │  │  ├─ audio_capture.dart

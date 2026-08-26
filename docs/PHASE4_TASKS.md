@@ -171,6 +171,15 @@ cargo test --manifest-path rust\Cargo.toml
 
 **目标结果：** 使用普通 ADB 优先、root 仅作隔离故障注入，覆盖权限、后台/前台、进程终止、存储失败和应用恢复；系统事件进入 application state，不由页面直接处理。
 
+#### P4-05 执行记录（2026-08-27，已完成，待集成接受）
+
+- Android capability 已启用 lifecycle events；唯一 `WidgetsBindingObserver` adapter 位于 app composition。页面不读取系统生命周期。练习运行中进入后台会串行暂停，仅由生命周期触发的暂停会在前台自动恢复；用户手动暂停不会被误恢复，detached 不自动重启会话。
+- coordinator 的既有 resume contract 会把恢复后的首批 PCM 标为 discontinuity。单元测试覆盖后台/前台、手动暂停保护、连续 sample index 仍产生中断标志，以及 source/container dispose 后 subscription 归零。
+- `tool/p4_05_android_lifecycle_test.ps1` 硬限制显式 endpoint `127.0.0.1:16384`，并再次核对 API 35、`x86_64`、1080×1920@480。SDK ADB 在独立、进程级 server port 上自动执行 grant/revoke、HOME/foreground、`am force-stop`/relaunch，并读回应用日志 sentinel；未连接或使用另一模拟器。
+- 存储故障只把 debuggable gate package 的 `files/p4_05_gate/fault_target` 目录临时改为只读，得到 typed `recordingUnavailable`；随后恢复原 mode。force-stop/relaunch 后 gate marker 与 `.partial` recovery 均通过。脚本 finally 恢复原 permission/app-op、普通 debug app、原运行状态，并删除 gate-only 目录；`root_used=false`。
+- 证据采用 P3-family privacy schema `P4_05_ANDROID_EVIDENCE_V1`，validator 固定 `emulator=true`、`real_device=false`、approved endpoint 和显式 root 状态。来电、蓝牙及有线/物理 route 仍为 Pending，不能由 emulator 或本次只读 mode 注入满足。
+- 设备命令：`powershell -NoProfile -ExecutionPolicy Bypass -File tool/p4_05_android_lifecycle_test.ps1 -Endpoint 127.0.0.1:16384 -HttpsProxy <trusted-process-scoped-proxy>`。本机直连首先在 sqlite3 官方 GitHub 资产超时；显式进程级代理下由 sqlite3 hook 校验固定 SHA-256 后构建成功。没有关闭 TLS、替换 Maven 源或留下全局 Gradle init/config。
+
 **允许修改：** lifecycle adapter、typed failure mapping、gate-only config/tool、integration tests和矩阵。
 
 **禁止修改：** root 成为产品依赖、自动改宿主/全局网络、宽泛删除、DSP/规则。
