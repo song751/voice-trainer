@@ -214,6 +214,15 @@ cargo test --manifest-path rust\Cargo.toml
 
 **目标结果：** 在 release APK 上完成 Android emulator 的 production composition 闭环并形成可校验证据包。
 
+#### P4-08 执行记录（2026-08-27，已完成，待集成接受）
+
+- `tool/p4_08_android_emulator_gate.ps1` 只接受 `127.0.0.1:16384`，并在运行前复核 API 35、`x86_64`、1080×1920@480。脚本保存原 APK set、权限/app-op 和运行状态，结束后恢复；本次起始无测试包，结束后 package 与临时状态文件均不存在。全程使用标准 SDK ADB，`root_used=false`。
+- release gate 先用 production `record` adapter 复验 permission denied→granted，再把确定性 48 kHz mono PCM16 test source 送入 production Rust analyzer、native WAV sink 与 Drift repository。自动覆盖 start、手动 pause/resume、HOME background/foreground、stop、result/history、recording delete、force-stop/relaunch、session delete；真实麦克风、route、AGC、latency 与真人 voiced input 明确保留 Pending。
+- 首轮 600 秒 run 完成 28,800,000 samples 后暴露真实持久化 blocker：暂停/恢复会形成合法的不连续 sample timeline，而旧 repository 只允许等间隔索引。修复保持数据库 schema 5 与旧 feature v1/v2 可读；只有不规则 timeline 使用 feature schema v3，以校验和保护的 `sample_index_u64` packed column 保存绝对 sample index。带 pause/gap 的 15 秒 release 回归通过保存、重载与删除。
+- 正式 600 秒 release run 在 commit `ff2579dbac96` 通过：active/wall duration `600.000/605.201 s`，analysis/recording queue dropped samples 均为 `0`，discontinuity `2`，worker=`primary`、restart=`0`；pipeline/UI build/UI raster P95 分别为 `68.535/0.666/1.405 ms`。21 个 30 秒级 memory samples 的 PSS 为 `80.855–95.527 MiB`、RSS 为 `166.484–183.223 MiB`。
+- APK 为 universal release，含 x86_64 Rust library，`117,546,074` bytes，SHA-256 `eb95083e242a6ab07ae8792cfc96ef64d46879b68f993a5777f61f0d40d85909`。忽略目录中的 evidence bundle 经 `dart run tool/p4_08_android_evidence.dart validate build/p4_08_android_evidence.json` 返回 `P4_08_ANDROID_EVIDENCE_VALID`；validator 禁止绝对路径、设备标识和音频/PCM 字段，并强制 real microphone 为 pending/capture-only。
+- 这是 emulator/synthetic production-composition 基线，不是 Android 真机、真实麦克风、10 分钟真人采集或 P4-14 通过；不得写成“Android 已支持”。
+
 **必须运行：** 安装/冷启动；权限拒绝再授权；开始/暂停/恢复/结束；结果/历史/删除；后台/强停/重启恢复；10 分钟稳定运行；UI frame/memory/queue metrics。若 emulator 麦克风无可靠输入，使用明确的 test source 做 DSP流并把 real-mic 项保持 Pending。
 
 **验收：** 自动化全绿、报告 validator 通过、所有项目正确标注 emulator/synthetic；不得写“Android 已支持”或解锁 P4-14。接受后解锁 P4-09。

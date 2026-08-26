@@ -496,3 +496,11 @@ Drift 的 `*.g.dart` 可与源文件相邻；Freezed/Riverpod generated 文件�
 - `lib/infrastructure/reference_comparison/`：native reference adapter 与应用内本地窗口播放器，非 native 支持边界明确返回 unavailable。
 - `lib/features/reference_comparison/`：会话选择、窗口/A-B 回放、人工听检、进度/取消和分项报告 UI；复用 packed user feature series，不逐帧写数据库。
 - `docs/REFERENCE_COMPARISON_MVP.md`：算法版本、门禁、存储决定和未覆盖项。
+
+## 12. P4-08 Android release evidence 资产
+
+- `tool/p4_08_android_release_main.dart`：release-only production-composition gate；真实请求录音权限，随后以确定性 48 kHz mono PCM16 source 驱动 production Rust、native WAV/Drift，并输出脱敏 lifecycle/queue/UI/worker sentinels。它不是产品入口，也不读取真实用户音频。
+- `tool/p4_08_android_emulator_gate.ps1`：硬锁 `127.0.0.1:16384` 的 SDK ADB runner；检查 profile/ABI/Rust library，保存并恢复 APK/权限/app-op/运行状态，执行 600 秒 soak、HOME、force-stop/relaunch，采样 RSS/PSS 并生成忽略的本地 JSON bundle。
+- `tool/p4_08_android_evidence.dart`：`P4_08_ANDROID_EMULATOR_BASELINE_V1` strict validator；强制 release/emulator/synthetic 范围、600 秒/sample/queue/worker/lifecycle/memory 指标及 real-microphone Pending，并拒绝路径、设备标识、PCM/音频字段。
+- `test/tool/p4_08_android_evidence_test.dart`：validator 的通过、错误 endpoint/root、缩短 run/queue drop、生命周期缺失、real-mic 冒领与隐私字段回归。
+- `DriftSessionRepository` 的 feature schema v3 不改变 SQLite schema：不规则 timeline 增加 checksum-protected `sample_index_u64` packed absolute-index column；规则 v1/v2 与旧数据库继续可读。
