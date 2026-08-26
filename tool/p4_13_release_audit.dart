@@ -20,9 +20,7 @@ Future<void> main(List<String> arguments) async {
     'licenses/THIRD_PARTY_NOTICES.md',
     'Symphonia MPL source availability',
   );
-  final notice = File(
-    _join(root.path, 'licenses/THIRD_PARTY_NOTICES.md'),
-  );
+  final notice = File(_join(root.path, 'licenses/THIRD_PARTY_NOTICES.md'));
   if (notice.existsSync()) {
     final contents = notice.readAsStringSync();
     for (final marker in <String>[
