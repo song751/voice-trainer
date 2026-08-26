@@ -60,7 +60,8 @@ voice-trainer/
 │  │  │  │  ├─ analysis_frame.dart
 │  │  │  │  ├─ analysis_quality_flag.dart
 │  │  │  │  ├─ feature_series.dart
-│  │  │  │  └─ session_summary.dart
+│  │  │  │  ├─ session_summary.dart
+│  │  │  │  └─ voice_production_profile.dart       [R&D；任务/人工标签/多模态证据边界]
 │  │  │  ├─ observation/
 │  │  │  │  ├─ observation.dart
 │  │  │  │  ├─ evidence.dart
@@ -320,7 +321,9 @@ voice-trainer/
 │  │  ├─ AUDIO_CONTRACT.md                        [现有]
 │  │  └─ OBSERVATION_RULE_FORMAT.md
 │  ├─ adr/
-│  │  └─ README.md
+│  │  ├─ README.md
+│  │  └─ 0004-voice-production-labels-and-measurement.md [R&D]
+│  ├─ REGISTER_AND_TIMBRE_FRAMEWORK.md            [R&D；声区/混声/音色多维框架]
 │  └─ test-matrices/
 │     ├─ windows.md
 │     ├─ android.md

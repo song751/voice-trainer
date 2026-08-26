@@ -126,6 +126,8 @@ user practice recording
 - 共鸣位置、喉位、咽腔形状、twang 或 singer's formant；
 - 由音高/响度/谱一个指标得出的“唱法正确”“嗓音健康”或综合唱功分。
 
+这些词仍可作为用户意图、教师 prompt 或盲听标注保存，并在严格匹配的任务内比较多维声学输出；它们只是不能由消费麦克风自动推断为生理类别。任务、标注、多模态测量、个体基线和 UI 合同见 `docs/REGISTER_AND_TIMBRE_FRAMEWORK.md`。
+
 原因不是缺一个更聪明阈值：jitter/shimmer 等并非独立病理指标，且明显受系统、性别、元音和响度混杂，[临床综述](https://pubmed.ncbi.nlm.nih.gov/21483265/)；ASHA 专家协议推荐的 CPP 也是声学辅助量而非声带成像，[测量协议](https://doi.org/10.1044/2018_AJSLP-17-0009)；手机与临床录音系统在 HNR、AVQI、jitter、CPPS 等指标上存在显著不一致，[系统综述与 meta-analysis](https://pubmed.ncbi.nlm.nih.gov/41037430/)。
 
 ## 8. 内容与建议数据合同

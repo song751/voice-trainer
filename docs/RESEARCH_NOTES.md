@@ -668,3 +668,11 @@ Phase-boundary 回归：FRB codegen 连续两次 7 个生成文件 SHA-256 不�
 - ORT CPU 32/47/300-frame 对 PyTorch max-abs 为 `8.27e-7 / 8.53e-7 / 1.53e-6`；300-frame inference `0.0568 s`、session `0.0551 s`、报告时 RSS `804,552,704` bytes。tract CPU 对应 max-abs `1.05e-6 / 1.04e-6 / 1.13e-6`，300-frame release inference `0.2679 s`、load/prepare `0.1155 s`。
 - Windows unstripped `tract_smoke.exe` 为 `25,375,744` bytes，只是全 ONNX loader 的 harness 尺寸，不是 production 增量。tract 上游现建议 facade/NNEF 路线；若未来采用，应评估固定模型转 NNEF/OPL、裁剪 operator、stripped size、Android/Web 与许可证清单，不能直接复制本 harness。
 - 当前成功仅限 vocals magnitude core；尚无 production STFT/ISTFT、mask/Wiener/residual、长音频分块、取消延迟、Android/Web 内存或许可歌曲质量证据，不关闭歌曲导入功能。
+
+### 发声方式、声区与音色多维框架（2026-08-26，R&D contract）
+
+- 新增 `docs/REGISTER_AND_TIMBRE_FRAMEWORK.md` 与 ADR 0004。框架把假声、头声、胸声、混声（强混/弱混）和金属性分成任务意图、人工听感标签、radiated acoustic output 与实验室 physiology/aerodynamics 四层；明确拒绝“闭合程度单轴”和 consumer-mic 自动唱法分类。
+- 证据结论保留分歧：Roubeau/Henrich 的 M0–M3 是 EGG/laryngeal-mechanism 层；Castellengo 5 人 voix-mixte 研究支持 M1/M2 内的强度/频谱调整，Kochis-Jennings 7 名女性显示 chest→mix→head 的多参数梯度，Lee 等 12 人研究则报告 mix 的独特 aeromechanical profile。差异说明 label、任务、样本和 modality 必须成为 scope，不能挑一个研究写全局阈值。
+- CVT `metal/density` 的 2026 double-case 只有两名歌手，虽然 SPL、Psub、CQ、harmonic richness 等形成多维差异，仍仅支持保存 CVT-specific perceptual label 与研究假设；不支持从谱质心/2–4 kHz 能量自动识别 metal、twang 或喉部收窄。
+- 新增平台无关 `voice_production_profile.dart`：human label provenance 保存词表版本且没有 algorithm source；measurement 强制 domain/modality 对应，consumer microphone alone 不能构造 vocal-fold contact、kinematics、muscle 或 aerodynamic evidence；comparison scope exact-match pitch/vowel/loudness/style/capture/protocol/algorithm，并在 label-targeted task 中匹配词表版本和目标 label；confidence 取 signal/task/repeatability/label-agreement 的保守最小值。6 项 domain tests 通过。
+- 本切片没有修改 Rust/DSP、Drift/schema、Observation rules、UI 或依赖。它只提供研究与未来产品的数据边界；自动 head/mix/metal classifier 仍需授权分层数据、跨标注者协议、实验室子样本、外部验证和设备 error/suppression analysis 后另立任务卡。
