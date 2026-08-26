@@ -192,6 +192,13 @@ final class PracticeSessionCoordinator {
     } on AnalysisFailure catch (failure) {
       await _stopCapture();
       _state = _stateMachine.transition(_state, AnalysisFailedEvent(failure));
+    } on PersistenceFailure catch (failure) {
+      await _stopCapture();
+      await _abortOpenRecording();
+      _state = _stateMachine.transition(
+        _state,
+        PersistenceFailedEvent(failure),
+      );
     } catch (_) {
       await _stopCapture();
       await _abortOpenRecording();
@@ -306,6 +313,12 @@ final class PracticeSessionCoordinator {
         ),
       );
       _state = _stateMachine.transition(_state, const FinalizationSucceeded());
+    } on PersistenceFailure catch (failure) {
+      await _discardFailedRecording(recording);
+      _state = _stateMachine.transition(
+        _state,
+        PersistenceFailedEvent(failure),
+      );
     } catch (_) {
       await _discardFailedRecording(recording);
       _failFinalization(

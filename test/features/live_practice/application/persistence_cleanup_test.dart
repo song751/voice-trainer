@@ -8,6 +8,7 @@ import 'package:voice_trainer/core/domain/persistence/recording_sink.dart';
 import 'package:voice_trainer/core/domain/persistence/session_repository.dart';
 import 'package:voice_trainer/core/domain/practice/practice_target.dart';
 import 'package:voice_trainer/core/domain/practice/practice_template.dart';
+import 'package:voice_trainer/core/errors/failure.dart';
 import 'package:voice_trainer/features/live_practice/application/practice_session_coordinator.dart';
 import 'package:voice_trainer/features/live_practice/domain/practice_session_state.dart';
 import 'package:voice_trainer/infrastructure/audio/fake_audio_capture.dart';
@@ -43,10 +44,36 @@ void main() {
       );
       await Future<void>.delayed(Duration.zero);
 
-      expect(await coordinator.stop(), isA<Failed>());
+      final state = await coordinator.stop();
+      expect(state, isA<Failed>());
+      final failure = (state as Failed).failure as PersistenceFailure;
+      expect(failure.reason, PersistenceFailureReason.quotaExceeded);
       expect(await store.exists(_locator), isFalse);
     },
   );
+
+  test('storage readiness preserves a typed private-mode failure', () async {
+    final capture = FakeAudioCapture();
+    final store = InMemoryRecordingStore();
+    final coordinator = PracticeSessionCoordinator(
+      audioCapture: capture,
+      analysisEngine: FakeAnalysisEngine(),
+      recordingSink: _FailingRecordingSink(
+        openFailure: const PersistenceFailure(
+          reason: PersistenceFailureReason.privateMode,
+        ),
+      ),
+      recordingStore: store,
+      sessionRepository: InMemorySessionRepository(recordingStore: store),
+    );
+    addTearDown(coordinator.dispose);
+
+    final state = await coordinator.start(_request());
+
+    expect(state, isA<Failed>());
+    final failure = (state as Failed).failure as PersistenceFailure;
+    expect(failure.reason, PersistenceFailureReason.privateMode);
+  });
 
   test(
     'append failure stops capture and aborts the partial recording',
@@ -127,14 +154,22 @@ PcmChunk _chunk() => PcmChunk(
 );
 
 final class _FailingRecordingSink implements RecordingSink {
-  _FailingRecordingSink({this.failAppend = false, this.failFinalize = false});
+  _FailingRecordingSink({
+    this.failAppend = false,
+    this.failFinalize = false,
+    this.openFailure,
+  });
 
   final bool failAppend;
   final bool failFinalize;
+  final PersistenceFailure? openFailure;
   bool aborted = false;
 
   @override
-  Future<void> open(RecordingMetadata metadata) async {}
+  Future<void> open(RecordingMetadata metadata) async {
+    final failure = openFailure;
+    if (failure != null) throw failure;
+  }
 
   @override
   Future<void> append(PcmChunk chunk) {
@@ -158,8 +193,9 @@ final class _FailingRecordingSink implements RecordingSink {
 
 final class _FailingSessionRepository implements SessionRepository {
   @override
-  Future<void> save(PracticeSessionRecord record) =>
-      Future<void>.error(StateError('Injected database failure.'));
+  Future<void> save(PracticeSessionRecord record) => Future<void>.error(
+    const PersistenceFailure(reason: PersistenceFailureReason.quotaExceeded),
+  );
 
   @override
   Future<PracticeSessionRecord?> findById(String id) async => null;

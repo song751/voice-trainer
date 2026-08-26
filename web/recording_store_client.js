@@ -1,25 +1,41 @@
 class VoiceTrainerRecordingStore {
-  constructor() {
-    this._memory = new Map();
+  constructor(scope = globalThis) {
+    this._scope = scope;
     this._databasePromise = null;
+  }
+
+  async probe() {
+    const locator = `.probe-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    const storageKind = await this.write(locator, new Uint8Array([0]));
+    if (storageKind === 'opfs' || storageKind === 'indexedDb') {
+      await this.remove(locator, storageKind);
+    }
+    return storageKind;
   }
 
   async write(locator, bytes) {
     const copy = new Uint8Array(bytes);
+    let opfsFailure = null;
     try {
-      const root = await navigator.storage?.getDirectory?.();
+      const root = await this._scope.navigator?.storage?.getDirectory?.();
       if (root) {
         const directory = await root.getDirectoryHandle('voice-trainer-recordings', { create: true });
         const file = await directory.getFileHandle(locator, { create: true });
         const writer = await file.createWritable();
-        await writer.write(copy);
-        await writer.close();
+        try {
+          await writer.write(copy);
+          await writer.close();
+        } catch (error) {
+          try { await writer.abort?.(); } catch (_) { /* Best-effort cleanup. */ }
+          try { await directory.removeEntry(locator); } catch (_) { /* No durable DB reference exists. */ }
+          throw error;
+        }
         return 'opfs';
       }
-    } catch (_) {
-      // Fall through to IndexedDB. Storage quota and private-mode failures are
-      // surfaced by the selected storage kind rather than hidden from callers.
+    } catch (error) {
+      opfsFailure = error;
     }
+    let indexedDbFailure = null;
     try {
       const database = await this._database();
       await new Promise((resolve, reject) => {
@@ -30,16 +46,16 @@ class VoiceTrainerRecordingStore {
         transaction.onabort = () => reject(transaction.error);
       });
       return 'indexedDb';
-    } catch (_) {
-      this._memory.set(locator, copy);
-      return 'none';
+    } catch (error) {
+      indexedDbFailure = error;
     }
+    return this._failureKind(opfsFailure, indexedDbFailure);
   }
 
   async exists(locator, storageKind) {
     if (storageKind === 'opfs') {
       try {
-        const root = await navigator.storage?.getDirectory?.();
+        const root = await this._scope.navigator?.storage?.getDirectory?.();
         const directory = await root.getDirectoryHandle('voice-trainer-recordings');
         await directory.getFileHandle(locator);
         return true;
@@ -59,14 +75,20 @@ class VoiceTrainerRecordingStore {
         return false;
       }
     }
-    return this._memory.has(locator);
+    return false;
   }
 
   async remove(locator, storageKind) {
     if (storageKind === 'opfs') {
-      const root = await navigator.storage?.getDirectory?.();
-      const directory = await root.getDirectoryHandle('voice-trainer-recordings');
-      await directory.removeEntry(locator);
+      try {
+        const root = await this._scope.navigator?.storage?.getDirectory?.();
+        const directory = await root.getDirectoryHandle('voice-trainer-recordings');
+        await directory.removeEntry(locator);
+      } catch (error) {
+        // A crash can happen after physical deletion and before the database
+        // tombstone is finalized. Missing is therefore already-successful.
+        if (error?.name !== 'NotFoundError') throw error;
+      }
       return;
     }
     if (storageKind === 'indexedDb') {
@@ -80,18 +102,36 @@ class VoiceTrainerRecordingStore {
       });
       return;
     }
-    this._memory.delete(locator);
+    throw new DOMException('Recording storage is unavailable.', 'NotSupportedError');
   }
 
   _database() {
     this._databasePromise ??= new Promise((resolve, reject) => {
-      const request = indexedDB.open('voice-trainer-recordings-v1', 1);
+      const indexedDb = this._scope.indexedDB;
+      if (!indexedDb) {
+        reject(new DOMException('IndexedDB is unavailable.', 'NotSupportedError'));
+        return;
+      }
+      const request = indexedDb.open('voice-trainer-recordings-v1', 1);
       request.onupgradeneeded = () => request.result.createObjectStore('recordings');
       request.onsuccess = () => resolve(request.result);
       request.onerror = () => reject(request.error);
+      request.onblocked = () => reject(new DOMException('IndexedDB open was blocked.', 'InvalidStateError'));
     });
     return this._databasePromise;
   }
+
+  _failureKind(...failures) {
+    const names = failures.filter(Boolean).map((failure) => failure?.name);
+    if (names.includes('QuotaExceededError')) return 'quotaExceeded';
+    if (names.some((name) =>
+      name === 'SecurityError' ||
+      name === 'InvalidStateError' ||
+      name === 'NotAllowedError')) {
+      return 'privateMode';
+    }
+    return 'unavailable';
+  }
 }
 
-window.VoiceTrainerRecordingStore = VoiceTrainerRecordingStore;
+globalThis.VoiceTrainerRecordingStore = VoiceTrainerRecordingStore;

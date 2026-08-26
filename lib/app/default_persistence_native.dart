@@ -5,6 +5,7 @@ import 'package:drift/native.dart';
 import 'package:path_provider/path_provider.dart';
 
 import '../core/domain/persistence/recording_locator.dart';
+import '../core/domain/persistence/persistence_storage_report.dart';
 import '../core/domain/persistence/recording_sink.dart';
 import '../core/domain/persistence/recording_store.dart';
 import '../core/domain/persistence/session_repository.dart';
@@ -24,12 +25,27 @@ final class DefaultPersistenceAdapters {
     this.recordingSink,
     this.sessionRepository,
     this.usesNativePersistence,
+    this.usesPersistentStorage,
   );
 
   final RecordingStore recordingStore;
   final RecordingSink recordingSink;
   final SessionRepository sessionRepository;
   final bool usesNativePersistence;
+  final bool usesPersistentStorage;
+
+  Future<PersistenceStorageReport> storageReport() async =>
+      usesPersistentStorage
+      ? const PersistenceStorageReport(
+          structuredDataKind: 'nativeSqlite',
+          recordingStorageKind: RecordingStorageKind.file,
+          isPersistent: true,
+        )
+      : const PersistenceStorageReport(
+          structuredDataKind: 'memory',
+          recordingStorageKind: RecordingStorageKind.none,
+          isPersistent: false,
+        );
 
   Future<void> dispose() async {
     final native = await _nativeOrNull();
@@ -52,6 +68,7 @@ DefaultPersistenceAdapters createDefaultPersistenceAdapters(
       InMemoryRecordingSink(store),
       InMemorySessionRepository(recordingStore: store),
       false,
+      false,
     );
   }
   final native = _NativePersistenceHost();
@@ -59,6 +76,7 @@ DefaultPersistenceAdapters createDefaultPersistenceAdapters(
     _DeferredRecordingStore(native),
     _DeferredRecordingSink(native),
     _DeferredSessionRepository(native),
+    true,
     true,
   );
   adapters._native = native;

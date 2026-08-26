@@ -5,34 +5,41 @@ import '../../../core/domain/audio/pcm_chunk.dart';
 import '../../../core/domain/persistence/recording_locator.dart';
 import '../../../core/domain/persistence/recording_sink.dart';
 import '../../../core/domain/persistence/recording_store.dart';
+import 'web_recording_limit.dart';
+import 'web_storage_result.dart';
 import 'wav_stream_writer.dart';
 
 @JS('VoiceTrainerRecordingStore')
 extension type _WebRecordingClient._(JSObject _) implements JSObject {
   external factory _WebRecordingClient();
 
+  external JSPromise<JSString> probe();
   external JSPromise<JSString> write(String locator, JSUint8Array bytes);
   external JSPromise<JSBoolean> exists(String locator, String storageKind);
   external JSPromise<JSAny?> remove(String locator, String storageKind);
 }
 
-/// Browser BlobStore with OPFS first, IndexedDB second and an explicitly
-/// non-persistent memory fallback. It intentionally never touches Drift.
+/// Browser BlobStore with OPFS first and IndexedDB second.
+///
+/// A browser without either durable backend fails explicitly. Production code
+/// never stores recording bytes in Drift and never silently falls back to RAM.
 final class WebRecordingStore implements RecordingStore {
   WebRecordingStore() : _client = _WebRecordingClient();
 
   final _WebRecordingClient _client;
-  String? _persistenceWarning;
+  RecordingStorageKind? _storageKind;
 
-  String? get persistenceWarning => _persistenceWarning;
+  RecordingStorageKind? get storageKind => _storageKind;
+
+  Future<RecordingStorageKind> probe() async {
+    final result = (await _client.probe().toDart).toDart;
+    return _storageKind = decodeWebRecordingStorageResult(result);
+  }
 
   Future<RecordingLocator> write(String name, Uint8List wav) async {
-    final kind = RecordingStorageKind.values.byName(
-      (await _client.write(name, wav.toJS).toDart).toDart,
-    );
-    if (kind == RecordingStorageKind.none) {
-      _persistenceWarning = '此浏览器无法持久化录音；关闭页面后录音会丢失。';
-    }
+    final result = (await _client.write(name, wav.toJS).toDart).toDart;
+    final kind = decodeWebRecordingStorageResult(result);
+    _storageKind = kind;
     return RecordingLocator(value: name, storageKind: kind);
   }
 
@@ -50,15 +57,19 @@ final class WebRecordingStore implements RecordingStore {
 /// Web MVP buffers no more than 60 seconds of mono PCM16, patches a WAV in
 /// memory, then delegates persistence to [WebRecordingStore].
 final class WebRecordingSink implements RecordingSink {
-  WebRecordingSink(this._store, {this.maximumPcmBytes = 5760000});
+  WebRecordingSink(
+    this._store, {
+    Duration maximumDuration = const Duration(seconds: 60),
+  }) : _sampleLimit = WebRecordingSampleLimit(maximumDuration: maximumDuration);
 
   final WebRecordingStore _store;
-  final int maximumPcmBytes;
+  final WebRecordingSampleLimit _sampleLimit;
   RecordingMetadata? _metadata;
   _MemoryWavOutput? _output;
   WavStreamWriter? _writer;
-  int _pcmBytes = 0;
   bool _finished = false;
+
+  bool get limitReached => _sampleLimit.reached;
 
   @override
   Future<void> open(RecordingMetadata metadata) async {
@@ -71,19 +82,17 @@ final class WebRecordingSink implements RecordingSink {
     if (_finished || _metadata == null) {
       throw StateError('Recording sink is not open.');
     }
-    if (_pcmBytes + chunk.bytes.lengthInBytes > maximumPcmBytes) {
-      throw StateError('Web recording exceeds the 60-second PCM16 limit.');
-    }
+    final accepted = _sampleLimit.accept(chunk);
+    if (accepted == null) return;
     var writer = _writer;
     if (writer == null) {
       final output = _MemoryWavOutput();
       _output = output;
       writer = WavStreamWriter(output);
       _writer = writer;
-      await writer.open(chunk.format);
+      await writer.open(accepted.format);
     }
-    _pcmBytes += chunk.bytes.lengthInBytes;
-    await writer.append(chunk);
+    await writer.append(accepted);
   }
 
   @override
@@ -107,20 +116,50 @@ final class WebRecordingSink implements RecordingSink {
 }
 
 final class _MemoryWavOutput implements WavOutput {
-  Uint8List _bytes = Uint8List(0);
-  Uint8List get bytes => Uint8List.fromList(_bytes);
+  final List<Uint8List> _segments = <Uint8List>[];
+  int _length = 0;
+
+  Uint8List get bytes {
+    final result = Uint8List(_length);
+    var offset = 0;
+    for (final segment in _segments) {
+      result.setRange(offset, offset + segment.lengthInBytes, segment);
+      offset += segment.lengthInBytes;
+    }
+    return result;
+  }
 
   @override
   Future<void> append(Uint8List bytes) async {
-    final next = Uint8List(_bytes.lengthInBytes + bytes.lengthInBytes);
-    next.setRange(0, _bytes.lengthInBytes, _bytes);
-    next.setRange(_bytes.lengthInBytes, next.lengthInBytes, bytes);
-    _bytes = next;
+    final copy = Uint8List.fromList(bytes);
+    _segments.add(copy);
+    _length += copy.lengthInBytes;
   }
 
   @override
   Future<void> overwrite(int offset, Uint8List bytes) async {
-    _bytes.setRange(offset, offset + bytes.lengthInBytes, bytes);
+    var remainingOffset = offset;
+    var sourceOffset = 0;
+    for (final segment in _segments) {
+      if (remainingOffset >= segment.lengthInBytes) {
+        remainingOffset -= segment.lengthInBytes;
+        continue;
+      }
+      final count = (segment.lengthInBytes - remainingOffset).clamp(
+        0,
+        bytes.lengthInBytes - sourceOffset,
+      );
+      segment.setRange(
+        remainingOffset,
+        remainingOffset + count,
+        bytes,
+        sourceOffset,
+      );
+      sourceOffset += count;
+      remainingOffset = 0;
+      if (sourceOffset == bytes.lengthInBytes) return;
+    }
+    throw RangeError.range(offset + bytes.lengthInBytes, 0, _length);
   }
 
   @override
@@ -131,6 +170,7 @@ final class _MemoryWavOutput implements WavOutput {
 
   @override
   Future<void> abort() async {
-    _bytes = Uint8List(0);
+    _segments.clear();
+    _length = 0;
   }
 }

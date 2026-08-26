@@ -102,13 +102,25 @@ final class RecordingFailure extends DomainFailure {
 }
 
 final class PersistenceFailure extends DomainFailure {
-  const PersistenceFailure({this.isRecoverable = true});
+  const PersistenceFailure({
+    this.reason = PersistenceFailureReason.operation,
+    this.isRecoverable = true,
+  });
+
+  final PersistenceFailureReason reason;
 
   @override
   final bool isRecoverable;
 
   @override
   FailureCode get code => FailureCode.persistenceFailed;
+}
+
+enum PersistenceFailureReason {
+  unavailable,
+  quotaExceeded,
+  privateMode,
+  operation,
 }
 
 final class UnexpectedFailure extends DomainFailure {

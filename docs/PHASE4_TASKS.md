@@ -231,6 +231,14 @@ cargo test --manifest-path rust\Cargo.toml
 
 **目标结果：** Web 默认使用 Drift Wasm 与 OPFS/IndexedDB recording store；60秒上限按 sample index执行，结果/历史/删除/恢复不依赖内存 fallback。
 
+#### P4-10 执行记录（2026-08-27，已完成，待集成接受）
+
+- Web capability/default composition 已将 persistence 提升为 production：结构化记录使用 Drift `WasmDatabase`，录音使用独立 `WebRecordingStore`；启动录音前同时确认两侧均为持久化后端。Drift 选到 `inMemory`，或录音 OPFS/IndexedDB 均不可用时，返回带 `privateMode` / `unavailable` / `quotaExceeded` reason 的 `PersistenceFailure`，不再把录音或会话静默留在内存。
+- `PersistenceStorageReport` 只报告脱敏的 structured/recording storage kind、持久化状态和缺失 feature，不含数据库名、路径或设备标识。录音 Blob 仍不进入 SQLite；数据库只保存 locator、storage kind、summary 和 packed feature columns。
+- Web 录音上限由首块 PCM 的单调 sample index 与有效 sample rate 计算。跨越 60 秒边界的 chunk 会按 frame 精确裁剪，后续 chunk 不再增长内存；暂停期间 wall-clock 前进而 sample index 不前进时不会消耗限额。内存 WAV output 改为分段累积并只在 finalize 合并，避免每个 chunk 重复制全部历史 PCM。
+- JS BlobStore 的 OPFS append 失败会 abort 并 best-effort 删除未引用文件，再尝试 IndexedDB 原子事务；两者失败返回 typed result，不建立数据库引用。删除仍使用现有 tombstone 顺序，启动时由同一 `RecordingRecoveryService` 重试。
+- Edge headless release gate 使用自包含资源构建以隔离宿主 CDN 阻断，实际报告 `structuredStorageKind=sharedIndexedDb`、`recordingStorageKind=opfs`；1 秒同构边界生成精确 `96,044` bytes PCM16 mono WAV，创建、整页 reload 后结果/历史/Blob 恢复、删除、删除后重建均通过。typed persistence reason 会穿过 coordinator 进入 `Failed.failure`，不会被改写成 capture unknown。该结果是 synthetic browser storage evidence，不是 P4-15 真实麦克风证据；正式自包含构建、缓存/MIME/CSP 由 P4-11 固化。
+
 **验收：** storage kind可报告；录音不进SQLite；quota/append/finalize/DB/delete/tombstone/reload测试不留坏引用；private mode/不可持久化返回typed failure；60秒安全finalize且暂停时间不误算。接受后解锁 P4-11。
 
 ### P4-11 — Web 生命周期与部署合同

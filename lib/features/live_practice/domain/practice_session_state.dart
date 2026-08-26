@@ -144,6 +144,12 @@ final class AnalysisFailedEvent extends PracticeSessionEvent {
   final AnalysisFailure failure;
 }
 
+final class PersistenceFailedEvent extends PracticeSessionEvent {
+  const PersistenceFailedEvent(this.failure);
+
+  final PersistenceFailure failure;
+}
+
 final class FinalizationSucceeded extends PracticeSessionEvent {
   const FinalizationSucceeded();
 }
@@ -197,6 +203,12 @@ final class PracticeSessionStateMachine {
         failure: failure,
         retryState: PracticeSessionStateKind.ready,
       ),
+      (Ready(:final sessionId), PersistenceFailedEvent(:final failure)) =>
+        Failed(
+          sessionId: sessionId,
+          failure: failure,
+          retryState: PracticeSessionStateKind.ready,
+        ),
       (Running(:final sessionId), PauseRequested()) => Paused(
         sessionId: sessionId,
       ),
@@ -224,6 +236,12 @@ final class PracticeSessionStateMachine {
         sessionId: sessionId,
       ),
       (Finalizing(:final sessionId), FinalizationFailed(:final failure)) =>
+        Failed(
+          sessionId: sessionId,
+          failure: failure,
+          retryState: PracticeSessionStateKind.finalizing,
+        ),
+      (Finalizing(:final sessionId), PersistenceFailedEvent(:final failure)) =>
         Failed(
           sessionId: sessionId,
           failure: failure,

@@ -24,11 +24,11 @@ void main() {
     expect(capabilities.supportsLifecycleEvents, isFalse);
   });
 
-  test('Web promotes capture and dedicated worker but not persistence', () {
+  test('Web promotes capture, dedicated worker, and durable persistence', () {
     const capabilities = PlatformCapabilities.web;
 
     expect(capabilities.capture, PlatformAdapterMode.production);
-    expect(capabilities.persistence, PlatformAdapterMode.fallback);
+    expect(capabilities.persistence, PlatformAdapterMode.production);
     expect(
       capabilities.analysisWorker,
       AnalysisWorkerCapability.dedicatedWebWorker,

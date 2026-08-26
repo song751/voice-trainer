@@ -41,12 +41,13 @@ final class PlatformCapabilities {
     supportsLifecycleEvents: false,
   );
 
-  /// P4-09 promotes Web capture and the dedicated Rust WASM worker. Web
-  /// persistence and lifecycle remain explicit fallbacks until later cards.
+  /// P4-09 promotes Web capture and the dedicated Rust WASM worker. P4-10
+  /// promotes durable Drift/recording persistence while retaining the 60-second
+  /// sample-timeline limit. Lifecycle remains a later card.
   static const web = PlatformCapabilities(
     target: PlatformTarget.web,
     capture: PlatformAdapterMode.production,
-    persistence: PlatformAdapterMode.fallback,
+    persistence: PlatformAdapterMode.production,
     analysisWorker: AnalysisWorkerCapability.dedicatedWebWorker,
     maximumRecordingDuration: Duration(seconds: 60),
     supportsDeviceSelection: false,
