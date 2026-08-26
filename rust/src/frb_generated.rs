@@ -39,7 +39,7 @@ flutter_rust_bridge::frb_generated_boilerplate!(
     default_rust_auto_opaque = RustAutoOpaqueMoi,
 );
 pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_VERSION: &str = "2.12.0";
-pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -80312999;
+pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = 930316058;
 
 // Section: executor
 
@@ -398,6 +398,84 @@ fn wire__crate__api__simple__init_app_impl(
         },
     )
 }
+fn wire__crate__api__song__probe_song_separation_runtime_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "probe_song_separation_runtime",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_model_path = <String>::sse_decode(&mut deserializer);
+            let api_expected_model_sha256 = <String>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, ()>((move || {
+                    let output_ok =
+                        Result::<_, ()>::Ok(crate::api::song::probe_song_separation_runtime(
+                            api_model_path,
+                            api_expected_model_sha256,
+                        ))?;
+                    Ok(output_ok)
+                })())
+            }
+        },
+    )
+}
+fn wire__crate__api__song__start_song_separation_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "start_song_separation",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_request =
+                <crate::api::song::SongSeparationRequestDto>::sse_decode(&mut deserializer);
+            let api_sink = <StreamSink<
+                crate::api::song::SongSeparationEventDto,
+                flutter_rust_bridge::for_generated::SseCodec,
+            >>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, ()>((move || {
+                    let output_ok = Result::<_, ()>::Ok({
+                        crate::api::song::start_song_separation(api_request, api_sink);
+                    })?;
+                    Ok(output_ok)
+                })())
+            }
+        },
+    )
+}
 
 // Section: related_funcs
 
@@ -406,6 +484,14 @@ flutter_rust_bridge::frb_generated_moi_arc_impl_value!(
 );
 
 // Section: dart2rust
+
+impl SseDecode for flutter_rust_bridge::for_generated::anyhow::Error {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut inner = <String>::sse_decode(deserializer);
+        return flutter_rust_bridge::for_generated::anyhow::anyhow!("{}", inner);
+    }
+}
 
 impl SseDecode for RealtimeAnalyzer {
     // Codec=Sse (Serialization based), see doc to use other codecs
@@ -424,6 +510,19 @@ impl SseDecode
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
         let mut inner = <usize>::sse_decode(deserializer);
         return decode_rust_opaque_moi(inner);
+    }
+}
+
+impl SseDecode
+    for StreamSink<
+        crate::api::song::SongSeparationEventDto,
+        flutter_rust_bridge::for_generated::SseCodec,
+    >
+{
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut inner = <String>::sse_decode(deserializer);
+        return StreamSink::deserialize(inner);
     }
 }
 
@@ -530,6 +629,17 @@ impl SseDecode for Vec<u8> {
     }
 }
 
+impl SseDecode for Option<String> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        if (<bool>::sse_decode(deserializer)) {
+            return Some(<String>::sse_decode(deserializer));
+        } else {
+            return None;
+        }
+    }
+}
+
 impl SseDecode for Option<f32> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -546,6 +656,45 @@ impl SseDecode for Option<crate::api::realtime::RobustStabilityDto> {
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
         if (<bool>::sse_decode(deserializer)) {
             return Some(<crate::api::realtime::RobustStabilityDto>::sse_decode(
+                deserializer,
+            ));
+        } else {
+            return None;
+        }
+    }
+}
+
+impl SseDecode for Option<crate::api::song::SongSeparationFailureDto> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        if (<bool>::sse_decode(deserializer)) {
+            return Some(<crate::api::song::SongSeparationFailureDto>::sse_decode(
+                deserializer,
+            ));
+        } else {
+            return None;
+        }
+    }
+}
+
+impl SseDecode for Option<crate::api::song::SongSeparationProgressDto> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        if (<bool>::sse_decode(deserializer)) {
+            return Some(<crate::api::song::SongSeparationProgressDto>::sse_decode(
+                deserializer,
+            ));
+        } else {
+            return None;
+        }
+    }
+}
+
+impl SseDecode for Option<crate::api::song::SongSeparationReportDto> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        if (<bool>::sse_decode(deserializer)) {
+            return Some(<crate::api::song::SongSeparationReportDto>::sse_decode(
                 deserializer,
             ));
         } else {
@@ -609,6 +758,134 @@ impl SseDecode for crate::api::realtime::SegmentSummaryDto {
     }
 }
 
+impl SseDecode for crate::api::song::SongRuntimeStatusDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_available = <bool>::sse_decode(deserializer);
+        let mut var_reason = <Option<String>>::sse_decode(deserializer);
+        let mut var_modelId = <Option<String>>::sse_decode(deserializer);
+        return crate::api::song::SongRuntimeStatusDto {
+            available: var_available,
+            reason: var_reason,
+            model_id: var_modelId,
+        };
+    }
+}
+
+impl SseDecode for crate::api::song::SongSeparationEventDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_kind = <String>::sse_decode(deserializer);
+        let mut var_progress =
+            <Option<crate::api::song::SongSeparationProgressDto>>::sse_decode(deserializer);
+        let mut var_report =
+            <Option<crate::api::song::SongSeparationReportDto>>::sse_decode(deserializer);
+        let mut var_failure =
+            <Option<crate::api::song::SongSeparationFailureDto>>::sse_decode(deserializer);
+        return crate::api::song::SongSeparationEventDto {
+            kind: var_kind,
+            progress: var_progress,
+            report: var_report,
+            failure: var_failure,
+        };
+    }
+}
+
+impl SseDecode for crate::api::song::SongSeparationFailureDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_reason = <String>::sse_decode(deserializer);
+        let mut var_operation = <String>::sse_decode(deserializer);
+        let mut var_detail = <String>::sse_decode(deserializer);
+        return crate::api::song::SongSeparationFailureDto {
+            reason: var_reason,
+            operation: var_operation,
+            detail: var_detail,
+        };
+    }
+}
+
+impl SseDecode for crate::api::song::SongSeparationProgressDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_stage = <String>::sse_decode(deserializer);
+        let mut var_completedUnits = <u64>::sse_decode(deserializer);
+        let mut var_totalUnits = <u64>::sse_decode(deserializer);
+        return crate::api::song::SongSeparationProgressDto {
+            stage: var_stage,
+            completed_units: var_completedUnits,
+            total_units: var_totalUnits,
+        };
+    }
+}
+
+impl SseDecode for crate::api::song::SongSeparationReportDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_modelId = <String>::sse_decode(deserializer);
+        let mut var_algorithmVersion = <String>::sse_decode(deserializer);
+        let mut var_sourceSampleRate = <u32>::sse_decode(deserializer);
+        let mut var_sourceChannels = <u16>::sse_decode(deserializer);
+        let mut var_outputSampleRate = <u32>::sse_decode(deserializer);
+        let mut var_outputChannels = <u16>::sse_decode(deserializer);
+        let mut var_outputFrames = <u64>::sse_decode(deserializer);
+        let mut var_chunkCount = <u32>::sse_decode(deserializer);
+        let mut var_vocals = <crate::api::song::SongStemMetadataDto>::sse_decode(deserializer);
+        let mut var_accompaniment =
+            <crate::api::song::SongStemMetadataDto>::sse_decode(deserializer);
+        return crate::api::song::SongSeparationReportDto {
+            model_id: var_modelId,
+            algorithm_version: var_algorithmVersion,
+            source_sample_rate: var_sourceSampleRate,
+            source_channels: var_sourceChannels,
+            output_sample_rate: var_outputSampleRate,
+            output_channels: var_outputChannels,
+            output_frames: var_outputFrames,
+            chunk_count: var_chunkCount,
+            vocals: var_vocals,
+            accompaniment: var_accompaniment,
+        };
+    }
+}
+
+impl SseDecode for crate::api::song::SongSeparationRequestDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_rightsAcknowledged = <bool>::sse_decode(deserializer);
+        let mut var_inputPath = <String>::sse_decode(deserializer);
+        let mut var_modelPath = <String>::sse_decode(deserializer);
+        let mut var_expectedModelSha256 = <String>::sse_decode(deserializer);
+        let mut var_outputDirectory = <String>::sse_decode(deserializer);
+        let mut var_jobId = <String>::sse_decode(deserializer);
+        let mut var_cancelMarker = <String>::sse_decode(deserializer);
+        let mut var_maximumDecodedFrames = <u64>::sse_decode(deserializer);
+        return crate::api::song::SongSeparationRequestDto {
+            rights_acknowledged: var_rightsAcknowledged,
+            input_path: var_inputPath,
+            model_path: var_modelPath,
+            expected_model_sha256: var_expectedModelSha256,
+            output_directory: var_outputDirectory,
+            job_id: var_jobId,
+            cancel_marker: var_cancelMarker,
+            maximum_decoded_frames: var_maximumDecodedFrames,
+        };
+    }
+}
+
+impl SseDecode for crate::api::song::SongStemMetadataDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_path = <String>::sse_decode(deserializer);
+        let mut var_sha256 = <String>::sse_decode(deserializer);
+        let mut var_byteLength = <u64>::sse_decode(deserializer);
+        return crate::api::song::SongStemMetadataDto {
+            path: var_path,
+            sha256: var_sha256,
+            byte_length: var_byteLength,
+        };
+    }
+}
+
 impl SseDecode for u16 {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -665,6 +942,13 @@ fn pde_ffi_dispatcher_primary_impl(
 ) {
     // Codec=Pde (Serialization + dispatch), see doc to use other codecs
     match func_id {
+        9 => wire__crate__api__song__probe_song_separation_runtime_impl(
+            port,
+            ptr,
+            rust_vec_len,
+            data_len,
+        ),
+        10 => wire__crate__api__song__start_song_separation_impl(port, ptr, rust_vec_len, data_len),
         _ => unreachable!(),
     }
 }
@@ -796,6 +1080,180 @@ impl flutter_rust_bridge::IntoIntoDart<crate::api::realtime::SegmentSummaryDto>
         self
     }
 }
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::api::song::SongRuntimeStatusDto {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.available.into_into_dart().into_dart(),
+            self.reason.into_into_dart().into_dart(),
+            self.model_id.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::api::song::SongRuntimeStatusDto
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::api::song::SongRuntimeStatusDto>
+    for crate::api::song::SongRuntimeStatusDto
+{
+    fn into_into_dart(self) -> crate::api::song::SongRuntimeStatusDto {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::api::song::SongSeparationEventDto {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.kind.into_into_dart().into_dart(),
+            self.progress.into_into_dart().into_dart(),
+            self.report.into_into_dart().into_dart(),
+            self.failure.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::api::song::SongSeparationEventDto
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::api::song::SongSeparationEventDto>
+    for crate::api::song::SongSeparationEventDto
+{
+    fn into_into_dart(self) -> crate::api::song::SongSeparationEventDto {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::api::song::SongSeparationFailureDto {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.reason.into_into_dart().into_dart(),
+            self.operation.into_into_dart().into_dart(),
+            self.detail.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::api::song::SongSeparationFailureDto
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::api::song::SongSeparationFailureDto>
+    for crate::api::song::SongSeparationFailureDto
+{
+    fn into_into_dart(self) -> crate::api::song::SongSeparationFailureDto {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::api::song::SongSeparationProgressDto {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.stage.into_into_dart().into_dart(),
+            self.completed_units.into_into_dart().into_dart(),
+            self.total_units.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::api::song::SongSeparationProgressDto
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::api::song::SongSeparationProgressDto>
+    for crate::api::song::SongSeparationProgressDto
+{
+    fn into_into_dart(self) -> crate::api::song::SongSeparationProgressDto {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::api::song::SongSeparationReportDto {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.model_id.into_into_dart().into_dart(),
+            self.algorithm_version.into_into_dart().into_dart(),
+            self.source_sample_rate.into_into_dart().into_dart(),
+            self.source_channels.into_into_dart().into_dart(),
+            self.output_sample_rate.into_into_dart().into_dart(),
+            self.output_channels.into_into_dart().into_dart(),
+            self.output_frames.into_into_dart().into_dart(),
+            self.chunk_count.into_into_dart().into_dart(),
+            self.vocals.into_into_dart().into_dart(),
+            self.accompaniment.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::api::song::SongSeparationReportDto
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::api::song::SongSeparationReportDto>
+    for crate::api::song::SongSeparationReportDto
+{
+    fn into_into_dart(self) -> crate::api::song::SongSeparationReportDto {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::api::song::SongSeparationRequestDto {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.rights_acknowledged.into_into_dart().into_dart(),
+            self.input_path.into_into_dart().into_dart(),
+            self.model_path.into_into_dart().into_dart(),
+            self.expected_model_sha256.into_into_dart().into_dart(),
+            self.output_directory.into_into_dart().into_dart(),
+            self.job_id.into_into_dart().into_dart(),
+            self.cancel_marker.into_into_dart().into_dart(),
+            self.maximum_decoded_frames.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::api::song::SongSeparationRequestDto
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::api::song::SongSeparationRequestDto>
+    for crate::api::song::SongSeparationRequestDto
+{
+    fn into_into_dart(self) -> crate::api::song::SongSeparationRequestDto {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::api::song::SongStemMetadataDto {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.path.into_into_dart().into_dart(),
+            self.sha256.into_into_dart().into_dart(),
+            self.byte_length.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::api::song::SongStemMetadataDto
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::api::song::SongStemMetadataDto>
+    for crate::api::song::SongStemMetadataDto
+{
+    fn into_into_dart(self) -> crate::api::song::SongStemMetadataDto {
+        self
+    }
+}
+
+impl SseEncode for flutter_rust_bridge::for_generated::anyhow::Error {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <String>::sse_encode(format!("{:?}", self), serializer);
+    }
+}
 
 impl SseEncode for RealtimeAnalyzer {
     // Codec=Sse (Serialization based), see doc to use other codecs
@@ -812,6 +1270,18 @@ impl SseEncode
         let (ptr, size) = self.sse_encode_raw();
         <usize>::sse_encode(ptr, serializer);
         <i32>::sse_encode(size, serializer);
+    }
+}
+
+impl SseEncode
+    for StreamSink<
+        crate::api::song::SongSeparationEventDto,
+        flutter_rust_bridge::for_generated::SseCodec,
+    >
+{
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        unimplemented!("")
     }
 }
 
@@ -897,6 +1367,16 @@ impl SseEncode for Vec<u8> {
     }
 }
 
+impl SseEncode for Option<String> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <bool>::sse_encode(self.is_some(), serializer);
+        if let Some(value) = self {
+            <String>::sse_encode(value, serializer);
+        }
+    }
+}
+
 impl SseEncode for Option<f32> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -913,6 +1393,36 @@ impl SseEncode for Option<crate::api::realtime::RobustStabilityDto> {
         <bool>::sse_encode(self.is_some(), serializer);
         if let Some(value) = self {
             <crate::api::realtime::RobustStabilityDto>::sse_encode(value, serializer);
+        }
+    }
+}
+
+impl SseEncode for Option<crate::api::song::SongSeparationFailureDto> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <bool>::sse_encode(self.is_some(), serializer);
+        if let Some(value) = self {
+            <crate::api::song::SongSeparationFailureDto>::sse_encode(value, serializer);
+        }
+    }
+}
+
+impl SseEncode for Option<crate::api::song::SongSeparationProgressDto> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <bool>::sse_encode(self.is_some(), serializer);
+        if let Some(value) = self {
+            <crate::api::song::SongSeparationProgressDto>::sse_encode(value, serializer);
+        }
+    }
+}
+
+impl SseEncode for Option<crate::api::song::SongSeparationReportDto> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <bool>::sse_encode(self.is_some(), serializer);
+        if let Some(value) = self {
+            <crate::api::song::SongSeparationReportDto>::sse_encode(value, serializer);
         }
     }
 }
@@ -955,6 +1465,85 @@ impl SseEncode for crate::api::realtime::SegmentSummaryDto {
             serializer,
         );
         <Option<u64>>::sse_encode(self.onset_delay_samples, serializer);
+    }
+}
+
+impl SseEncode for crate::api::song::SongRuntimeStatusDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <bool>::sse_encode(self.available, serializer);
+        <Option<String>>::sse_encode(self.reason, serializer);
+        <Option<String>>::sse_encode(self.model_id, serializer);
+    }
+}
+
+impl SseEncode for crate::api::song::SongSeparationEventDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <String>::sse_encode(self.kind, serializer);
+        <Option<crate::api::song::SongSeparationProgressDto>>::sse_encode(
+            self.progress,
+            serializer,
+        );
+        <Option<crate::api::song::SongSeparationReportDto>>::sse_encode(self.report, serializer);
+        <Option<crate::api::song::SongSeparationFailureDto>>::sse_encode(self.failure, serializer);
+    }
+}
+
+impl SseEncode for crate::api::song::SongSeparationFailureDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <String>::sse_encode(self.reason, serializer);
+        <String>::sse_encode(self.operation, serializer);
+        <String>::sse_encode(self.detail, serializer);
+    }
+}
+
+impl SseEncode for crate::api::song::SongSeparationProgressDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <String>::sse_encode(self.stage, serializer);
+        <u64>::sse_encode(self.completed_units, serializer);
+        <u64>::sse_encode(self.total_units, serializer);
+    }
+}
+
+impl SseEncode for crate::api::song::SongSeparationReportDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <String>::sse_encode(self.model_id, serializer);
+        <String>::sse_encode(self.algorithm_version, serializer);
+        <u32>::sse_encode(self.source_sample_rate, serializer);
+        <u16>::sse_encode(self.source_channels, serializer);
+        <u32>::sse_encode(self.output_sample_rate, serializer);
+        <u16>::sse_encode(self.output_channels, serializer);
+        <u64>::sse_encode(self.output_frames, serializer);
+        <u32>::sse_encode(self.chunk_count, serializer);
+        <crate::api::song::SongStemMetadataDto>::sse_encode(self.vocals, serializer);
+        <crate::api::song::SongStemMetadataDto>::sse_encode(self.accompaniment, serializer);
+    }
+}
+
+impl SseEncode for crate::api::song::SongSeparationRequestDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <bool>::sse_encode(self.rights_acknowledged, serializer);
+        <String>::sse_encode(self.input_path, serializer);
+        <String>::sse_encode(self.model_path, serializer);
+        <String>::sse_encode(self.expected_model_sha256, serializer);
+        <String>::sse_encode(self.output_directory, serializer);
+        <String>::sse_encode(self.job_id, serializer);
+        <String>::sse_encode(self.cancel_marker, serializer);
+        <u64>::sse_encode(self.maximum_decoded_frames, serializer);
+    }
+}
+
+impl SseEncode for crate::api::song::SongStemMetadataDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <String>::sse_encode(self.path, serializer);
+        <String>::sse_encode(self.sha256, serializer);
+        <u64>::sse_encode(self.byte_length, serializer);
     }
 }
 

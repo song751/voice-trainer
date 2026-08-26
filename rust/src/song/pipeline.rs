@@ -20,6 +20,7 @@ pub enum SeparationFailureReason {
     BackendIncompatible,
     ContractMismatch,
     NumericalFailure,
+    ResourceLimitExceeded,
     Cancelled,
     IoFailure,
 }

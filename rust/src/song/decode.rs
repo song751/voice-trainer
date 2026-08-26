@@ -20,6 +20,7 @@ pub struct DecodedAudio {
 
 pub fn decode_audio_file<C>(
     path: &Path,
+    maximum_decoded_frames: u64,
     mut should_cancel: C,
 ) -> Result<DecodedAudio, SeparationError>
 where
@@ -118,6 +119,15 @@ where
         }
         let mut buffer = SampleBuffer::<f32>::new(decoded.capacity() as u64, specification);
         buffer.copy_interleaved_ref(decoded);
+        let decoded_frames = interleaved.len() / source_channels;
+        let next_frames = decoded_frames.saturating_add(buffer.samples().len() / source_channels);
+        if next_frames as u64 > maximum_decoded_frames {
+            return Err(SeparationError::new(
+                SeparationFailureReason::ResourceLimitExceeded,
+                "decode_song",
+                "the decoded song exceeds this platform's configured frame limit",
+            ));
+        }
         interleaved.extend_from_slice(buffer.samples());
     }
     if interleaved.is_empty() {
