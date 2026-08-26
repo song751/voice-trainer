@@ -509,7 +509,6 @@ final class PracticeSessionCoordinator {
         _failFinalization(
           const FinalizationFailure(FinalizationFailureReason.analysis),
         );
-        _scheduleFailureCleanup();
       } else if (_state is Running || _state is Paused) {
         _state = _stateMachine.transition(
           _state,

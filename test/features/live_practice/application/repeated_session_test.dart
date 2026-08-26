@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -132,6 +133,50 @@ void main() {
       expect(await coordinator.stop(), isA<Completed>());
       expect(await repository.findById('finalize-failed'), isNull);
       expect(await repository.findById('finalize-recovered'), isNotNull);
+    },
+  );
+
+  test(
+    'analysis failure while stopping retains the recording for retry',
+    () async {
+      final analysisGate = Completer<void>();
+      final capture = FakeAudioCapture();
+      final analysis = FakeAnalysisEngine(
+        beforePush: () => analysisGate.future,
+        failPushes: 1,
+      );
+      final store = InMemoryRecordingStore();
+      final sink = InMemoryRecordingSink(store);
+      final repository = InMemorySessionRepository(recordingStore: store);
+      final coordinator = PracticeSessionCoordinator(
+        audioCapture: capture,
+        analysisEngine: analysis,
+        recordingSink: sink,
+        recordingStore: store,
+        sessionRepository: repository,
+      );
+      addTearDown(coordinator.dispose);
+
+      expect(
+        await coordinator.start(_request('retry-finalize', 0)),
+        isA<Running>(),
+      );
+      capture.emit(_chunk());
+      await _drainMicrotasks();
+
+      final stopping = coordinator.stop();
+      expect(coordinator.state, isA<Finalizing>());
+      analysisGate.complete();
+      final failed = await stopping;
+      expect(failed, isA<Failed>());
+      expect(
+        (failed as Failed).retryState,
+        PracticeSessionStateKind.finalizing,
+      );
+
+      expect(await coordinator.retry(), isA<Completed>());
+      expect(await repository.findById('retry-finalize'), isNotNull);
+      expect(sink.chunks, hasLength(1));
     },
   );
 
