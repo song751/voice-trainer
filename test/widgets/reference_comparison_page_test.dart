@@ -11,6 +11,8 @@ import 'package:voice_trainer/core/domain/analysis/analysis_frame.dart';
 import 'package:voice_trainer/core/domain/analysis/feature_series.dart';
 import 'package:voice_trainer/core/domain/analysis/session_summary.dart';
 import 'package:voice_trainer/core/domain/persistence/recording_locator.dart';
+import 'package:voice_trainer/core/domain/persistence/audio_content_identity.dart';
+import 'package:voice_trainer/core/domain/persistence/verified_recording_resolver.dart';
 import 'package:voice_trainer/core/domain/persistence/session_repository.dart';
 import 'package:voice_trainer/core/domain/practice/practice_target.dart';
 import 'package:voice_trainer/core/domain/practice/practice_template.dart';
@@ -41,6 +43,12 @@ void main() {
         sessionRepositoryProvider.overrideWithValue(repository),
         referenceFeatureExtractorProvider.overrideWithValue(const _Extractor()),
         audioPreviewProvider.overrideWithValue(const UnavailableAudioPreview()),
+        verifiedRecordingResolverProvider.overrideWithValue(
+          const _RecordingResolver(),
+        ),
+        verifiedSongStemResolverProvider.overrideWithValue(
+          const _StemResolver(),
+        ),
       ],
     );
     addTearDown(container.dispose);
@@ -93,6 +101,19 @@ void main() {
     final resetReview = container.read(referenceComparisonControllerProvider);
     expect(resetReview.artifactsAcceptable, isFalse);
     expect(resetReview.monophonicLeadConfirmed, isFalse);
+    await tester.tap(find.byKey(const Key('artifact-review-confirmed')));
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('monophonic-review-confirmed')));
+    await tester.pump();
+    container
+        .read(referenceComparisonControllerProvider.notifier)
+        .setUserRange(const PhraseRange(startSeconds: 0.25, endSeconds: 7.25));
+    await tester.pump();
+    final userRangeReset = container.read(
+      referenceComparisonControllerProvider,
+    );
+    expect(userRangeReset.artifactsAcceptable, isFalse);
+    expect(userRangeReset.monophonicLeadConfirmed, isFalse);
     await tester.tap(find.byKey(const Key('artifact-review-confirmed')));
     await tester.pump();
     await tester.tap(find.byKey(const Key('monophonic-review-confirmed')));
@@ -179,7 +200,8 @@ final class _Separator implements SongSeparator, SongModelManager {
     artifactWarning: true,
     vocals: SongStemReference(
       locator: r'C:\test\vocals.wav',
-      sha256: 'hash',
+      sha256:
+          'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
       byteLength: 100,
     ),
   );
@@ -193,7 +215,7 @@ final class _Extractor implements ReferenceFeatureExtractor {
 
   @override
   Future<ReferenceAnalysisSeries> analyze({
-    required SongStemReference vocals,
+    required VerifiedAudioLease vocals,
     required void Function(double progress) onProgress,
   }) async {
     onProgress(1);
@@ -202,6 +224,7 @@ final class _Extractor implements ReferenceFeatureExtractor {
       frameRateHz: 100,
       algorithmVersion: 'reference-test-v1',
       frames: _frames(0),
+      sourceAudioIdentity: vocals.identity,
     );
   }
 
@@ -225,12 +248,50 @@ PracticeSessionRecord _session() => PracticeSessionRecord(
     targetHitRate: 0.8,
     qualityFlags: {},
   ),
-  features: FeatureSeries(frameRateHz: 100, frames: _frames(200)),
+  features: FeatureSeries(
+    frameRateHz: 100,
+    frames: _frames(200),
+    sourceAudioIdentity: _identity,
+  ),
   recording: const RecordingLocator(
     value: r'C:\test\practice.wav',
     storageKind: RecordingStorageKind.file,
+    identity: _identity,
   ),
 );
+
+const _identity = AudioContentIdentity(
+  sha256: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+  byteLength: 100,
+);
+
+final class _Lease implements VerifiedAudioLease {
+  const _Lease(this.path);
+  @override
+  final String path;
+  @override
+  AudioContentIdentity get identity => _identity;
+  @override
+  Future<void> dispose() async {}
+}
+
+final class _RecordingResolver implements VerifiedRecordingResolver {
+  const _RecordingResolver();
+  @override
+  bool get available => true;
+  @override
+  Future<VerifiedAudioLease> openVerified(RecordingLocator locator) async =>
+      _Lease(locator.value);
+}
+
+final class _StemResolver implements VerifiedSongStemResolver {
+  const _StemResolver();
+  @override
+  bool get available => true;
+  @override
+  Future<VerifiedAudioLease> openVerified(SongStemReference stem) async =>
+      _Lease(stem.locator);
+}
 
 List<AnalysisFrame> _frames(double offset) =>
     List<AnalysisFrame>.generate(800, (index) {

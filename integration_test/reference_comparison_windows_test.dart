@@ -8,12 +8,14 @@ import 'package:voice_trainer/core/domain/analysis/analysis_frame.dart';
 import 'package:voice_trainer/core/domain/analysis/feature_series.dart';
 import 'package:voice_trainer/core/domain/analysis/session_summary.dart';
 import 'package:voice_trainer/core/domain/persistence/recording_locator.dart';
+import 'package:voice_trainer/core/domain/persistence/audio_content_identity.dart';
 import 'package:voice_trainer/core/domain/persistence/session_repository.dart';
 import 'package:voice_trainer/core/domain/practice/practice_target.dart';
 import 'package:voice_trainer/core/domain/practice/practice_template.dart';
 import 'package:voice_trainer/core/domain/reference/reference_comparison.dart';
 import 'package:voice_trainer/core/domain/reference/song_reference.dart';
 import 'package:voice_trainer/infrastructure/reference_comparison/default_reference_comparison_native.dart';
+import 'package:voice_trainer/infrastructure/persistence/recordings/native_managed_audio_store.dart';
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
@@ -34,15 +36,17 @@ void main() {
     });
     final wav = File('${directory.path}${Platform.pathSeparator}vocals.wav');
     await wav.writeAsBytes(_stereoToneWav(), flush: true);
+    final identity = await NativeManagedAudioStore.identify(wav);
+    final lease = _FixtureLease(wav.path, identity);
     final stem = SongStemReference(
       locator: wav.path,
-      sha256: 'integration-fixture',
-      byteLength: await wav.length(),
+      sha256: identity.sha256,
+      byteLength: identity.byteLength,
     );
 
     final extractor = NativeReferenceFeatureExtractor();
     final referenceFeatures = await extractor.analyze(
-      vocals: stem,
+      vocals: lease,
       onProgress: (_) {},
     );
     expect(referenceFeatures.algorithmVersion, 'reference-yin-14k7-v1');
@@ -92,31 +96,40 @@ void main() {
         targetHitRate: 1,
         qualityFlags: {},
       ),
-      features: FeatureSeries(frameRateHz: 100, frames: userFrames),
+      features: FeatureSeries(
+        frameRateHz: 100,
+        frames: userFrames,
+        sourceAudioIdentity: identity,
+      ),
       recording: RecordingLocator(
         value: wav.path,
         storageKind: RecordingStorageKind.file,
+        identity: identity,
       ),
     );
     final report = const ReferenceComparisonEngine().compare(
-      reference: SeparatedSongReference(
-        displayName: 'deterministic-local-fixture.wav',
-        generatedByModel: true,
-        modelId: 'integration-fixture',
-        algorithmVersion: 'srd04-umxhq-waveform-v1',
-        sampleRate: 44100,
-        channels: 2,
-        durationSamples: 44100 * 3,
-        artifactWarning: true,
-        vocals: stem,
-      ),
-      referenceFeatures: referenceFeatures,
-      session: session,
-      referenceRange: const PhraseRange(startSeconds: 0, endSeconds: 2.5),
-      userRange: const PhraseRange(startSeconds: 0, endSeconds: 2.5),
-      review: const ReferenceComparisonReview(
-        artifactsAcceptable: true,
-        monophonicLeadConfirmed: true,
+      ComparisonInputSnapshot(
+        reference: SeparatedSongReference(
+          displayName: 'deterministic-local-fixture.wav',
+          generatedByModel: true,
+          modelId: 'integration-fixture',
+          algorithmVersion: 'srd04-umxhq-waveform-v1',
+          sampleRate: 44100,
+          channels: 2,
+          durationSamples: 44100 * 3,
+          artifactWarning: true,
+          vocals: stem,
+        ),
+        referenceFeatures: referenceFeatures,
+        session: session,
+        referenceRange: const PhraseRange(startSeconds: 0, endSeconds: 2.5),
+        userRange: const PhraseRange(startSeconds: 0, endSeconds: 2.5),
+        review: const ReferenceComparisonReview(
+          artifactsAcceptable: true,
+          monophonicLeadConfirmed: true,
+        ),
+        referenceLeaseIdentity: identity,
+        userLeaseIdentity: identity,
       ),
     );
     expect(report.suppressed, isFalse);
@@ -126,12 +139,25 @@ void main() {
     final preview = NativeAudioPreview();
     addTearDown(preview.dispose);
     await preview.playFile(
-      path: wav.path,
+      source: lease,
       range: const PhraseRange(startSeconds: 0.1, endSeconds: 0.25),
     );
     await tester.pump(const Duration(milliseconds: 200));
     await preview.stop();
   });
+}
+
+final class _FixtureLease implements VerifiedAudioLease {
+  const _FixtureLease(this.path, this.identity);
+
+  @override
+  final String path;
+
+  @override
+  final AudioContentIdentity identity;
+
+  @override
+  Future<void> dispose() async {}
 }
 
 Uint8List _stereoToneWav() {

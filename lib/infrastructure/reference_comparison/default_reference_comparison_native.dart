@@ -6,7 +6,10 @@ import 'package:path_provider/path_provider.dart';
 
 import '../../core/domain/analysis/analysis_frame.dart';
 import '../../core/domain/analysis/analysis_quality_flag.dart';
+import '../../core/domain/persistence/audio_content_identity.dart';
 import '../../core/domain/reference/reference_comparison.dart';
+import '../../core/domain/reference/song_reference.dart';
+import '../persistence/recordings/native_managed_audio_store.dart';
 import '../../src/rust/api/song_compare.dart' as rust_compare;
 import '../../src/rust/frb_generated.dart';
 
@@ -14,6 +17,29 @@ ReferenceFeatureExtractor createDefaultReferenceFeatureExtractor() =>
     NativeReferenceFeatureExtractor();
 
 AudioPreview createDefaultAudioPreview() => NativeAudioPreview();
+
+VerifiedSongStemResolver createDefaultVerifiedSongStemResolver() =>
+    NativeVerifiedSongStemResolver();
+
+final class NativeVerifiedSongStemResolver implements VerifiedSongStemResolver {
+  @override
+  bool get available => Platform.isWindows || Platform.isAndroid;
+
+  @override
+  Future<VerifiedAudioLease> openVerified(SongStemReference stem) async {
+    if (!available) {
+      throw const AudioContentFailure(AudioContentFailureReason.unavailable);
+    }
+    final support = await getApplicationSupportDirectory();
+    final root = Directory(
+      '${support.path}${Platform.pathSeparator}song-separation'
+      '${Platform.pathSeparator}stems',
+    );
+    return NativeManagedAudioStore(
+      root,
+    ).openVerified(locator: stem.locator, expected: stem.identity);
+  }
+}
 
 final class NativeReferenceFeatureExtractor
     implements ReferenceFeatureExtractor {
@@ -35,7 +61,7 @@ final class NativeReferenceFeatureExtractor
         ReferenceAnalysisFailureReason.unavailable,
       );
     }
-    final source = File(vocals.locator);
+    final source = File(vocals.path);
     if (!await source.exists()) {
       throw const ReferenceAnalysisFailure(
         ReferenceAnalysisFailureReason.inputMissing,
@@ -82,6 +108,7 @@ final class NativeReferenceFeatureExtractor
         sampleRate: report.sampleRate,
         frameRateHz: report.frameRateHz,
         algorithmVersion: report.algorithmVersion,
+        sourceAudioIdentity: vocals.identity,
         frames: report.frames
             .map(
               (frame) => AnalysisFrame(
@@ -137,21 +164,21 @@ final class NativeAudioPreview implements AudioPreview {
 
   @override
   Future<void> playFile({
-    required String path,
+    required VerifiedAudioLease source,
     required PhraseRange range,
   }) async {
     if (!available) {
       throw const AudioPreviewFailure(AudioPreviewFailureReason.unavailable);
     }
-    final source = File(path);
-    if (!await source.exists()) {
+    final file = File(source.path);
+    if (!await file.exists()) {
       throw const AudioPreviewFailure(AudioPreviewFailureReason.sourceMissing);
     }
     try {
       _stopTimer?.cancel();
       await _player.stop();
       await _player.play(
-        DeviceFileSource(source.path),
+        DeviceFileSource(file.path),
         position: Duration(milliseconds: (range.startSeconds * 1000).round()),
         mode: PlayerMode.mediaPlayer,
       );

@@ -6,6 +6,7 @@ import 'package:voice_trainer/core/domain/analysis/analysis_quality_flag.dart';
 import 'package:voice_trainer/core/domain/analysis/feature_series.dart';
 import 'package:voice_trainer/core/domain/analysis/session_summary.dart';
 import 'package:voice_trainer/core/domain/persistence/recording_locator.dart';
+import 'package:voice_trainer/core/domain/persistence/audio_content_identity.dart';
 import 'package:voice_trainer/core/domain/persistence/recording_store.dart';
 import 'package:voice_trainer/core/domain/persistence/session_repository.dart';
 import 'package:voice_trainer/core/domain/practice/practice_target.dart';
@@ -16,6 +17,10 @@ import 'package:voice_trainer/infrastructure/persistence/recordings/recording_re
 import 'package:voice_trainer/infrastructure/persistence/repositories/drift_session_repository.dart';
 
 void main() {
+  const identity = AudioContentIdentity(
+    sha256: 'dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd',
+    byteLength: 4096,
+  );
   test(
     'Drift repository preserves feature columns and sample timeline',
     () async {
@@ -43,9 +48,11 @@ void main() {
         recording: const RecordingLocator(
           value: 'file:///voice-trainer/session-round-trip.wav',
           storageKind: RecordingStorageKind.file,
+          identity: identity,
         ),
         features: FeatureSeries(
           frameRateHz: 100,
+          sourceAudioIdentity: identity,
           frames: <AnalysisFrame>[
             AnalysisFrame(
               sampleIndex: 960,
@@ -77,6 +84,8 @@ void main() {
       expect(restored, isNotNull);
       final frames = restored!.features.frames;
       expect(restored.features.frameRateHz, 100);
+      expect(restored.recording!.identity, identity);
+      expect(restored.features.sourceAudioIdentity, identity);
       expect(frames.map((frame) => frame.sampleIndex), <int>[960, 1440]);
       expect(frames.map((frame) => frame.rmsDbfs), <double>[-24.5, -31.75]);
       expect(frames.map((frame) => frame.peakDbfs), <double>[-5.25, -8.5]);

@@ -8,6 +8,8 @@ import 'package:voice_trainer/core/domain/analysis/analysis_frame.dart';
 import 'package:voice_trainer/core/domain/analysis/feature_series.dart';
 import 'package:voice_trainer/core/domain/analysis/session_summary.dart';
 import 'package:voice_trainer/core/domain/persistence/recording_locator.dart';
+import 'package:voice_trainer/core/domain/persistence/audio_content_identity.dart';
+import 'package:voice_trainer/core/domain/persistence/verified_recording_resolver.dart';
 import 'package:voice_trainer/core/domain/persistence/session_repository.dart';
 import 'package:voice_trainer/core/domain/practice/practice_target.dart';
 import 'package:voice_trainer/core/domain/practice/practice_template.dart';
@@ -90,14 +92,64 @@ void main() {
       ]);
     },
   );
+
+  test('legacy-unbound recording produces a metric-free report', () async {
+    final harness = await _createHarness(
+      extractor: _DelayedExtractor(),
+      session: _legacySession(),
+    );
+    addTearDown(harness.dispose);
+    final controller = harness.container.read(
+      referenceComparisonControllerProvider.notifier,
+    );
+    controller
+      ..setArtifactsAcceptable(true)
+      ..setMonophonicLeadConfirmed(true);
+
+    await controller.compare();
+    final report = harness.container
+        .read(referenceComparisonControllerProvider)
+        .report!;
+    expect(report.suppressed, isTrue);
+    expect(report.metrics, isNull);
+    expect(
+      report.recommendations.map((item) => item.exerciseId),
+      isNot(contains('REFERENCE-AB-01')),
+    );
+  });
+
+  test('verified file mismatch produces typed suppression', () async {
+    final harness = await _createHarness(
+      extractor: _DelayedExtractor(),
+      recordingResolver: const _FailingRecordingResolver(
+        AudioContentFailureReason.hashMismatch,
+      ),
+    );
+    addTearDown(harness.dispose);
+    final controller = harness.container.read(
+      referenceComparisonControllerProvider.notifier,
+    );
+    controller
+      ..setArtifactsAcceptable(true)
+      ..setMonophonicLeadConfirmed(true);
+
+    await controller.compare();
+    final report = harness.container
+        .read(referenceComparisonControllerProvider)
+        .report!;
+    expect(report.suppressedReason, 'user_content_hashMismatch');
+    expect(report.metrics, isNull);
+  });
 }
 
 Future<_Harness> _createHarness({
   required ReferenceFeatureExtractor extractor,
   AudioPreview? preview,
+  PracticeSessionRecord? session,
+  VerifiedRecordingResolver? recordingResolver,
 }) async {
   final repository = InMemorySessionRepository();
-  await repository.save(_session());
+  await repository.save(session ?? _session());
   final container = ProviderContainer(
     overrides: <Override>[
       songFilePickerProvider.overrideWithValue(const _Picker(_Source())),
@@ -105,6 +157,10 @@ Future<_Harness> _createHarness({
       sessionRepositoryProvider.overrideWithValue(repository),
       referenceFeatureExtractorProvider.overrideWithValue(extractor),
       audioPreviewProvider.overrideWithValue(preview ?? _PreviewProbe()),
+      verifiedRecordingResolverProvider.overrideWithValue(
+        recordingResolver ?? const _RecordingResolver(),
+      ),
+      verifiedSongStemResolverProvider.overrideWithValue(const _StemResolver()),
     ],
   );
   final subscription = container.listen(
@@ -150,7 +206,7 @@ final class _DelayedExtractor implements ReferenceFeatureExtractor {
 
   @override
   Future<ReferenceAnalysisSeries> analyze({
-    required SongStemReference vocals,
+    required VerifiedAudioLease vocals,
     required void Function(double progress) onProgress,
   }) {
     _analysisStarted = true;
@@ -192,10 +248,10 @@ final class _PreviewProbe implements AudioPreview {
 
   @override
   Future<void> playFile({
-    required String path,
+    required VerifiedAudioLease source,
     required PhraseRange range,
   }) async {
-    events.add('play:$path');
+    events.add('play:${source.path}');
   }
 
   @override
@@ -268,7 +324,8 @@ final class _Separator implements SongSeparator, SongModelManager {
     artifactWarning: true,
     vocals: SongStemReference(
       locator: r'C:\test\vocals.wav',
-      sha256: 'hash',
+      sha256:
+          'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
       byteLength: 100,
     ),
   );
@@ -279,6 +336,7 @@ ReferenceAnalysisSeries _series() => ReferenceAnalysisSeries(
   frameRateHz: 100,
   algorithmVersion: 'reference-test-v1',
   frames: _frames(),
+  sourceAudioIdentity: _identity,
 );
 
 PracticeSessionRecord _session() => PracticeSessionRecord(
@@ -297,12 +355,89 @@ PracticeSessionRecord _session() => PracticeSessionRecord(
     targetHitRate: 1,
     qualityFlags: {},
   ),
-  features: FeatureSeries(frameRateHz: 100, frames: _frames()),
+  features: FeatureSeries(
+    frameRateHz: 100,
+    frames: _frames(),
+    sourceAudioIdentity: _identity,
+  ),
   recording: const RecordingLocator(
     value: r'C:\test\practice.wav',
     storageKind: RecordingStorageKind.file,
+    identity: _identity,
   ),
 );
+
+PracticeSessionRecord _legacySession() {
+  final current = _session();
+  return PracticeSessionRecord(
+    id: current.id,
+    template: current.template,
+    startedAt: current.startedAt,
+    summary: current.summary,
+    features: FeatureSeries(
+      frameRateHz: current.features.frameRateHz,
+      frames: current.features.frames,
+    ),
+    recording: RecordingLocator(
+      value: current.recording!.value,
+      storageKind: current.recording!.storageKind,
+    ),
+  );
+}
+
+const _identity = AudioContentIdentity(
+  sha256: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+  byteLength: 100,
+);
+
+final class _Lease implements VerifiedAudioLease {
+  const _Lease(this.path);
+
+  @override
+  final String path;
+
+  @override
+  AudioContentIdentity get identity => _identity;
+
+  @override
+  Future<void> dispose() async {}
+}
+
+final class _RecordingResolver implements VerifiedRecordingResolver {
+  const _RecordingResolver();
+
+  @override
+  bool get available => true;
+
+  @override
+  Future<VerifiedAudioLease> openVerified(RecordingLocator locator) async =>
+      _Lease(locator.value);
+}
+
+final class _FailingRecordingResolver implements VerifiedRecordingResolver {
+  const _FailingRecordingResolver(this.reason);
+
+  final AudioContentFailureReason reason;
+
+  @override
+  bool get available => true;
+
+  @override
+  Future<VerifiedAudioLease> openVerified(RecordingLocator locator) async {
+    throw AudioContentFailure(reason);
+  }
+}
+
+final class _StemResolver implements VerifiedSongStemResolver {
+  const _StemResolver();
+
+  @override
+  bool get available => true;
+
+  @override
+  Future<VerifiedAudioLease> openVerified(SongStemReference stem) async =>
+      _Lease(stem.locator);
+}
 
 List<AnalysisFrame> _frames() => List<AnalysisFrame>.generate(
   300,

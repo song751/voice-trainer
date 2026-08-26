@@ -495,7 +495,9 @@ final class PracticeSessionCoordinator {
           template: request.template,
           startedAt: request.startedAt,
           summary: summary,
-          features: finalized.featureSeries,
+          features: finalized.featureSeries.withSourceAudioIdentity(
+            recording.identity,
+          ),
           recording: recording,
           voiceComparison: request.voiceComparison,
         ),

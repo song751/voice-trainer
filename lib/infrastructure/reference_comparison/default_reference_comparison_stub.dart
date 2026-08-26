@@ -5,6 +5,9 @@ ReferenceFeatureExtractor createDefaultReferenceFeatureExtractor() =>
 
 AudioPreview createDefaultAudioPreview() => const UnavailableAudioPreview();
 
+VerifiedSongStemResolver createDefaultVerifiedSongStemResolver() =>
+    const UnavailableVerifiedSongStemResolver();
+
 final class _UnavailableReferenceFeatureExtractor
     implements ReferenceFeatureExtractor {
   const _UnavailableReferenceFeatureExtractor();

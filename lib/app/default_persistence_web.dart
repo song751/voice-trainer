@@ -4,6 +4,7 @@ import '../core/domain/persistence/recording_sink.dart';
 import '../core/domain/persistence/recording_store.dart';
 import '../core/domain/persistence/session_repository.dart';
 import '../core/domain/persistence/voice_comparison_plan_store.dart';
+import '../core/domain/persistence/verified_recording_resolver.dart';
 import '../core/domain/analysis/voice_comparison.dart';
 import '../core/errors/failure.dart';
 import '../core/platform/platform_capabilities.dart';
@@ -21,6 +22,7 @@ import '../infrastructure/persistence/repositories/drift_voice_comparison_plan_s
 final class DefaultPersistenceAdapters {
   DefaultPersistenceAdapters._({
     required this.recordingStore,
+    required this.verifiedRecordingResolver,
     required this.recordingSink,
     required this.sessionRepository,
     required this.voiceComparisonPlanStore,
@@ -30,6 +32,7 @@ final class DefaultPersistenceAdapters {
   });
 
   final RecordingStore recordingStore;
+  final VerifiedRecordingResolver verifiedRecordingResolver;
   final RecordingSink recordingSink;
   final SessionRepository sessionRepository;
   final VoiceComparisonPlanStore voiceComparisonPlanStore;
@@ -63,6 +66,7 @@ DefaultPersistenceAdapters createDefaultPersistenceAdapters(
     final store = InMemoryRecordingStore();
     return DefaultPersistenceAdapters._(
       recordingStore: store,
+      verifiedRecordingResolver: const UnavailableVerifiedRecordingResolver(),
       recordingSink: InMemoryRecordingSink(store),
       sessionRepository: InMemorySessionRepository(recordingStore: store),
       voiceComparisonPlanStore: InMemoryVoiceComparisonPlanStore(),
@@ -73,6 +77,7 @@ DefaultPersistenceAdapters createDefaultPersistenceAdapters(
   final web = _WebPersistenceHost();
   return DefaultPersistenceAdapters._(
     recordingStore: _DeferredWebRecordingStore(web),
+    verifiedRecordingResolver: const UnavailableVerifiedRecordingResolver(),
     recordingSink: _DeferredWebRecordingSink(
       web,
       maximumDuration:

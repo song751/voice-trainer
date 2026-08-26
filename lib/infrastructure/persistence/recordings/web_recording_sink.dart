@@ -1,8 +1,11 @@
 import 'dart:typed_data';
 import 'dart:js_interop';
 
+import 'package:crypto/crypto.dart';
+
 import '../../../core/domain/audio/pcm_chunk.dart';
 import '../../../core/domain/persistence/recording_locator.dart';
+import '../../../core/domain/persistence/audio_content_identity.dart';
 import '../../../core/domain/persistence/recording_sink.dart';
 import '../../../core/domain/persistence/recording_store.dart';
 import 'web_recording_limit.dart';
@@ -40,7 +43,14 @@ final class WebRecordingStore implements RecordingStore {
     final result = (await _client.write(name, wav.toJS).toDart).toDart;
     final kind = decodeWebRecordingStorageResult(result);
     _storageKind = kind;
-    return RecordingLocator(value: name, storageKind: kind);
+    return RecordingLocator(
+      value: name,
+      storageKind: kind,
+      identity: AudioContentIdentity(
+        sha256: sha256.convert(wav).toString(),
+        byteLength: wav.lengthInBytes,
+      ),
+    );
   }
 
   @override

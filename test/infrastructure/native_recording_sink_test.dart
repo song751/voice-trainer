@@ -36,8 +36,14 @@ void main() {
     );
 
     final locator = await sink.finalize();
-    final bytes = await File(locator.value).readAsBytes();
+    final completed = File(
+      '${directory.path}${Platform.pathSeparator}${locator.value}',
+    );
+    final bytes = await completed.readAsBytes();
     expect(locator.storageKind.name, 'file');
+    expect(File(locator.value).isAbsolute, isFalse);
+    expect(locator.identity?.byteLength, bytes.length);
+    expect(locator.identity?.isWellFormed, isTrue);
     expect(String.fromCharCodes(bytes.sublist(0, 4)), 'RIFF');
     expect(ByteData.sublistView(bytes).getUint32(40, Endian.little), 8);
     expect(

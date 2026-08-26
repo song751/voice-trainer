@@ -2,9 +2,12 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import '../../../core/domain/audio/pcm_chunk.dart';
+import '../../../core/domain/persistence/audio_content_identity.dart';
 import '../../../core/domain/persistence/recording_locator.dart';
 import '../../../core/domain/persistence/recording_sink.dart';
 import '../../../core/domain/persistence/recording_store.dart';
+import '../../../core/domain/persistence/verified_recording_resolver.dart';
+import 'native_managed_audio_store.dart';
 import 'recording_recovery_service.dart';
 import 'wav_stream_writer.dart';
 
@@ -59,9 +62,11 @@ final class NativeRecordingSink implements RecordingSink {
     final file = await partial.rename(completed.path);
     _completedFile = file;
     _finished = true;
+    final identity = await NativeManagedAudioStore.identify(file);
     return RecordingLocator(
-      value: file.path,
+      value: file.uri.pathSegments.last,
       storageKind: RecordingStorageKind.file,
+      identity: identity,
     );
   }
 
@@ -94,22 +99,47 @@ final class NativeRecordingSink implements RecordingSink {
 }
 
 final class NativeRecordingStore
-    implements RecordingStore, IncompleteRecordingRecovery {
-  NativeRecordingStore(this._directory);
+    implements
+        RecordingStore,
+        IncompleteRecordingRecovery,
+        VerifiedRecordingResolver {
+  NativeRecordingStore(this._directory)
+    : _managed = NativeManagedAudioStore(_directory);
 
   final Directory _directory;
+  final NativeManagedAudioStore _managed;
+
+  @override
+  bool get available => true;
 
   @override
   Future<void> delete(RecordingLocator locator) async {
     if (locator.storageKind != RecordingStorageKind.file) return;
-    final file = File(locator.value);
-    if (await file.exists()) await file.delete();
+    try {
+      await _managed.deleteManaged(locator.value);
+    } on AudioContentFailure catch (failure) {
+      if (failure.reason != AudioContentFailureReason.missing) rethrow;
+    }
   }
 
   @override
-  Future<bool> exists(RecordingLocator locator) async =>
-      locator.storageKind == RecordingStorageKind.file &&
-      await File(locator.value).exists();
+  Future<bool> exists(RecordingLocator locator) async {
+    if (locator.storageKind != RecordingStorageKind.file) return false;
+    return _managed.existsManaged(locator.value);
+  }
+
+  @override
+  Future<VerifiedAudioLease> openVerified(RecordingLocator locator) async {
+    if (locator.storageKind != RecordingStorageKind.file) {
+      throw const AudioContentFailure(
+        AudioContentFailureReason.unsupportedLocator,
+      );
+    }
+    return _managed.openVerified(
+      locator: locator.value,
+      expected: locator.identity,
+    );
+  }
 
   @override
   Future<void> recoverIncompleteRecordings() async {

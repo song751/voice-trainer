@@ -5,6 +5,8 @@ import 'package:crypto/crypto.dart';
 import 'package:path_provider/path_provider.dart';
 
 import '../../core/domain/reference/song_reference.dart';
+import '../../core/domain/persistence/audio_content_identity.dart';
+import '../persistence/recordings/native_managed_audio_store.dart';
 import '../../src/rust/api/song.dart' as rust_song;
 import '../../src/rust/frb_generated.dart';
 
@@ -213,7 +215,7 @@ final class NativeRustSongSeparator implements SongSeparator, SongModelManager {
         );
       }
       onProgress(1);
-      return _toDomain(source.displayName, report);
+      return await _toDomain(source.displayName, report, outputDirectory);
     } on SongSeparationFailure {
       rethrow;
     } catch (error) {
@@ -306,10 +308,11 @@ final class NativeRustSongSeparator implements SongSeparator, SongModelManager {
   }
 }
 
-SeparatedSongReference _toDomain(
+Future<SeparatedSongReference> _toDomain(
   String displayName,
   rust_song.SongSeparationReportDto report,
-) => SeparatedSongReference(
+  Directory outputDirectory,
+) async => SeparatedSongReference(
   displayName: displayName,
   generatedByModel: true,
   modelId: report.modelId,
@@ -321,16 +324,36 @@ SeparatedSongReference _toDomain(
   durationSamples: report.outputFrames.toInt(),
   chunkCount: report.chunkCount,
   artifactWarning: true,
-  vocals: _stem(report.vocals),
-  accompaniment: _stem(report.accompaniment),
+  vocals: await _verifiedStem(report.vocals, outputDirectory),
+  accompaniment: await _verifiedStem(report.accompaniment, outputDirectory),
 );
 
-SongStemReference _stem(rust_song.SongStemMetadataDto stem) =>
-    SongStemReference(
-      locator: stem.path,
-      sha256: stem.sha256,
-      byteLength: stem.byteLength.toInt(),
+Future<SongStemReference> _verifiedStem(
+  rust_song.SongStemMetadataDto stem,
+  Directory outputDirectory,
+) async {
+  final rootPath = await outputDirectory.resolveSymbolicLinks();
+  final source = File(stem.path);
+  if (!await source.exists() ||
+      await source.parent.resolveSymbolicLinks() != rootPath) {
+    throw const AudioContentFailure(
+      AudioContentFailureReason.outsideManagedRoot,
     );
+  }
+  final identity = AudioContentIdentity(
+    sha256: stem.sha256,
+    byteLength: stem.byteLength.toInt(),
+  );
+  final lease = await NativeManagedAudioStore(
+    outputDirectory,
+  ).openVerified(locator: stem.path, expected: identity);
+  await lease.dispose();
+  return SongStemReference(
+    locator: source.uri.pathSegments.last,
+    sha256: identity.sha256,
+    byteLength: identity.byteLength,
+  );
+}
 
 double _progressFraction(rust_song.SongSeparationProgressDto progress) {
   final completed = progress.completedUnits.toDouble();

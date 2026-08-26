@@ -16,11 +16,16 @@ import 'package:voice_trainer/core/domain/audio/audio_capture.dart';
 import 'package:voice_trainer/core/domain/audio/capture_format.dart';
 import 'package:voice_trainer/core/domain/audio/pcm_chunk.dart';
 import 'package:voice_trainer/core/domain/persistence/recording_locator.dart';
+import 'package:voice_trainer/core/domain/persistence/audio_content_identity.dart';
+import 'package:voice_trainer/core/domain/persistence/verified_recording_resolver.dart';
 import 'package:voice_trainer/core/domain/persistence/recording_sink.dart';
 import 'package:voice_trainer/core/domain/persistence/session_repository.dart';
 import 'package:voice_trainer/core/domain/practice/practice_target.dart';
 import 'package:voice_trainer/core/domain/practice/practice_template.dart';
 import 'package:voice_trainer/core/domain/reference/song_reference.dart';
+import 'package:voice_trainer/core/domain/reference/reference_comparison.dart';
+import 'package:voice_trainer/features/song_reference/application/song_reference_controller.dart';
+import 'package:voice_trainer/features/reference_comparison/application/reference_comparison_controller.dart';
 import 'package:voice_trainer/core/errors/failure.dart';
 import 'package:voice_trainer/features/live_practice/application/live_practice_controller.dart';
 import 'package:voice_trainer/features/live_practice/presentation/live_practice_page.dart';
@@ -44,6 +49,7 @@ void main() {
     RoutePaths.history,
     RoutePaths.settings,
     RoutePaths.voiceComparison,
+    RoutePaths.referenceComparison,
   ];
 
   testWidgets(
@@ -75,6 +81,105 @@ void main() {
           );
         }
       }
+    },
+  );
+
+  testWidgets(
+    'reference comparison covers ready suppression metrics semantics scroll and back',
+    (tester) async {
+      final semantics = tester.ensureSemantics();
+      final fixture = P412UiFixture(tester);
+      for (final profile in portraitProfiles) {
+        final repository = InMemorySessionRepository();
+        await repository.save(_referenceSession());
+        await fixture.pump(
+          profile: profile,
+          route: RoutePaths.referenceComparison,
+          textScaleFactor: 2,
+          brightness: Brightness.dark,
+          repository: repository,
+          extraOverrides: <Override>[
+            songFilePickerProvider.overrideWithValue(
+              const _SongPicker(_SongSource()),
+            ),
+            songSeparatorProvider.overrideWithValue(
+              const _ReadySongSeparator(),
+            ),
+            songModelManagerProvider.overrideWithValue(
+              const _ReadySongSeparator(),
+            ),
+            referenceFeatureExtractorProvider.overrideWithValue(
+              const _ReferenceExtractor(),
+            ),
+            verifiedRecordingResolverProvider.overrideWithValue(
+              const _RecordingResolver(),
+            ),
+            verifiedSongStemResolverProvider.overrideWithValue(
+              const _StemResolver(),
+            ),
+            audioPreviewProvider.overrideWithValue(
+              const UnavailableAudioPreview(),
+            ),
+          ],
+        );
+        final container = ProviderScope.containerOf(
+          tester.element(find.byType(Scaffold).last),
+        );
+        final song = container.read(songReferenceControllerProvider.notifier);
+        await song.selectSong();
+        song.setRightsAcknowledged(true);
+        await song.separate();
+        await tester.pumpAndSettle();
+        await container
+            .read(referenceComparisonControllerProvider.notifier)
+            .loadSessions();
+        await tester.pumpAndSettle();
+
+        expect(find.bySemanticsLabel(RegExp('歌曲短句参考对比')), findsOneWidget);
+        await tester.scrollUntilVisible(
+          find.byKey(const Key('run-reference-comparison')),
+          300,
+          scrollable: find.byType(Scrollable).last,
+        );
+        await tester.tap(find.byKey(const Key('run-reference-comparison')));
+        await tester.pumpAndSettle();
+        final suppressed = container.read(
+          referenceComparisonControllerProvider,
+        );
+        expect(suppressed.report?.suppressed, isTrue, reason: profile.name);
+        expect(suppressed.report?.metrics, isNull, reason: profile.name);
+        expect(find.textContaining('REFERENCE-AB-01'), findsNothing);
+
+        await tester.scrollUntilVisible(
+          find.byKey(const Key('artifact-review-confirmed')),
+          -300,
+          scrollable: find.byType(Scrollable).last,
+        );
+        await tester.tap(find.byKey(const Key('artifact-review-confirmed')));
+        await tester.tap(find.byKey(const Key('monophonic-review-confirmed')));
+        await tester.pump();
+        await tester.scrollUntilVisible(
+          find.byKey(const Key('run-reference-comparison')),
+          300,
+          scrollable: find.byType(Scrollable).last,
+        );
+        await tester.tap(find.byKey(const Key('run-reference-comparison')));
+        await tester.pumpAndSettle();
+        final completed = container.read(referenceComparisonControllerProvider);
+        expect(completed.report?.suppressed, isFalse, reason: profile.name);
+        expect(completed.report?.metrics, isNotNull, reason: profile.name);
+        await tester.scrollUntilVisible(
+          find.textContaining('内容 ID'),
+          300,
+          scrollable: find.byType(Scrollable).last,
+        );
+        expect(find.textContaining('内容 ID'), findsOneWidget);
+        expect(tester.takeException(), isNull, reason: profile.name);
+        await tester.binding.handlePopRoute();
+        await tester.pumpAndSettle();
+        expect(find.text('目标音练习'), findsOneWidget, reason: profile.name);
+      }
+      semantics.dispose();
     },
   );
 
@@ -640,3 +745,151 @@ final class _ControlledSongSeparator
     return _result.future;
   }
 }
+
+const _referenceIdentity = AudioContentIdentity(
+  sha256: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+  byteLength: 4096,
+);
+
+final class _ReadySongSeparator implements SongSeparator, SongModelManager {
+  const _ReadySongSeparator();
+
+  @override
+  bool get automaticSeparationAvailable => true;
+
+  @override
+  Future<void> cancel() async {}
+
+  @override
+  Future<SongModelStatus> installModel(SongFileSource source) => probe();
+
+  @override
+  Future<SongModelStatus> probe() async => const SongModelStatus(
+    availability: SongModelAvailability.ready,
+    modelId: 'p4-12-fake-model',
+  );
+
+  @override
+  Future<SeparatedSongReference> separate({
+    required SongFileSource source,
+    required bool rightsAcknowledged,
+    required void Function(double progress) onProgress,
+  }) async => const SeparatedSongReference(
+    displayName: 'p4-12-song.wav',
+    generatedByModel: true,
+    modelId: 'p4-12-fake-model',
+    algorithmVersion: 'p4-12-fake-separator-v1',
+    sampleRate: 44100,
+    channels: 2,
+    durationSamples: 352800,
+    artifactWarning: true,
+    vocals: SongStemReference(
+      locator: 'vocals.wav',
+      sha256:
+          'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+      byteLength: 4096,
+    ),
+  );
+}
+
+final class _FixtureLease implements VerifiedAudioLease {
+  const _FixtureLease(this.path);
+
+  @override
+  final String path;
+
+  @override
+  AudioContentIdentity get identity => _referenceIdentity;
+
+  @override
+  Future<void> dispose() async {}
+}
+
+final class _RecordingResolver implements VerifiedRecordingResolver {
+  const _RecordingResolver();
+
+  @override
+  bool get available => true;
+
+  @override
+  Future<VerifiedAudioLease> openVerified(RecordingLocator locator) async =>
+      _FixtureLease(locator.value);
+}
+
+final class _StemResolver implements VerifiedSongStemResolver {
+  const _StemResolver();
+
+  @override
+  bool get available => true;
+
+  @override
+  Future<VerifiedAudioLease> openVerified(SongStemReference stem) async =>
+      _FixtureLease(stem.locator);
+}
+
+final class _ReferenceExtractor implements ReferenceFeatureExtractor {
+  const _ReferenceExtractor();
+
+  @override
+  bool get available => true;
+
+  @override
+  Future<ReferenceAnalysisSeries> analyze({
+    required VerifiedAudioLease vocals,
+    required void Function(double progress) onProgress,
+  }) async {
+    onProgress(1);
+    return ReferenceAnalysisSeries(
+      sampleRate: 44100,
+      frameRateHz: 100,
+      algorithmVersion: 'p4-12-reference-v1',
+      frames: _referenceFrames(0),
+      sourceAudioIdentity: vocals.identity,
+    );
+  }
+
+  @override
+  Future<void> cancel() async {}
+}
+
+PracticeSessionRecord _referenceSession() => PracticeSessionRecord(
+  id: 'p4-12-reference-session',
+  template: const PracticeTemplate(
+    id: 'p4-12-reference-phrase',
+    version: 1,
+    kind: PracticeKind.sustainedNote,
+    target: PracticeTarget(targetMidiNote: 57),
+    reviewStatus: ContentReviewStatus.draft,
+  ),
+  startedAt: DateTime.utc(2026, 8, 27),
+  summary: SessionSummary(
+    validFrameCount: 800,
+    totalFrameCount: 800,
+    targetHitRate: 1,
+    qualityFlags: const {},
+  ),
+  features: FeatureSeries(
+    frameRateHz: 100,
+    frames: _referenceFrames(200),
+    sourceAudioIdentity: _referenceIdentity,
+  ),
+  recording: const RecordingLocator(
+    value: 'practice.wav',
+    storageKind: RecordingStorageKind.file,
+    identity: _referenceIdentity,
+  ),
+);
+
+List<AnalysisFrame> _referenceFrames(double pitchOffset) =>
+    List<AnalysisFrame>.generate(
+      800,
+      (index) => AnalysisFrame(
+        sampleIndex: index * 480,
+        rmsDbfs: -24,
+        peakDbfs: -18,
+        pitchClarity: 0.9,
+        voiced: true,
+        algorithmVersion: 'p4-12-frame-v1',
+        pitchCents: 5700 + pitchOffset,
+      ),
+    );

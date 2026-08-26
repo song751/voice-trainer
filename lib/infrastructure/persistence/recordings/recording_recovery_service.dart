@@ -1,4 +1,5 @@
 import '../../../core/domain/persistence/recording_locator.dart';
+import '../../../core/domain/persistence/audio_content_identity.dart';
 import '../../../core/domain/persistence/recording_store.dart';
 import '../database/app_database.dart';
 
@@ -27,6 +28,10 @@ final class RecordingRecoveryService {
       final locator = RecordingLocator(
         value: recording.locator,
         storageKind: RecordingStorageKind.values.byName(recording.storageKind),
+        identity: _identityFrom(
+          recording.contentSha256,
+          recording.contentByteLength,
+        ),
       );
       try {
         await _store.delete(locator);
@@ -45,8 +50,18 @@ final class RecordingRecoveryService {
       RecordingLocator(
         value: recording.locator,
         storageKind: RecordingStorageKind.values.byName(recording.storageKind),
+        identity: _identityFrom(
+          recording.contentSha256,
+          recording.contentByteLength,
+        ),
       ),
     );
     await _database.finalizeRecordingDeletion(sessionId);
   }
+}
+
+AudioContentIdentity? _identityFrom(String? sha256, int? byteLength) {
+  if (sha256 == null || byteLength == null) return null;
+  final identity = AudioContentIdentity(sha256: sha256, byteLength: byteLength);
+  return identity.isWellFormed ? identity : null;
 }

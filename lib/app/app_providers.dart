@@ -9,6 +9,7 @@ import '../core/domain/persistence/recording_sink.dart';
 import '../core/domain/persistence/recording_store.dart';
 import '../core/domain/persistence/session_repository.dart';
 import '../core/domain/persistence/voice_comparison_plan_store.dart';
+import '../core/domain/persistence/verified_recording_resolver.dart';
 import '../core/domain/practice/practice_target.dart';
 import '../core/domain/practice/practice_template.dart';
 import '../core/domain/reference/song_reference.dart';
@@ -74,6 +75,11 @@ final recordingStoreProvider = Provider<RecordingStore>(
   (ref) => ref.watch(defaultPersistenceAdaptersProvider).recordingStore,
 );
 
+final verifiedRecordingResolverProvider = Provider<VerifiedRecordingResolver>(
+  (ref) =>
+      ref.watch(defaultPersistenceAdaptersProvider).verifiedRecordingResolver,
+);
+
 final recordingSinkProvider = Provider<RecordingSink>(
   (ref) => ref.watch(defaultPersistenceAdaptersProvider).recordingSink,
 );
@@ -120,6 +126,10 @@ final songModelManagerProvider = Provider<SongModelManager>((ref) {
 
 final referenceFeatureExtractorProvider = Provider<ReferenceFeatureExtractor>(
   (ref) => createDefaultReferenceFeatureExtractor(),
+);
+
+final verifiedSongStemResolverProvider = Provider<VerifiedSongStemResolver>(
+  (ref) => createDefaultVerifiedSongStemResolver(),
 );
 
 final audioPreviewProvider = Provider<AudioPreview>((ref) {

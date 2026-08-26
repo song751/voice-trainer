@@ -13,8 +13,9 @@
 - 双方 voiced coverage、周期性、采集质量和互相可比窗口达到门禁；
 - 每个窗口为 1–30 秒；
 - 用户会话有本地录音用于 A/B 回放，指标来自其既有 packed feature series。
+- stem 实际 bytes、stem 元数据和 reference feature provenance 三者内容身份一致；练唱 WAV 实际 bytes、recording locator 和 packed feature provenance 三者内容身份一致。
 
-任一门禁失败时，报告保留 coverage、quality flags、scope 和抑制原因，不计算或显示对比指标。
+内容身份由 SHA-256 与 byte length 组成，报告只显示前 12 位短 ID，不记录完整 hash、路径或音频。任一内容身份缺失、越界、文件缺失或不匹配时 fail closed：报告不计算 coverage/对齐/对比指标，也不输出 `REFERENCE-AB-01`。其他信号/人工门禁失败时，报告保留 coverage、quality flags、scope 和抑制原因。
 
 ## 版本化算法
 
@@ -26,15 +27,16 @@
 
 ## 播放与存储
 
-Windows/Android 使用应用内播放器读取两个本地文件并限制到用户选择的窗口；不会启动 shell 或外部播放器。Web 当前没有可用的歌曲分离 runtime，因此 reference 分析和 A/B 均为 typed unavailable。
+Windows/Android 使用应用内播放器读取两个经过 managed-root、长度与 hash 验证的私有 snapshot lease，并限制到用户选择的窗口；播放器和 extractor 均不会接收数据库中的原始路径，不会启动 shell 或外部播放器。snapshot 令验证后源文件替换不会改变本次比较输入，并在 controller 销毁时清理。Web 当前没有可用的歌曲分离 runtime，因此 resolver、reference 分析和 A/B 均为 typed unavailable；OPFS locator 与 BlobStore API 不变。
 
-本卡不新增数据库 schema：歌曲 reference 当前本身是会话内状态，对比报告也保持会话内可重算。报告显式携带 separator、reference analyzer、user analyzer 和 comparison 四个版本；未来若持久化歌曲 reference，再以独立 migration 保存报告，不把它塞入现有 session summary JSON。
+Drift schema v6 为 recording 与 packed feature metadata 各增加 nullable SHA-256/byte-length provenance。新录音 finalize 后绑定两侧；旧记录保持 NULL，禁止根据当前文件回填，因此不可进入 reference comparison。歌曲 reference 当前本身仍是会话内状态，对比报告保持会话内可重算。报告显式携带 separator、reference analyzer、user analyzer 和 comparison 四个版本；未来若持久化歌曲 reference，再以独立 migration 保存报告，不把它塞入现有 session summary JSON。
 
 `REFERENCE-AB-01` 仍按证据地图保存为 `draft/unvalidated`。仓库没有声乐教师与 SLP/嗓音医学 reviewer 签核，因此 UI 必须显示“未审核”，不得伪标 expert-approved。
 
 ## 尚未覆盖
 
 - 没有歌词、score 或人工 phrase label；首版窗口由用户选取。
+- Web OPFS 录音有内容身份但没有 native path lease；在 Web reference runtime 单独通过 worker/播放/资源 gate 前仍明确 unavailable。
 - 没有 DTW 音符级配准；时间对齐是公开的 onset + voiced-span affine 参数。
 - 分离伪影和单旋律适用性依赖用户听检；后续授权标注集才可验证自动 artifact/monophony gate。
 - 未在 Android 真机或 Web reference runtime 验证；模拟器结果不得替代真机。

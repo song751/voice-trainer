@@ -1,3 +1,5 @@
+import '../persistence/audio_content_identity.dart';
+
 abstract interface class SongFileSource {
   String get displayName;
   Future<int> length();
@@ -55,6 +57,9 @@ final class SongStemReference {
   final String locator;
   final String sha256;
   final int byteLength;
+
+  AudioContentIdentity get identity =>
+      AudioContentIdentity(sha256: sha256, byteLength: byteLength);
 }
 
 final class SeparatedSongReference {

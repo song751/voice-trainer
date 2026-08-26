@@ -33,6 +33,7 @@ void main() {
         RoutePaths.settings,
         RoutePaths.songImport,
         RoutePaths.voiceComparison,
+        RoutePaths.referenceComparison,
       ]) {
         await fixture.pump(
           profile: profile,

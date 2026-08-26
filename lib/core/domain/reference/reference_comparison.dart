@@ -6,6 +6,7 @@ import '../observation/evidence.dart';
 import '../observation/observation.dart';
 import '../observation/recommendation.dart';
 import '../persistence/session_repository.dart';
+import '../persistence/audio_content_identity.dart';
 import '../practice/practice_template.dart';
 import 'song_reference.dart';
 
@@ -28,12 +29,33 @@ final class ReferenceAnalysisSeries {
     required this.frameRateHz,
     required this.algorithmVersion,
     required this.frames,
+    this.sourceAudioIdentity,
   });
 
   final int sampleRate;
   final int frameRateHz;
   final String algorithmVersion;
   final List<AnalysisFrame> frames;
+  final AudioContentIdentity? sourceAudioIdentity;
+}
+
+abstract interface class VerifiedSongStemResolver {
+  bool get available;
+
+  Future<VerifiedAudioLease> openVerified(SongStemReference stem);
+}
+
+final class UnavailableVerifiedSongStemResolver
+    implements VerifiedSongStemResolver {
+  const UnavailableVerifiedSongStemResolver();
+
+  @override
+  bool get available => false;
+
+  @override
+  Future<VerifiedAudioLease> openVerified(SongStemReference stem) async {
+    throw const AudioContentFailure(AudioContentFailureReason.unavailable);
+  }
 }
 
 enum ReferenceAnalysisFailureReason {
@@ -58,7 +80,7 @@ abstract interface class ReferenceFeatureExtractor {
   bool get available;
 
   Future<ReferenceAnalysisSeries> analyze({
-    required SongStemReference vocals,
+    required VerifiedAudioLease vocals,
     required void Function(double progress) onProgress,
   });
 
@@ -82,7 +104,10 @@ final class AudioPreviewFailure implements Exception {
 abstract interface class AudioPreview {
   bool get available;
 
-  Future<void> playFile({required String path, required PhraseRange range});
+  Future<void> playFile({
+    required VerifiedAudioLease source,
+    required PhraseRange range,
+  });
 
   Future<void> stop();
 
@@ -100,7 +125,7 @@ final class UnavailableAudioPreview implements AudioPreview {
 
   @override
   Future<void> playFile({
-    required String path,
+    required VerifiedAudioLease source,
     required PhraseRange range,
   }) async {
     throw const AudioPreviewFailure(AudioPreviewFailureReason.unavailable);
@@ -111,6 +136,10 @@ final class UnavailableAudioPreview implements AudioPreview {
 }
 
 enum ReferenceComparisonQualityFlag {
+  referenceContentUnverified,
+  userContentUnverified,
+  referenceContentMismatch,
+  userContentMismatch,
   referenceIsSeparationEstimate,
   separationArtifactPossible,
   artifactReviewRequired,
@@ -122,6 +151,32 @@ enum ReferenceComparisonQualityFlag {
   userCaptureQualityLimited,
   phraseTooShort,
   phraseTooLong,
+}
+
+final class ComparisonInputSnapshot {
+  const ComparisonInputSnapshot({
+    required this.reference,
+    required this.referenceFeatures,
+    required this.session,
+    required this.referenceRange,
+    required this.userRange,
+    required this.review,
+    required this.referenceLeaseIdentity,
+    required this.userLeaseIdentity,
+    this.referenceIntegrityFailure,
+    this.userIntegrityFailure,
+  });
+
+  final SeparatedSongReference reference;
+  final ReferenceAnalysisSeries? referenceFeatures;
+  final PracticeSessionRecord session;
+  final PhraseRange referenceRange;
+  final PhraseRange userRange;
+  final ReferenceComparisonReview review;
+  final AudioContentIdentity? referenceLeaseIdentity;
+  final AudioContentIdentity? userLeaseIdentity;
+  final AudioContentFailureReason? referenceIntegrityFailure;
+  final AudioContentFailureReason? userIntegrityFailure;
 }
 
 final class ReferenceComparisonReview {
@@ -198,6 +253,8 @@ final class ReferenceComparisonReport {
     required Set<ReferenceComparisonQualityFlag> qualityFlags,
     required this.scopeLabel,
     required this.referenceProvenanceLabel,
+    required this.referenceContentId,
+    required this.userContentId,
     required List<Observation> observations,
     required List<Recommendation> recommendations,
     this.alignment,
@@ -219,6 +276,8 @@ final class ReferenceComparisonReport {
   final Set<ReferenceComparisonQualityFlag> qualityFlags;
   final String scopeLabel;
   final String referenceProvenanceLabel;
+  final String? referenceContentId;
+  final String? userContentId;
   final ReferenceComparisonAlignment? alignment;
   final ReferenceComparisonMetrics? metrics;
   final List<Observation> observations;
@@ -246,19 +305,85 @@ final class ReferenceComparisonEngine {
   final double minimumMutualCoverage;
   final int minimumMatchedFrames;
 
-  ReferenceComparisonReport compare({
-    required SeparatedSongReference reference,
-    required ReferenceAnalysisSeries referenceFeatures,
-    required PracticeSessionRecord session,
-    required PhraseRange referenceRange,
-    required PhraseRange userRange,
-    required ReferenceComparisonReview review,
-  }) {
+  ReferenceComparisonReport compare(ComparisonInputSnapshot input) {
+    final reference = input.reference;
+    final referenceFeatures = input.referenceFeatures;
+    final session = input.session;
+    final referenceRange = input.referenceRange;
+    final userRange = input.userRange;
+    final review = input.review;
     final flags = <ReferenceComparisonQualityFlag>{
       ReferenceComparisonQualityFlag.referenceIsSeparationEstimate,
       if (reference.artifactWarning)
         ReferenceComparisonQualityFlag.separationArtifactPossible,
     };
+    final vocals = reference.vocals;
+    final storedRecordingIdentity = session.recording?.identity;
+    final packedIdentity = session.features.sourceAudioIdentity;
+    final referenceIdentity = vocals?.identity;
+    final referenceIntegrityMissing =
+        input.referenceIntegrityFailure != null ||
+        vocals == null ||
+        (referenceFeatures == null && input.userIntegrityFailure == null) ||
+        referenceIdentity == null ||
+        !referenceIdentity.isWellFormed ||
+        input.referenceLeaseIdentity == null;
+    final userIntegrityMissing =
+        input.userIntegrityFailure != null ||
+        storedRecordingIdentity == null ||
+        packedIdentity == null ||
+        !storedRecordingIdentity.isWellFormed ||
+        !packedIdentity.isWellFormed ||
+        (input.userLeaseIdentity == null &&
+            input.referenceIntegrityFailure == null);
+    if (referenceIntegrityMissing) {
+      flags.add(ReferenceComparisonQualityFlag.referenceContentUnverified);
+    }
+    if (userIntegrityMissing) {
+      flags.add(ReferenceComparisonQualityFlag.userContentUnverified);
+    }
+    if (!referenceIntegrityMissing &&
+        referenceFeatures != null &&
+        (referenceFeatures.sourceAudioIdentity != referenceIdentity ||
+            input.referenceLeaseIdentity != referenceIdentity)) {
+      flags.add(ReferenceComparisonQualityFlag.referenceContentMismatch);
+    }
+    if (!userIntegrityMissing &&
+        (packedIdentity != storedRecordingIdentity ||
+            input.userLeaseIdentity != storedRecordingIdentity)) {
+      flags.add(ReferenceComparisonQualityFlag.userContentMismatch);
+    }
+    if (flags.contains(
+          ReferenceComparisonQualityFlag.referenceContentUnverified,
+        ) ||
+        flags.contains(ReferenceComparisonQualityFlag.userContentUnverified) ||
+        flags.contains(
+          ReferenceComparisonQualityFlag.referenceContentMismatch,
+        ) ||
+        flags.contains(ReferenceComparisonQualityFlag.userContentMismatch)) {
+      return _suppressed(
+        reference: reference,
+        session: session,
+        referenceRange: referenceRange,
+        userRange: userRange,
+        flags: flags,
+        referenceAnalysisVersion:
+            referenceFeatures?.algorithmVersion ?? 'unavailable',
+        referenceCoverage: 0,
+        userCoverage: 0,
+        reason: _integrityReason(
+          input.referenceIntegrityFailure,
+          input.userIntegrityFailure,
+          flags,
+        ),
+        referenceContentId: referenceIdentity?.shortId,
+        userContentId: storedRecordingIdentity?.shortId,
+        includeCoverageEvidence: false,
+      );
+    }
+    final verifiedReferenceFeatures = referenceFeatures!;
+    final verifiedReferenceIdentity = referenceIdentity!;
+    final verifiedRecordingIdentity = storedRecordingIdentity!;
     if (!review.artifactsAcceptable) {
       flags.add(ReferenceComparisonQualityFlag.artifactReviewRequired);
     }
@@ -278,8 +403,8 @@ final class ReferenceComparisonEngine {
     }
 
     final referenceWindow = _window(
-      referenceFeatures.frames,
-      referenceFeatures.frameRateHz,
+      verifiedReferenceFeatures.frames,
+      verifiedReferenceFeatures.frameRateHz,
       referenceRange,
     );
     final userWindow = _window(
@@ -322,10 +447,12 @@ final class ReferenceComparisonEngine {
         referenceRange: referenceRange,
         userRange: userRange,
         flags: flags,
-        referenceAnalysisVersion: referenceFeatures.algorithmVersion,
+        referenceAnalysisVersion: verifiedReferenceFeatures.algorithmVersion,
         referenceCoverage: referenceCoverage,
         userCoverage: userCoverage,
         reason: 'quality_or_human_reference_review_insufficient',
+        referenceContentId: verifiedReferenceIdentity.shortId,
+        userContentId: verifiedRecordingIdentity.shortId,
       );
     }
 
@@ -361,11 +488,13 @@ final class ReferenceComparisonEngine {
         referenceRange: referenceRange,
         userRange: userRange,
         flags: flags,
-        referenceAnalysisVersion: referenceFeatures.algorithmVersion,
+        referenceAnalysisVersion: verifiedReferenceFeatures.algorithmVersion,
         referenceCoverage: referenceCoverage,
         userCoverage: userCoverage,
         mutualCoverage: mutualCoverage,
         reason: 'mutually_voiced_coverage_insufficient',
+        referenceContentId: verifiedReferenceIdentity.shortId,
+        userContentId: verifiedRecordingIdentity.shortId,
       );
     }
 
@@ -497,7 +626,7 @@ final class ReferenceComparisonEngine {
     );
     return ReferenceComparisonReport(
       algorithmVersion: referenceComparisonAlgorithmVersion,
-      referenceAnalysisVersion: referenceFeatures.algorithmVersion,
+      referenceAnalysisVersion: verifiedReferenceFeatures.algorithmVersion,
       userAnalysisVersion: session.features.frames.isEmpty
           ? 'unknown'
           : session.features.frames.first.algorithmVersion,
@@ -510,6 +639,8 @@ final class ReferenceComparisonEngine {
       qualityFlags: flags,
       scopeLabel: _scope(referenceRange, userRange),
       referenceProvenanceLabel: '歌曲分离估计（无人声逐句真人标签）',
+      referenceContentId: verifiedReferenceIdentity.shortId,
+      userContentId: verifiedRecordingIdentity.shortId,
       alignment: alignment,
       metrics: metrics,
       observations: <Observation>[observation],
@@ -527,25 +658,30 @@ final class ReferenceComparisonEngine {
     required double referenceCoverage,
     required double userCoverage,
     required String reason,
+    required String? referenceContentId,
+    required String? userContentId,
+    bool includeCoverageEvidence = true,
     double mutualCoverage = 0,
   }) {
-    final evidence = <Evidence>[
-      Evidence(
-        metric: 'reference_voiced_coverage',
-        value: referenceCoverage,
-        basis: EvidenceBasis.absoluteThreshold,
-      ),
-      Evidence(
-        metric: 'user_voiced_coverage',
-        value: userCoverage,
-        basis: EvidenceBasis.absoluteThreshold,
-      ),
-      Evidence(
-        metric: 'mutually_voiced_coverage',
-        value: mutualCoverage,
-        basis: EvidenceBasis.absoluteThreshold,
-      ),
-    ];
+    final evidence = includeCoverageEvidence
+        ? <Evidence>[
+            Evidence(
+              metric: 'reference_voiced_coverage',
+              value: referenceCoverage,
+              basis: EvidenceBasis.absoluteThreshold,
+            ),
+            Evidence(
+              metric: 'user_voiced_coverage',
+              value: userCoverage,
+              basis: EvidenceBasis.absoluteThreshold,
+            ),
+            Evidence(
+              metric: 'mutually_voiced_coverage',
+              value: mutualCoverage,
+              basis: EvidenceBasis.absoluteThreshold,
+            ),
+          ]
+        : const <Evidence>[];
     return ReferenceComparisonReport(
       algorithmVersion: referenceComparisonAlgorithmVersion,
       referenceAnalysisVersion: referenceAnalysisVersion,
@@ -561,6 +697,8 @@ final class ReferenceComparisonEngine {
       qualityFlags: flags,
       scopeLabel: _scope(referenceRange, userRange),
       referenceProvenanceLabel: '歌曲分离估计（无人声逐句真人标签）',
+      referenceContentId: referenceContentId,
+      userContentId: userContentId,
       observations: <Observation>[
         Observation(
           ruleId: 'reference-comparison-suppressed',
@@ -596,6 +734,26 @@ final class ReferenceComparisonEngine {
       ],
       suppressedReason: reason,
     );
+  }
+
+  String _integrityReason(
+    AudioContentFailureReason? referenceFailure,
+    AudioContentFailureReason? userFailure,
+    Set<ReferenceComparisonQualityFlag> flags,
+  ) {
+    if (referenceFailure != null) {
+      return 'reference_content_${referenceFailure.name}';
+    }
+    if (userFailure != null) return 'user_content_${userFailure.name}';
+    if (flags.contains(
+      ReferenceComparisonQualityFlag.referenceContentMismatch,
+    )) {
+      return 'reference_content_mismatch';
+    }
+    if (flags.contains(ReferenceComparisonQualityFlag.userContentMismatch)) {
+      return 'user_content_mismatch';
+    }
+    return 'content_identity_unverified';
   }
 
   List<_TimedFrame> _window(

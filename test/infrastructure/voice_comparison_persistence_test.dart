@@ -111,7 +111,28 @@ void main() {
       CREATE TABLE practice_sessions (
         id TEXT NOT NULL PRIMARY KEY
       );
+      CREATE TABLE recordings (
+        session_id TEXT NOT NULL PRIMARY KEY,
+        locator TEXT NOT NULL,
+        storage_kind TEXT NOT NULL,
+        pending_delete INTEGER NOT NULL DEFAULT 0
+      );
+      CREATE TABLE feature_series_metadata (
+        run_id INTEGER NOT NULL PRIMARY KEY,
+        frame_count INTEGER NOT NULL,
+        start_sample_index INTEGER NOT NULL,
+        sample_period_samples INTEGER NOT NULL,
+        algorithm_version TEXT NOT NULL,
+        feature_schema_version INTEGER NOT NULL DEFAULT 1
+      );
       INSERT INTO practice_sessions (id) VALUES ('legacy-session');
+      INSERT INTO recordings (
+        session_id, locator, storage_kind, pending_delete
+      ) VALUES ('legacy-session', 'legacy.wav', 'file', 0);
+      INSERT INTO feature_series_metadata (
+        run_id, frame_count, start_sample_index, sample_period_samples,
+        algorithm_version, feature_schema_version
+      ) VALUES (1, 0, 0, 480, 'legacy-v4', 1);
       PRAGMA user_version = 4;
     ''');
     legacy.close();
@@ -127,10 +148,25 @@ void main() {
           "WHERE type = 'table' AND name = 'saved_voice_comparison_plans'",
         )
         .getSingleOrNull();
+    final legacyRecording = await database
+        .customSelect(
+          'SELECT content_sha256, content_byte_length FROM recordings',
+        )
+        .getSingle();
+    final legacyFeatures = await database
+        .customSelect(
+          'SELECT source_audio_sha256, source_audio_byte_length '
+          'FROM feature_series_metadata',
+        )
+        .getSingle();
 
     expect(migrated.read<String>('id'), 'legacy-session');
     expect(migrated.data['voice_comparison_json'], isNull);
     expect(planTable?.read<String>('name'), 'saved_voice_comparison_plans');
+    expect(legacyRecording.data['content_sha256'], isNull);
+    expect(legacyRecording.data['content_byte_length'], isNull);
+    expect(legacyFeatures.data['source_audio_sha256'], isNull);
+    expect(legacyFeatures.data['source_audio_byte_length'], isNull);
   });
 }
 

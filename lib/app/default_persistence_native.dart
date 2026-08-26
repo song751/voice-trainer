@@ -5,12 +5,14 @@ import 'package:drift/native.dart';
 import 'package:path_provider/path_provider.dart';
 
 import '../core/domain/analysis/voice_comparison.dart';
+import '../core/domain/persistence/audio_content_identity.dart';
 import '../core/domain/persistence/recording_locator.dart';
 import '../core/domain/persistence/persistence_storage_report.dart';
 import '../core/domain/persistence/recording_sink.dart';
 import '../core/domain/persistence/recording_store.dart';
 import '../core/domain/persistence/session_repository.dart';
 import '../core/domain/persistence/voice_comparison_plan_store.dart';
+import '../core/domain/persistence/verified_recording_resolver.dart';
 import '../core/platform/platform_capabilities.dart';
 import '../infrastructure/persistence/database/app_database.dart';
 import '../infrastructure/persistence/in_memory_recording_store.dart';
@@ -26,6 +28,7 @@ import '../infrastructure/persistence/repositories/drift_voice_comparison_plan_s
 final class DefaultPersistenceAdapters {
   DefaultPersistenceAdapters._(
     this.recordingStore,
+    this.verifiedRecordingResolver,
     this.recordingSink,
     this.sessionRepository,
     this.voiceComparisonPlanStore,
@@ -34,6 +37,7 @@ final class DefaultPersistenceAdapters {
   );
 
   final RecordingStore recordingStore;
+  final VerifiedRecordingResolver verifiedRecordingResolver;
   final RecordingSink recordingSink;
   final SessionRepository sessionRepository;
   final VoiceComparisonPlanStore voiceComparisonPlanStore;
@@ -71,6 +75,7 @@ DefaultPersistenceAdapters createDefaultPersistenceAdapters(
     final store = InMemoryRecordingStore();
     return DefaultPersistenceAdapters._(
       store,
+      const UnavailableVerifiedRecordingResolver(),
       InMemoryRecordingSink(store),
       InMemorySessionRepository(recordingStore: store),
       InMemoryVoiceComparisonPlanStore(),
@@ -81,6 +86,7 @@ DefaultPersistenceAdapters createDefaultPersistenceAdapters(
   final native = _NativePersistenceHost();
   final adapters = DefaultPersistenceAdapters._(
     _DeferredRecordingStore(native),
+    _DeferredVerifiedRecordingResolver(native),
     _DeferredRecordingSink(native),
     _DeferredSessionRepository(native),
     _DeferredVoiceComparisonPlanStore(native),
@@ -176,6 +182,19 @@ final class _DeferredRecordingStore implements RecordingStore {
   @override
   Future<bool> exists(RecordingLocator locator) async =>
       (await _native.open()).store.exists(locator);
+}
+
+final class _DeferredVerifiedRecordingResolver
+    implements VerifiedRecordingResolver {
+  const _DeferredVerifiedRecordingResolver(this._native);
+  final _NativePersistenceHost _native;
+
+  @override
+  bool get available => true;
+
+  @override
+  Future<VerifiedAudioLease> openVerified(RecordingLocator locator) async =>
+      (await _native.open()).store.openVerified(locator);
 }
 
 final class _DeferredRecordingSink implements RecordingSink {

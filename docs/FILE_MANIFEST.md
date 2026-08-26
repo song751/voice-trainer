@@ -187,6 +187,7 @@ voice-trainer/
 │  │     │  ├─ drift_session_repository.dart
 │  │     │  └─ drift_settings_repository.dart
 │  │     ├─ recordings/
+│  │     │  ├─ native_managed_audio_store.dart
 │  │     │  ├─ native_recording_sink.dart
 │  │     │  ├─ web_recording_sink.dart
 │  │     │  ├─ recording_recovery_service.dart
@@ -486,14 +487,15 @@ Drift 的 `*.g.dart` 可与源文件相邻；Freezed/Riverpod generated 文件�
 ## 10. P4-12 跨平台 UI 回归资产
 
 - `integration_test/support/p4_12_ui_fixture.dart`：Windows、Android、Web 共用的 viewport/capability/adapter fixture；只提供 synthetic 数据，不替代真实设备。
-- `test/widgets/p4_12_cross_platform_ui_matrix_test.dart`：五主页面、歌曲导入、typed error/quality/completed/delete、输入方式、200% 文字、深色、窄屏与有界 semantics 矩阵。
+- `test/widgets/p4_12_cross_platform_ui_matrix_test.dart`：五主页面、歌曲导入、reference comparison 空态/不可用/ready suppression/metrics、typed error/quality/completed/delete、输入方式、200% 文字、深色、窄屏、scroll/back 与有界 semantics 矩阵。
 - `integration_test/p4_12_cross_platform_ui_contract_test.dart`：在实际 Windows/Android Flutter target 上复用同一 fixture；平台引擎是真实的，capture/analysis/persistence 是确定性替换。
 
 ## 11. 歌曲短句 A/B 对比 MVP
 
-- `lib/core/domain/reference/reference_comparison.dart`：1–30 秒窗口、人工 artifact/单旋律门禁、版本化对齐参数、相对指标、suppression 和 `Observation`/`Recommendation` 合同。
+- `lib/core/domain/persistence/audio_content_identity.dart` 与 `verified_recording_resolver.dart`：SHA-256/长度内容身份、typed integrity failure 与 disposable verified snapshot lease；Web 不被强制暴露文件路径。
+- `lib/core/domain/reference/reference_comparison.dart`：1–30 秒窗口、人工 artifact/单旋律门禁、双边内容 provenance、版本化对齐参数、相对指标、suppression 和 `Observation`/`Recommendation` 合同。
 - `rust/src/api/song_compare.rs` 与生成桥：native 本地 stem 的 14.7 kHz reference YIN/RMS/periodicity 离线提取；Web 明确 typed unavailable。
-- `lib/infrastructure/reference_comparison/`：native reference adapter 与应用内本地窗口播放器，非 native 支持边界明确返回 unavailable。
+- `lib/infrastructure/reference_comparison/`：native managed stem resolver、reference adapter 与应用内本地窗口播放器；extractor/player 只消费 verified lease，非 native 支持边界明确返回 unavailable。
 - `lib/features/reference_comparison/`：会话选择、窗口/A-B 回放、人工听检、进度/取消和分项报告 UI；复用 packed user feature series，不逐帧写数据库。
 - `docs/REFERENCE_COMPARISON_MVP.md`：算法版本、门禁、存储决定和未覆盖项。
 

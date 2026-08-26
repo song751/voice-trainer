@@ -593,6 +593,28 @@ class $RecordingsTable extends Recordings
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _contentSha256Meta = const VerificationMeta(
+    'contentSha256',
+  );
+  @override
+  late final GeneratedColumn<String> contentSha256 = GeneratedColumn<String>(
+    'content_sha256',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _contentByteLengthMeta = const VerificationMeta(
+    'contentByteLength',
+  );
+  @override
+  late final GeneratedColumn<int> contentByteLength = GeneratedColumn<int>(
+    'content_byte_length',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _pendingDeleteMeta = const VerificationMeta(
     'pendingDelete',
   );
@@ -613,6 +635,8 @@ class $RecordingsTable extends Recordings
     sessionId,
     locator,
     storageKind,
+    contentSha256,
+    contentByteLength,
     pendingDelete,
   ];
   @override
@@ -654,6 +678,24 @@ class $RecordingsTable extends Recordings
     } else if (isInserting) {
       context.missing(_storageKindMeta);
     }
+    if (data.containsKey('content_sha256')) {
+      context.handle(
+        _contentSha256Meta,
+        contentSha256.isAcceptableOrUnknown(
+          data['content_sha256']!,
+          _contentSha256Meta,
+        ),
+      );
+    }
+    if (data.containsKey('content_byte_length')) {
+      context.handle(
+        _contentByteLengthMeta,
+        contentByteLength.isAcceptableOrUnknown(
+          data['content_byte_length']!,
+          _contentByteLengthMeta,
+        ),
+      );
+    }
     if (data.containsKey('pending_delete')) {
       context.handle(
         _pendingDeleteMeta,
@@ -684,6 +726,14 @@ class $RecordingsTable extends Recordings
         DriftSqlType.string,
         data['${effectivePrefix}storage_kind'],
       )!,
+      contentSha256: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}content_sha256'],
+      ),
+      contentByteLength: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}content_byte_length'],
+      ),
       pendingDelete: attachedDatabase.typeMapping.read(
         DriftSqlType.bool,
         data['${effectivePrefix}pending_delete'],
@@ -701,11 +751,15 @@ class Recording extends DataClass implements Insertable<Recording> {
   final String sessionId;
   final String locator;
   final String storageKind;
+  final String? contentSha256;
+  final int? contentByteLength;
   final bool pendingDelete;
   const Recording({
     required this.sessionId,
     required this.locator,
     required this.storageKind,
+    this.contentSha256,
+    this.contentByteLength,
     required this.pendingDelete,
   });
   @override
@@ -714,6 +768,12 @@ class Recording extends DataClass implements Insertable<Recording> {
     map['session_id'] = Variable<String>(sessionId);
     map['locator'] = Variable<String>(locator);
     map['storage_kind'] = Variable<String>(storageKind);
+    if (!nullToAbsent || contentSha256 != null) {
+      map['content_sha256'] = Variable<String>(contentSha256);
+    }
+    if (!nullToAbsent || contentByteLength != null) {
+      map['content_byte_length'] = Variable<int>(contentByteLength);
+    }
     map['pending_delete'] = Variable<bool>(pendingDelete);
     return map;
   }
@@ -723,6 +783,12 @@ class Recording extends DataClass implements Insertable<Recording> {
       sessionId: Value(sessionId),
       locator: Value(locator),
       storageKind: Value(storageKind),
+      contentSha256: contentSha256 == null && nullToAbsent
+          ? const Value.absent()
+          : Value(contentSha256),
+      contentByteLength: contentByteLength == null && nullToAbsent
+          ? const Value.absent()
+          : Value(contentByteLength),
       pendingDelete: Value(pendingDelete),
     );
   }
@@ -736,6 +802,8 @@ class Recording extends DataClass implements Insertable<Recording> {
       sessionId: serializer.fromJson<String>(json['sessionId']),
       locator: serializer.fromJson<String>(json['locator']),
       storageKind: serializer.fromJson<String>(json['storageKind']),
+      contentSha256: serializer.fromJson<String?>(json['contentSha256']),
+      contentByteLength: serializer.fromJson<int?>(json['contentByteLength']),
       pendingDelete: serializer.fromJson<bool>(json['pendingDelete']),
     );
   }
@@ -746,6 +814,8 @@ class Recording extends DataClass implements Insertable<Recording> {
       'sessionId': serializer.toJson<String>(sessionId),
       'locator': serializer.toJson<String>(locator),
       'storageKind': serializer.toJson<String>(storageKind),
+      'contentSha256': serializer.toJson<String?>(contentSha256),
+      'contentByteLength': serializer.toJson<int?>(contentByteLength),
       'pendingDelete': serializer.toJson<bool>(pendingDelete),
     };
   }
@@ -754,11 +824,19 @@ class Recording extends DataClass implements Insertable<Recording> {
     String? sessionId,
     String? locator,
     String? storageKind,
+    Value<String?> contentSha256 = const Value.absent(),
+    Value<int?> contentByteLength = const Value.absent(),
     bool? pendingDelete,
   }) => Recording(
     sessionId: sessionId ?? this.sessionId,
     locator: locator ?? this.locator,
     storageKind: storageKind ?? this.storageKind,
+    contentSha256: contentSha256.present
+        ? contentSha256.value
+        : this.contentSha256,
+    contentByteLength: contentByteLength.present
+        ? contentByteLength.value
+        : this.contentByteLength,
     pendingDelete: pendingDelete ?? this.pendingDelete,
   );
   Recording copyWithCompanion(RecordingsCompanion data) {
@@ -768,6 +846,12 @@ class Recording extends DataClass implements Insertable<Recording> {
       storageKind: data.storageKind.present
           ? data.storageKind.value
           : this.storageKind,
+      contentSha256: data.contentSha256.present
+          ? data.contentSha256.value
+          : this.contentSha256,
+      contentByteLength: data.contentByteLength.present
+          ? data.contentByteLength.value
+          : this.contentByteLength,
       pendingDelete: data.pendingDelete.present
           ? data.pendingDelete.value
           : this.pendingDelete,
@@ -780,14 +864,22 @@ class Recording extends DataClass implements Insertable<Recording> {
           ..write('sessionId: $sessionId, ')
           ..write('locator: $locator, ')
           ..write('storageKind: $storageKind, ')
+          ..write('contentSha256: $contentSha256, ')
+          ..write('contentByteLength: $contentByteLength, ')
           ..write('pendingDelete: $pendingDelete')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode =>
-      Object.hash(sessionId, locator, storageKind, pendingDelete);
+  int get hashCode => Object.hash(
+    sessionId,
+    locator,
+    storageKind,
+    contentSha256,
+    contentByteLength,
+    pendingDelete,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -795,6 +887,8 @@ class Recording extends DataClass implements Insertable<Recording> {
           other.sessionId == this.sessionId &&
           other.locator == this.locator &&
           other.storageKind == this.storageKind &&
+          other.contentSha256 == this.contentSha256 &&
+          other.contentByteLength == this.contentByteLength &&
           other.pendingDelete == this.pendingDelete);
 }
 
@@ -802,12 +896,16 @@ class RecordingsCompanion extends UpdateCompanion<Recording> {
   final Value<String> sessionId;
   final Value<String> locator;
   final Value<String> storageKind;
+  final Value<String?> contentSha256;
+  final Value<int?> contentByteLength;
   final Value<bool> pendingDelete;
   final Value<int> rowid;
   const RecordingsCompanion({
     this.sessionId = const Value.absent(),
     this.locator = const Value.absent(),
     this.storageKind = const Value.absent(),
+    this.contentSha256 = const Value.absent(),
+    this.contentByteLength = const Value.absent(),
     this.pendingDelete = const Value.absent(),
     this.rowid = const Value.absent(),
   });
@@ -815,6 +913,8 @@ class RecordingsCompanion extends UpdateCompanion<Recording> {
     required String sessionId,
     required String locator,
     required String storageKind,
+    this.contentSha256 = const Value.absent(),
+    this.contentByteLength = const Value.absent(),
     this.pendingDelete = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : sessionId = Value(sessionId),
@@ -824,6 +924,8 @@ class RecordingsCompanion extends UpdateCompanion<Recording> {
     Expression<String>? sessionId,
     Expression<String>? locator,
     Expression<String>? storageKind,
+    Expression<String>? contentSha256,
+    Expression<int>? contentByteLength,
     Expression<bool>? pendingDelete,
     Expression<int>? rowid,
   }) {
@@ -831,6 +933,8 @@ class RecordingsCompanion extends UpdateCompanion<Recording> {
       if (sessionId != null) 'session_id': sessionId,
       if (locator != null) 'locator': locator,
       if (storageKind != null) 'storage_kind': storageKind,
+      if (contentSha256 != null) 'content_sha256': contentSha256,
+      if (contentByteLength != null) 'content_byte_length': contentByteLength,
       if (pendingDelete != null) 'pending_delete': pendingDelete,
       if (rowid != null) 'rowid': rowid,
     });
@@ -840,6 +944,8 @@ class RecordingsCompanion extends UpdateCompanion<Recording> {
     Value<String>? sessionId,
     Value<String>? locator,
     Value<String>? storageKind,
+    Value<String?>? contentSha256,
+    Value<int?>? contentByteLength,
     Value<bool>? pendingDelete,
     Value<int>? rowid,
   }) {
@@ -847,6 +953,8 @@ class RecordingsCompanion extends UpdateCompanion<Recording> {
       sessionId: sessionId ?? this.sessionId,
       locator: locator ?? this.locator,
       storageKind: storageKind ?? this.storageKind,
+      contentSha256: contentSha256 ?? this.contentSha256,
+      contentByteLength: contentByteLength ?? this.contentByteLength,
       pendingDelete: pendingDelete ?? this.pendingDelete,
       rowid: rowid ?? this.rowid,
     );
@@ -864,6 +972,12 @@ class RecordingsCompanion extends UpdateCompanion<Recording> {
     if (storageKind.present) {
       map['storage_kind'] = Variable<String>(storageKind.value);
     }
+    if (contentSha256.present) {
+      map['content_sha256'] = Variable<String>(contentSha256.value);
+    }
+    if (contentByteLength.present) {
+      map['content_byte_length'] = Variable<int>(contentByteLength.value);
+    }
     if (pendingDelete.present) {
       map['pending_delete'] = Variable<bool>(pendingDelete.value);
     }
@@ -879,6 +993,8 @@ class RecordingsCompanion extends UpdateCompanion<Recording> {
           ..write('sessionId: $sessionId, ')
           ..write('locator: $locator, ')
           ..write('storageKind: $storageKind, ')
+          ..write('contentSha256: $contentSha256, ')
+          ..write('contentByteLength: $contentByteLength, ')
           ..write('pendingDelete: $pendingDelete, ')
           ..write('rowid: $rowid')
           ..write(')'))
@@ -1731,6 +1847,28 @@ class $FeatureSeriesMetadataTable extends FeatureSeriesMetadata
     requiredDuringInsert: false,
     defaultValue: const Constant(1),
   );
+  static const VerificationMeta _sourceAudioSha256Meta = const VerificationMeta(
+    'sourceAudioSha256',
+  );
+  @override
+  late final GeneratedColumn<String> sourceAudioSha256 =
+      GeneratedColumn<String>(
+        'source_audio_sha256',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _sourceAudioByteLengthMeta =
+      const VerificationMeta('sourceAudioByteLength');
+  @override
+  late final GeneratedColumn<int> sourceAudioByteLength = GeneratedColumn<int>(
+    'source_audio_byte_length',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     runId,
@@ -1739,6 +1877,8 @@ class $FeatureSeriesMetadataTable extends FeatureSeriesMetadata
     samplePeriodSamples,
     algorithmVersion,
     featureSchemaVersion,
+    sourceAudioSha256,
+    sourceAudioByteLength,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -1808,6 +1948,24 @@ class $FeatureSeriesMetadataTable extends FeatureSeriesMetadata
         ),
       );
     }
+    if (data.containsKey('source_audio_sha256')) {
+      context.handle(
+        _sourceAudioSha256Meta,
+        sourceAudioSha256.isAcceptableOrUnknown(
+          data['source_audio_sha256']!,
+          _sourceAudioSha256Meta,
+        ),
+      );
+    }
+    if (data.containsKey('source_audio_byte_length')) {
+      context.handle(
+        _sourceAudioByteLengthMeta,
+        sourceAudioByteLength.isAcceptableOrUnknown(
+          data['source_audio_byte_length']!,
+          _sourceAudioByteLengthMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -1844,6 +2002,14 @@ class $FeatureSeriesMetadataTable extends FeatureSeriesMetadata
         DriftSqlType.int,
         data['${effectivePrefix}feature_schema_version'],
       )!,
+      sourceAudioSha256: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}source_audio_sha256'],
+      ),
+      sourceAudioByteLength: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}source_audio_byte_length'],
+      ),
     );
   }
 
@@ -1861,6 +2027,8 @@ class FeatureSeriesMetadataData extends DataClass
   final int samplePeriodSamples;
   final String algorithmVersion;
   final int featureSchemaVersion;
+  final String? sourceAudioSha256;
+  final int? sourceAudioByteLength;
   const FeatureSeriesMetadataData({
     required this.runId,
     required this.frameCount,
@@ -1868,6 +2036,8 @@ class FeatureSeriesMetadataData extends DataClass
     required this.samplePeriodSamples,
     required this.algorithmVersion,
     required this.featureSchemaVersion,
+    this.sourceAudioSha256,
+    this.sourceAudioByteLength,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -1878,6 +2048,12 @@ class FeatureSeriesMetadataData extends DataClass
     map['sample_period_samples'] = Variable<int>(samplePeriodSamples);
     map['algorithm_version'] = Variable<String>(algorithmVersion);
     map['feature_schema_version'] = Variable<int>(featureSchemaVersion);
+    if (!nullToAbsent || sourceAudioSha256 != null) {
+      map['source_audio_sha256'] = Variable<String>(sourceAudioSha256);
+    }
+    if (!nullToAbsent || sourceAudioByteLength != null) {
+      map['source_audio_byte_length'] = Variable<int>(sourceAudioByteLength);
+    }
     return map;
   }
 
@@ -1889,6 +2065,12 @@ class FeatureSeriesMetadataData extends DataClass
       samplePeriodSamples: Value(samplePeriodSamples),
       algorithmVersion: Value(algorithmVersion),
       featureSchemaVersion: Value(featureSchemaVersion),
+      sourceAudioSha256: sourceAudioSha256 == null && nullToAbsent
+          ? const Value.absent()
+          : Value(sourceAudioSha256),
+      sourceAudioByteLength: sourceAudioByteLength == null && nullToAbsent
+          ? const Value.absent()
+          : Value(sourceAudioByteLength),
     );
   }
 
@@ -1908,6 +2090,12 @@ class FeatureSeriesMetadataData extends DataClass
       featureSchemaVersion: serializer.fromJson<int>(
         json['featureSchemaVersion'],
       ),
+      sourceAudioSha256: serializer.fromJson<String?>(
+        json['sourceAudioSha256'],
+      ),
+      sourceAudioByteLength: serializer.fromJson<int?>(
+        json['sourceAudioByteLength'],
+      ),
     );
   }
   @override
@@ -1920,6 +2108,8 @@ class FeatureSeriesMetadataData extends DataClass
       'samplePeriodSamples': serializer.toJson<int>(samplePeriodSamples),
       'algorithmVersion': serializer.toJson<String>(algorithmVersion),
       'featureSchemaVersion': serializer.toJson<int>(featureSchemaVersion),
+      'sourceAudioSha256': serializer.toJson<String?>(sourceAudioSha256),
+      'sourceAudioByteLength': serializer.toJson<int?>(sourceAudioByteLength),
     };
   }
 
@@ -1930,6 +2120,8 @@ class FeatureSeriesMetadataData extends DataClass
     int? samplePeriodSamples,
     String? algorithmVersion,
     int? featureSchemaVersion,
+    Value<String?> sourceAudioSha256 = const Value.absent(),
+    Value<int?> sourceAudioByteLength = const Value.absent(),
   }) => FeatureSeriesMetadataData(
     runId: runId ?? this.runId,
     frameCount: frameCount ?? this.frameCount,
@@ -1937,6 +2129,12 @@ class FeatureSeriesMetadataData extends DataClass
     samplePeriodSamples: samplePeriodSamples ?? this.samplePeriodSamples,
     algorithmVersion: algorithmVersion ?? this.algorithmVersion,
     featureSchemaVersion: featureSchemaVersion ?? this.featureSchemaVersion,
+    sourceAudioSha256: sourceAudioSha256.present
+        ? sourceAudioSha256.value
+        : this.sourceAudioSha256,
+    sourceAudioByteLength: sourceAudioByteLength.present
+        ? sourceAudioByteLength.value
+        : this.sourceAudioByteLength,
   );
   FeatureSeriesMetadataData copyWithCompanion(
     FeatureSeriesMetadataCompanion data,
@@ -1958,6 +2156,12 @@ class FeatureSeriesMetadataData extends DataClass
       featureSchemaVersion: data.featureSchemaVersion.present
           ? data.featureSchemaVersion.value
           : this.featureSchemaVersion,
+      sourceAudioSha256: data.sourceAudioSha256.present
+          ? data.sourceAudioSha256.value
+          : this.sourceAudioSha256,
+      sourceAudioByteLength: data.sourceAudioByteLength.present
+          ? data.sourceAudioByteLength.value
+          : this.sourceAudioByteLength,
     );
   }
 
@@ -1969,7 +2173,9 @@ class FeatureSeriesMetadataData extends DataClass
           ..write('startSampleIndex: $startSampleIndex, ')
           ..write('samplePeriodSamples: $samplePeriodSamples, ')
           ..write('algorithmVersion: $algorithmVersion, ')
-          ..write('featureSchemaVersion: $featureSchemaVersion')
+          ..write('featureSchemaVersion: $featureSchemaVersion, ')
+          ..write('sourceAudioSha256: $sourceAudioSha256, ')
+          ..write('sourceAudioByteLength: $sourceAudioByteLength')
           ..write(')'))
         .toString();
   }
@@ -1982,6 +2188,8 @@ class FeatureSeriesMetadataData extends DataClass
     samplePeriodSamples,
     algorithmVersion,
     featureSchemaVersion,
+    sourceAudioSha256,
+    sourceAudioByteLength,
   );
   @override
   bool operator ==(Object other) =>
@@ -1992,7 +2200,9 @@ class FeatureSeriesMetadataData extends DataClass
           other.startSampleIndex == this.startSampleIndex &&
           other.samplePeriodSamples == this.samplePeriodSamples &&
           other.algorithmVersion == this.algorithmVersion &&
-          other.featureSchemaVersion == this.featureSchemaVersion);
+          other.featureSchemaVersion == this.featureSchemaVersion &&
+          other.sourceAudioSha256 == this.sourceAudioSha256 &&
+          other.sourceAudioByteLength == this.sourceAudioByteLength);
 }
 
 class FeatureSeriesMetadataCompanion
@@ -2003,6 +2213,8 @@ class FeatureSeriesMetadataCompanion
   final Value<int> samplePeriodSamples;
   final Value<String> algorithmVersion;
   final Value<int> featureSchemaVersion;
+  final Value<String?> sourceAudioSha256;
+  final Value<int?> sourceAudioByteLength;
   const FeatureSeriesMetadataCompanion({
     this.runId = const Value.absent(),
     this.frameCount = const Value.absent(),
@@ -2010,6 +2222,8 @@ class FeatureSeriesMetadataCompanion
     this.samplePeriodSamples = const Value.absent(),
     this.algorithmVersion = const Value.absent(),
     this.featureSchemaVersion = const Value.absent(),
+    this.sourceAudioSha256 = const Value.absent(),
+    this.sourceAudioByteLength = const Value.absent(),
   });
   FeatureSeriesMetadataCompanion.insert({
     this.runId = const Value.absent(),
@@ -2018,6 +2232,8 @@ class FeatureSeriesMetadataCompanion
     required int samplePeriodSamples,
     required String algorithmVersion,
     this.featureSchemaVersion = const Value.absent(),
+    this.sourceAudioSha256 = const Value.absent(),
+    this.sourceAudioByteLength = const Value.absent(),
   }) : frameCount = Value(frameCount),
        startSampleIndex = Value(startSampleIndex),
        samplePeriodSamples = Value(samplePeriodSamples),
@@ -2029,6 +2245,8 @@ class FeatureSeriesMetadataCompanion
     Expression<int>? samplePeriodSamples,
     Expression<String>? algorithmVersion,
     Expression<int>? featureSchemaVersion,
+    Expression<String>? sourceAudioSha256,
+    Expression<int>? sourceAudioByteLength,
   }) {
     return RawValuesInsertable({
       if (runId != null) 'run_id': runId,
@@ -2039,6 +2257,9 @@ class FeatureSeriesMetadataCompanion
       if (algorithmVersion != null) 'algorithm_version': algorithmVersion,
       if (featureSchemaVersion != null)
         'feature_schema_version': featureSchemaVersion,
+      if (sourceAudioSha256 != null) 'source_audio_sha256': sourceAudioSha256,
+      if (sourceAudioByteLength != null)
+        'source_audio_byte_length': sourceAudioByteLength,
     });
   }
 
@@ -2049,6 +2270,8 @@ class FeatureSeriesMetadataCompanion
     Value<int>? samplePeriodSamples,
     Value<String>? algorithmVersion,
     Value<int>? featureSchemaVersion,
+    Value<String?>? sourceAudioSha256,
+    Value<int?>? sourceAudioByteLength,
   }) {
     return FeatureSeriesMetadataCompanion(
       runId: runId ?? this.runId,
@@ -2057,6 +2280,9 @@ class FeatureSeriesMetadataCompanion
       samplePeriodSamples: samplePeriodSamples ?? this.samplePeriodSamples,
       algorithmVersion: algorithmVersion ?? this.algorithmVersion,
       featureSchemaVersion: featureSchemaVersion ?? this.featureSchemaVersion,
+      sourceAudioSha256: sourceAudioSha256 ?? this.sourceAudioSha256,
+      sourceAudioByteLength:
+          sourceAudioByteLength ?? this.sourceAudioByteLength,
     );
   }
 
@@ -2081,6 +2307,14 @@ class FeatureSeriesMetadataCompanion
     if (featureSchemaVersion.present) {
       map['feature_schema_version'] = Variable<int>(featureSchemaVersion.value);
     }
+    if (sourceAudioSha256.present) {
+      map['source_audio_sha256'] = Variable<String>(sourceAudioSha256.value);
+    }
+    if (sourceAudioByteLength.present) {
+      map['source_audio_byte_length'] = Variable<int>(
+        sourceAudioByteLength.value,
+      );
+    }
     return map;
   }
 
@@ -2092,7 +2326,9 @@ class FeatureSeriesMetadataCompanion
           ..write('startSampleIndex: $startSampleIndex, ')
           ..write('samplePeriodSamples: $samplePeriodSamples, ')
           ..write('algorithmVersion: $algorithmVersion, ')
-          ..write('featureSchemaVersion: $featureSchemaVersion')
+          ..write('featureSchemaVersion: $featureSchemaVersion, ')
+          ..write('sourceAudioSha256: $sourceAudioSha256, ')
+          ..write('sourceAudioByteLength: $sourceAudioByteLength')
           ..write(')'))
         .toString();
   }
@@ -2935,6 +3171,8 @@ typedef $$RecordingsTableCreateCompanionBuilder =
       required String sessionId,
       required String locator,
       required String storageKind,
+      Value<String?> contentSha256,
+      Value<int?> contentByteLength,
       Value<bool> pendingDelete,
       Value<int> rowid,
     });
@@ -2943,6 +3181,8 @@ typedef $$RecordingsTableUpdateCompanionBuilder =
       Value<String> sessionId,
       Value<String> locator,
       Value<String> storageKind,
+      Value<String?> contentSha256,
+      Value<int?> contentByteLength,
       Value<bool> pendingDelete,
       Value<int> rowid,
     });
@@ -2986,6 +3226,16 @@ class $$RecordingsTableFilterComposer
 
   ColumnFilters<String> get storageKind => $composableBuilder(
     column: $table.storageKind,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get contentSha256 => $composableBuilder(
+    column: $table.contentSha256,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get contentByteLength => $composableBuilder(
+    column: $table.contentByteLength,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -3037,6 +3287,16 @@ class $$RecordingsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get contentSha256 => $composableBuilder(
+    column: $table.contentSha256,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get contentByteLength => $composableBuilder(
+    column: $table.contentByteLength,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<bool> get pendingDelete => $composableBuilder(
     column: $table.pendingDelete,
     builder: (column) => ColumnOrderings(column),
@@ -3080,6 +3340,16 @@ class $$RecordingsTableAnnotationComposer
 
   GeneratedColumn<String> get storageKind => $composableBuilder(
     column: $table.storageKind,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get contentSha256 => $composableBuilder(
+    column: $table.contentSha256,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get contentByteLength => $composableBuilder(
+    column: $table.contentByteLength,
     builder: (column) => column,
   );
 
@@ -3143,12 +3413,16 @@ class $$RecordingsTableTableManager
                 Value<String> sessionId = const Value.absent(),
                 Value<String> locator = const Value.absent(),
                 Value<String> storageKind = const Value.absent(),
+                Value<String?> contentSha256 = const Value.absent(),
+                Value<int?> contentByteLength = const Value.absent(),
                 Value<bool> pendingDelete = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => RecordingsCompanion(
                 sessionId: sessionId,
                 locator: locator,
                 storageKind: storageKind,
+                contentSha256: contentSha256,
+                contentByteLength: contentByteLength,
                 pendingDelete: pendingDelete,
                 rowid: rowid,
               ),
@@ -3157,12 +3431,16 @@ class $$RecordingsTableTableManager
                 required String sessionId,
                 required String locator,
                 required String storageKind,
+                Value<String?> contentSha256 = const Value.absent(),
+                Value<int?> contentByteLength = const Value.absent(),
                 Value<bool> pendingDelete = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => RecordingsCompanion.insert(
                 sessionId: sessionId,
                 locator: locator,
                 storageKind: storageKind,
+                contentSha256: contentSha256,
+                contentByteLength: contentByteLength,
                 pendingDelete: pendingDelete,
                 rowid: rowid,
               ),
@@ -4118,6 +4396,8 @@ typedef $$FeatureSeriesMetadataTableCreateCompanionBuilder =
       required int samplePeriodSamples,
       required String algorithmVersion,
       Value<int> featureSchemaVersion,
+      Value<String?> sourceAudioSha256,
+      Value<int?> sourceAudioByteLength,
     });
 typedef $$FeatureSeriesMetadataTableUpdateCompanionBuilder =
     FeatureSeriesMetadataCompanion Function({
@@ -4127,6 +4407,8 @@ typedef $$FeatureSeriesMetadataTableUpdateCompanionBuilder =
       Value<int> samplePeriodSamples,
       Value<String> algorithmVersion,
       Value<int> featureSchemaVersion,
+      Value<String?> sourceAudioSha256,
+      Value<int?> sourceAudioByteLength,
     });
 
 final class $$FeatureSeriesMetadataTableReferences
@@ -4194,6 +4476,16 @@ class $$FeatureSeriesMetadataTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<String> get sourceAudioSha256 => $composableBuilder(
+    column: $table.sourceAudioSha256,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get sourceAudioByteLength => $composableBuilder(
+    column: $table.sourceAudioByteLength,
+    builder: (column) => ColumnFilters(column),
+  );
+
   $$AnalysisRunsTableFilterComposer get runId {
     final $$AnalysisRunsTableFilterComposer composer = $composerBuilder(
       composer: this,
@@ -4252,6 +4544,16 @@ class $$FeatureSeriesMetadataTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get sourceAudioSha256 => $composableBuilder(
+    column: $table.sourceAudioSha256,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get sourceAudioByteLength => $composableBuilder(
+    column: $table.sourceAudioByteLength,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$AnalysisRunsTableOrderingComposer get runId {
     final $$AnalysisRunsTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -4307,6 +4609,16 @@ class $$FeatureSeriesMetadataTableAnnotationComposer
 
   GeneratedColumn<int> get featureSchemaVersion => $composableBuilder(
     column: $table.featureSchemaVersion,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get sourceAudioSha256 => $composableBuilder(
+    column: $table.sourceAudioSha256,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get sourceAudioByteLength => $composableBuilder(
+    column: $table.sourceAudioByteLength,
     builder: (column) => column,
   );
 
@@ -4379,6 +4691,8 @@ class $$FeatureSeriesMetadataTableTableManager
                 Value<int> samplePeriodSamples = const Value.absent(),
                 Value<String> algorithmVersion = const Value.absent(),
                 Value<int> featureSchemaVersion = const Value.absent(),
+                Value<String?> sourceAudioSha256 = const Value.absent(),
+                Value<int?> sourceAudioByteLength = const Value.absent(),
               }) => FeatureSeriesMetadataCompanion(
                 runId: runId,
                 frameCount: frameCount,
@@ -4386,6 +4700,8 @@ class $$FeatureSeriesMetadataTableTableManager
                 samplePeriodSamples: samplePeriodSamples,
                 algorithmVersion: algorithmVersion,
                 featureSchemaVersion: featureSchemaVersion,
+                sourceAudioSha256: sourceAudioSha256,
+                sourceAudioByteLength: sourceAudioByteLength,
               ),
           createCompanionCallback:
               ({
@@ -4395,6 +4711,8 @@ class $$FeatureSeriesMetadataTableTableManager
                 required int samplePeriodSamples,
                 required String algorithmVersion,
                 Value<int> featureSchemaVersion = const Value.absent(),
+                Value<String?> sourceAudioSha256 = const Value.absent(),
+                Value<int?> sourceAudioByteLength = const Value.absent(),
               }) => FeatureSeriesMetadataCompanion.insert(
                 runId: runId,
                 frameCount: frameCount,
@@ -4402,6 +4720,8 @@ class $$FeatureSeriesMetadataTableTableManager
                 samplePeriodSamples: samplePeriodSamples,
                 algorithmVersion: algorithmVersion,
                 featureSchemaVersion: featureSchemaVersion,
+                sourceAudioSha256: sourceAudioSha256,
+                sourceAudioByteLength: sourceAudioByteLength,
               ),
           withReferenceMapper: (p0) => p0
               .map(

@@ -9,6 +9,7 @@ import '../../../core/domain/analysis/analysis_quality_flag.dart';
 import '../../../core/domain/analysis/feature_series.dart';
 import '../../../core/domain/analysis/session_summary.dart';
 import '../../../core/domain/persistence/recording_locator.dart';
+import '../../../core/domain/persistence/audio_content_identity.dart';
 import '../../../core/domain/persistence/recording_store.dart';
 import '../../../core/domain/persistence/session_repository.dart';
 import '../../../core/domain/practice/practice_target.dart';
@@ -68,6 +69,8 @@ final class DriftSessionRepository implements SessionRepository {
               sessionId: record.id,
               locator: record.recording!.value,
               storageKind: record.recording!.storageKind.name,
+              contentSha256: Value(record.recording!.identity?.sha256),
+              contentByteLength: Value(record.recording!.identity?.byteLength),
             ),
       run: AnalysisRunsCompanion.insert(
         sessionId: record.id,
@@ -81,6 +84,10 @@ final class DriftSessionRepository implements SessionRepository {
         samplePeriodSamples: timeline.samplePeriodSamples,
         algorithmVersion: timeline.algorithmVersion,
         featureSchemaVersion: Value(featureSchemaVersion),
+        sourceAudioSha256: Value(record.features.sourceAudioIdentity?.sha256),
+        sourceAudioByteLength: Value(
+          record.features.sourceAudioIdentity?.byteLength,
+        ),
       ),
       features: _columnsFor(
         frames,
@@ -159,6 +166,10 @@ final class DriftSessionRepository implements SessionRepository {
             qualityFlags: _qualityFlags(quality.values[i].round()),
           ),
         ),
+        sourceAudioIdentity: _identityFrom(
+          metadata.sourceAudioSha256,
+          metadata.sourceAudioByteLength,
+        ),
       ),
       recording: recording == null
           ? null
@@ -166,6 +177,10 @@ final class DriftSessionRepository implements SessionRepository {
               value: recording.locator,
               storageKind: RecordingStorageKind.values.byName(
                 recording.storageKind,
+              ),
+              identity: _identityFrom(
+                recording.contentSha256,
+                recording.contentByteLength,
               ),
             ),
       voiceComparison: session.voiceComparisonJson == null
@@ -195,6 +210,10 @@ final class DriftSessionRepository implements SessionRepository {
       RecordingLocator(
         value: recording.locator,
         storageKind: RecordingStorageKind.values.byName(recording.storageKind),
+        identity: _identityFrom(
+          recording.contentSha256,
+          recording.contentByteLength,
+        ),
       ),
     );
     await _database.finalizeRecordingDeletion(id);
@@ -593,6 +612,12 @@ final class DriftSessionRepository implements SessionRepository {
       frameCount: (data['frameCount'] as num).toInt(),
     );
   }
+}
+
+AudioContentIdentity? _identityFrom(String? sha256, int? byteLength) {
+  if (sha256 == null || byteLength == null) return null;
+  final identity = AudioContentIdentity(sha256: sha256, byteLength: byteLength);
+  return identity.isWellFormed ? identity : null;
 }
 
 const _bandFeatureSchemaVersion = 2;

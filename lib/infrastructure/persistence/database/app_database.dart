@@ -29,6 +29,8 @@ class Recordings extends Table {
   TextColumn get sessionId => text().references(PracticeSessions, #id)();
   TextColumn get locator => text()();
   TextColumn get storageKind => text()();
+  TextColumn get contentSha256 => text().nullable()();
+  IntColumn get contentByteLength => integer().nullable()();
   BoolColumn get pendingDelete =>
       boolean().withDefault(const Constant(false))();
   @override
@@ -66,6 +68,8 @@ class FeatureSeriesMetadata extends Table {
   TextColumn get algorithmVersion => text()();
   IntColumn get featureSchemaVersion =>
       integer().withDefault(const Constant(1))();
+  TextColumn get sourceAudioSha256 => text().nullable()();
+  IntColumn get sourceAudioByteLength => integer().nullable()();
 
   @override
   Set<Column<Object>> get primaryKey => {runId};
@@ -85,7 +89,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.executor);
 
   @override
-  int get schemaVersion => 5;
+  int get schemaVersion => 6;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -124,6 +128,18 @@ class AppDatabase extends _$AppDatabase {
           );
         }
         await migrator.createTable(savedVoiceComparisonPlans);
+      }
+      if (from < 6) {
+        await migrator.addColumn(recordings, recordings.contentSha256);
+        await migrator.addColumn(recordings, recordings.contentByteLength);
+        await migrator.addColumn(
+          featureSeriesMetadata,
+          featureSeriesMetadata.sourceAudioSha256,
+        );
+        await migrator.addColumn(
+          featureSeriesMetadata,
+          featureSeriesMetadata.sourceAudioByteLength,
+        );
       }
     },
     beforeOpen: (details) async {

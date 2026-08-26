@@ -58,10 +58,15 @@ class _ReferenceComparisonPageState
       appBar: AppBar(title: const Text('歌曲短句 A/B 对比')),
       body: ResponsivePageBody(
         child: ListView(
+          key: const Key('reference-comparison-scroll'),
           children: <Widget>[
-            Text(
-              song.displayName,
-              style: Theme.of(context).textTheme.headlineSmall,
+            Semantics(
+              label: '歌曲短句参考对比',
+              header: true,
+              child: Text(
+                song.displayName,
+                style: Theme.of(context).textTheme.headlineSmall,
+              ),
             ),
             const SizedBox(height: 4),
             const Text('参考来源：歌曲分离估计（没有逐句真人标签）。原唱是艺术参考，不是唯一正确答案。'),
@@ -277,6 +282,10 @@ class _ReportView extends StatelessWidget {
       children: <Widget>[
         Text('对比观察', style: Theme.of(context).textTheme.headlineSmall),
         Text(report.referenceProvenanceLabel),
+        Text(
+          '内容 ID：参考 ${report.referenceContentId ?? "未验证"} · '
+          '练唱 ${report.userContentId ?? "未验证"}',
+        ),
         Text('范围：${report.scopeLabel}'),
         Text('置信度：${(report.confidence * 100).toStringAsFixed(0)}%'),
         Text(
@@ -381,6 +390,10 @@ class _MetricCard extends StatelessWidget {
 }
 
 String _qualityFlag(ReferenceComparisonQualityFlag flag) => switch (flag) {
+  ReferenceComparisonQualityFlag.referenceContentUnverified => '参考内容未验证',
+  ReferenceComparisonQualityFlag.userContentUnverified => '练唱内容未验证',
+  ReferenceComparisonQualityFlag.referenceContentMismatch => '参考内容已变化',
+  ReferenceComparisonQualityFlag.userContentMismatch => '练唱内容已变化',
   ReferenceComparisonQualityFlag.referenceIsSeparationEstimate => '分离估计',
   ReferenceComparisonQualityFlag.separationArtifactPossible => '可能含分离伪影',
   ReferenceComparisonQualityFlag.artifactReviewRequired => '需听检伪影',

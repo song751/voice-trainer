@@ -5,6 +5,7 @@ import 'package:voice_trainer/core/domain/analysis/analysis_frame.dart';
 import 'package:voice_trainer/core/domain/analysis/feature_series.dart';
 import 'package:voice_trainer/core/domain/analysis/session_summary.dart';
 import 'package:voice_trainer/core/domain/persistence/recording_locator.dart';
+import 'package:voice_trainer/core/domain/persistence/audio_content_identity.dart';
 import 'package:voice_trainer/core/domain/persistence/session_repository.dart';
 import 'package:voice_trainer/core/domain/practice/practice_target.dart';
 import 'package:voice_trainer/core/domain/practice/practice_template.dart';
@@ -30,7 +31,8 @@ void main() {
       clarity: 0.84,
     );
 
-    final report = engine.compare(
+    final report = _compare(
+      engine,
       reference: _reference(),
       referenceFeatures: ReferenceAnalysisSeries(
         sampleRate: 44100,
@@ -73,7 +75,8 @@ void main() {
         levelOffsetDb: 0,
         clarity: 0.9,
       );
-      final report = engine.compare(
+      final report = _compare(
+        engine,
         reference: _reference(),
         referenceFeatures: ReferenceAnalysisSeries(
           sampleRate: 44100,
@@ -119,7 +122,8 @@ void main() {
       levelOffsetDb: -90,
       clarity: 0,
     );
-    final report = engine.compare(
+    final report = _compare(
+      engine,
       reference: _reference(),
       referenceFeatures: ReferenceAnalysisSeries(
         sampleRate: 44100,
@@ -162,7 +166,8 @@ void main() {
       clarity: 0.9,
     );
 
-    final report = engine.compare(
+    final report = _compare(
+      engine,
       reference: _reference(durationSamples: 44100 * 5),
       referenceFeatures: ReferenceAnalysisSeries(
         sampleRate: 44100,
@@ -206,7 +211,8 @@ void main() {
       clarity: 0.9,
     );
 
-    final report = conservativeEngine.compare(
+    final report = _compare(
+      conservativeEngine,
       reference: _reference(),
       referenceFeatures: ReferenceAnalysisSeries(
         sampleRate: 44100,
@@ -236,7 +242,8 @@ void main() {
     expect(coverage.value, closeTo(0.5, 0.01));
     expect(coverage.value, inInclusiveRange(0.0, 1.0));
 
-    final reversed = conservativeEngine.compare(
+    final reversed = _compare(
+      conservativeEngine,
       reference: _reference(),
       referenceFeatures: ReferenceAnalysisSeries(
         sampleRate: 44100,
@@ -257,7 +264,143 @@ void main() {
     );
     expect(reversedCoverage.value, closeTo(coverage.value, 1e-9));
   });
+
+  test('content provenance failures suppress every metric and A/B advice', () {
+    final frames = _frames(
+      voicedStart: 0,
+      voicedEnd: 200,
+      pitchOffsetCents: 0,
+      levelOffsetDb: 0,
+      clarity: 0.9,
+    );
+    const other = AudioContentIdentity(
+      sha256:
+          'cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc',
+      byteLength: 100,
+    );
+    final bound = _session(frames);
+    final cases = <ComparisonInputSnapshot>[
+      ComparisonInputSnapshot(
+        reference: _reference(),
+        referenceFeatures: ReferenceAnalysisSeries(
+          sampleRate: 44100,
+          frameRateHz: 100,
+          algorithmVersion: 'reference-test-v1',
+          frames: frames,
+          sourceAudioIdentity: _identity,
+        ),
+        session: _copySession(
+          bound,
+          recordingIdentity: null,
+          featureIdentity: null,
+        ),
+        referenceRange: const PhraseRange(startSeconds: 0, endSeconds: 2),
+        userRange: const PhraseRange(startSeconds: 0, endSeconds: 2),
+        review: const ReferenceComparisonReview(
+          artifactsAcceptable: true,
+          monophonicLeadConfirmed: true,
+        ),
+        referenceLeaseIdentity: _identity,
+        userLeaseIdentity: null,
+      ),
+      ComparisonInputSnapshot(
+        reference: _reference(),
+        referenceFeatures: ReferenceAnalysisSeries(
+          sampleRate: 44100,
+          frameRateHz: 100,
+          algorithmVersion: 'reference-test-v1',
+          frames: frames,
+          sourceAudioIdentity: _identity,
+        ),
+        session: _copySession(bound, featureIdentity: other),
+        referenceRange: const PhraseRange(startSeconds: 0, endSeconds: 2),
+        userRange: const PhraseRange(startSeconds: 0, endSeconds: 2),
+        review: const ReferenceComparisonReview(
+          artifactsAcceptable: true,
+          monophonicLeadConfirmed: true,
+        ),
+        referenceLeaseIdentity: _identity,
+        userLeaseIdentity: _identity,
+      ),
+      ComparisonInputSnapshot(
+        reference: _reference(),
+        referenceFeatures: ReferenceAnalysisSeries(
+          sampleRate: 44100,
+          frameRateHz: 100,
+          algorithmVersion: 'reference-test-v1',
+          frames: frames,
+          sourceAudioIdentity: other,
+        ),
+        session: bound,
+        referenceRange: const PhraseRange(startSeconds: 0, endSeconds: 2),
+        userRange: const PhraseRange(startSeconds: 0, endSeconds: 2),
+        review: const ReferenceComparisonReview(
+          artifactsAcceptable: true,
+          monophonicLeadConfirmed: true,
+        ),
+        referenceLeaseIdentity: _identity,
+        userLeaseIdentity: _identity,
+      ),
+      ComparisonInputSnapshot(
+        reference: _reference(),
+        referenceFeatures: null,
+        session: bound,
+        referenceRange: const PhraseRange(startSeconds: 0, endSeconds: 2),
+        userRange: const PhraseRange(startSeconds: 0, endSeconds: 2),
+        review: const ReferenceComparisonReview(
+          artifactsAcceptable: true,
+          monophonicLeadConfirmed: true,
+        ),
+        referenceLeaseIdentity: null,
+        userLeaseIdentity: _identity,
+        referenceIntegrityFailure: AudioContentFailureReason.missing,
+      ),
+    ];
+
+    for (final input in cases) {
+      final report = engine.compare(input);
+      expect(report.suppressed, isTrue);
+      expect(report.metrics, isNull);
+      expect(report.alignment, isNull);
+      expect(
+        report.recommendations.map((item) => item.exerciseId),
+        isNot(contains('REFERENCE-AB-01')),
+      );
+    }
+  });
 }
+
+const _identity = AudioContentIdentity(
+  sha256: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+  byteLength: 100,
+);
+
+ReferenceComparisonReport _compare(
+  ReferenceComparisonEngine engine, {
+  required SeparatedSongReference reference,
+  required ReferenceAnalysisSeries referenceFeatures,
+  required PracticeSessionRecord session,
+  required PhraseRange referenceRange,
+  required PhraseRange userRange,
+  required ReferenceComparisonReview review,
+}) => engine.compare(
+  ComparisonInputSnapshot(
+    reference: reference,
+    referenceFeatures: ReferenceAnalysisSeries(
+      sampleRate: referenceFeatures.sampleRate,
+      frameRateHz: referenceFeatures.frameRateHz,
+      algorithmVersion: referenceFeatures.algorithmVersion,
+      frames: referenceFeatures.frames,
+      sourceAudioIdentity: _identity,
+    ),
+    session: session,
+    referenceRange: referenceRange,
+    userRange: userRange,
+    review: review,
+    referenceLeaseIdentity: _identity,
+    userLeaseIdentity: _identity,
+  ),
+);
 
 List<AnalysisFrame> _frames({
   int frameCount = 300,
@@ -296,7 +439,7 @@ SeparatedSongReference _reference({int durationSamples = 44100 * 3}) =>
       artifactWarning: true,
       vocals: SongStemReference(
         locator: r'C:\test\vocals.wav',
-        sha256: 'abc',
+        sha256: _identity.sha256,
         byteLength: 100,
       ),
     );
@@ -318,9 +461,35 @@ PracticeSessionRecord _session(List<AnalysisFrame> frames) =>
         targetHitRate: 0.8,
         qualityFlags: {},
       ),
-      features: FeatureSeries(frameRateHz: 100, frames: frames),
+      features: FeatureSeries(
+        frameRateHz: 100,
+        frames: frames,
+        sourceAudioIdentity: _identity,
+      ),
       recording: const RecordingLocator(
         value: r'C:\test\practice.wav',
         storageKind: RecordingStorageKind.file,
+        identity: _identity,
       ),
     );
+
+PracticeSessionRecord _copySession(
+  PracticeSessionRecord original, {
+  AudioContentIdentity? recordingIdentity = _identity,
+  AudioContentIdentity? featureIdentity = _identity,
+}) => PracticeSessionRecord(
+  id: original.id,
+  template: original.template,
+  startedAt: original.startedAt,
+  summary: original.summary,
+  features: FeatureSeries(
+    frameRateHz: original.features.frameRateHz,
+    frames: original.features.frames,
+    sourceAudioIdentity: featureIdentity,
+  ),
+  recording: RecordingLocator(
+    value: original.recording!.value,
+    storageKind: original.recording!.storageKind,
+    identity: recordingIdentity,
+  ),
+);
