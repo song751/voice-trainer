@@ -12,24 +12,26 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: subosito/flutter-action@v2
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
         with:
           flutter-version: 3.44.7
           channel: stable
           cache: true
-      - uses: dtolnay/rust-toolchain@1.97.1
+      - uses: dtolnay/rust-toolchain@032958afbdc797a9164d3bc0b56325c1308924a5 # 1.97.1
         with:
           targets: wasm32-unknown-unknown
       - name: Install FRB Web prerequisites
         run: |
-          rustup toolchain install nightly --profile minimal --component rust-src
+          rustup toolchain install nightly-2026-08-02 --profile minimal --component rust-src
           cargo install wasm-pack --version 0.15.0 --locked
           cargo install flutter_rust_bridge_codegen --version 2.12.0 --locked
       - name: Restore dependencies
         run: flutter pub get --enforce-lockfile
       - name: Build Rust WASM bridge
-        run: flutter_rust_bridge_codegen build-web --release
+        run: >-
+          flutter_rust_bridge_codegen build-web --release
+          --wasm-pack-rustup-toolchain nightly-2026-08-02
       - name: Validate FRB Web artifacts
         run: |
           dart run tool/verify_frb_web_artifacts.dart
@@ -65,10 +67,33 @@ jobs:
               ':(exclude)web/pkg/rust_lib_voice_trainer_bg.wasm'
             exit 1
           fi
-      - name: Build default Flutter JS web application
-        run: flutter build web --release
+      - name: Build canonical self-contained Flutter Web application
+        run: flutter build web --release --no-web-resources-cdn --csp
+      - name: Add release notices and prepare deployment manifest
+        shell: bash
+        run: |
+          mkdir -p build/web/licenses/audioplayers_android build/web/licenses/file_selector_android
+          cp licenses/THIRD_PARTY_NOTICES.md build/web/licenses/
+          cp third_party/audioplayers_android/{LICENSE,UPSTREAM.md} build/web/licenses/audioplayers_android/
+          cp third_party/file_selector_android/{LICENSE,AUTHORS,UPSTREAM.md} build/web/licenses/file_selector_android/
+          dart run tool/p4_11_prepare_web_release.dart build/web
+      - name: Validate deployment headers, hashes, MIME and CSP
+        shell: bash
+        run: |
+          dart run tool/p4_11_web_server.dart 7397 build/web > build/p4_13_web_server.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          for attempt in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:7397/deployment_manifest.json >/dev/null; then
+              break
+            fi
+            sleep 1
+          done
+          node tool/p4_11_deployment_validator.mjs http://127.0.0.1:7397/
+      - name: Audit release notices
+        run: dart run tool/p4_13_release_audit.dart
       - name: Upload web build
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: web-js-release
           path: build/web/

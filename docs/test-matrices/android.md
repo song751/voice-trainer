@@ -1,6 +1,6 @@
 # Android 测试矩阵
 
-状态：Phase 1 建立于 2026-08-04。Android CI 构建 debug APK；emulator/fake capture 与真实设备采集分别记录。
+状态：Phase 1 建立于 2026-08-04。P4-13 将 Android CI 提升为 release APK；emulator/fake capture 与真实设备采集分别记录。
 
 | 范围 | 自动化 / 手动 | 当前状态 | 验收记录 |
 |---|---|---|---|
@@ -13,6 +13,7 @@
 | Emulator lifecycle/fault automation | 本地模拟器 + SDK ADB gate | 通过（P4-05；emulator/synthetic） | 2026-08-27，仅 `127.0.0.1:16384`：普通 ADB permission allow/deny、HOME/foreground、force-stop/relaunch、gate-only sandbox read-only failure 与 partial recovery 全部返回 typed/sentinel 结果。应用层后台自动暂停、前台恢复、手动暂停保护与 sample discontinuity 由 tests 覆盖；root 未使用，permission/app-op/mode/app entry/gate directory 均在 finally 恢复。来电、蓝牙与真实硬件 route 保持 Pending。 |
 | P4-08 release production-composition soak | 本地模拟器 + release ADB/evidence validator | 通过（emulator/synthetic；real mic Pending） | 2026-08-27，仅 `127.0.0.1:16384`：release APK 覆盖 permission deny→grant、start/manual pause/resume、HOME/foreground、stop、result/history/recording delete、force-stop/relaunch/session delete。600 s test source 精确生成 28,800,000 samples，analysis/recording queue drop 均 0，primary worker restart 0；pipeline/UI build/UI raster P95=`68.535/0.666/1.405 ms`，21 个 memory samples 有界。bundle validator 通过，root 未使用，原安装/权限/运行状态和临时文件已恢复。真实麦克风、route、AGC、latency、真人 voiced input 与 Android 真机仍 Pending。 |
 | P4-12 portrait UI + SAF cancel | Widget matrix + emulator integration/ADB | 通过（emulator + synthetic adapters） | `127.0.0.1:16384` 上 Android target integration 通过 393×852、深色、200% 文字和 typed permission UI；另由产品歌曲页真实进入 DocumentsUI SAF 并 Back 取消返回。未选择/读取文件，未请求真实麦克风；完成后恢复原 APK 且 SHA-256 一致。 |
+| P4-13 release seal | CI + local release build | 本地候选通过；hosted CI/最终候选emulator Pending | CI上传release APK与NOTICE/vendor licenses；本地未连接emulator。既有P4-08 600秒结果不冒充当前候选重跑，也不满足P4-14真机。 |
 | 至少一台中端 Android 真机 | 手动，真实麦克风 | Pending | 记录权限、有效格式、长音/暂停恢复、dropped/discontinuity、后台和来电恢复。 |
 | 蓝牙与有线耳机路由 | 手动，真实设备 | Pending | 记录 AudioRecord route 改变和处理器实际设置。 |
 | 运行中权限撤回、无设备/被系统占用、应用崩溃后临时文件恢复 | 手动，真实设备 | Pending | P4-05 只证明 emulator 的预置 permission 与 gate partial recovery；不用 emulator 或 fake capture 标记真实设备通过。 |

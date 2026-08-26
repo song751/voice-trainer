@@ -506,3 +506,10 @@ Drift 的 `*.g.dart` 可与源文件相邻；Freezed/Riverpod generated 文件�
 - `tool/p4_08_android_evidence.dart`：`P4_08_ANDROID_EMULATOR_BASELINE_V1` strict validator；强制 release/emulator/synthetic 范围、600 秒/sample/queue/worker/lifecycle/memory 指标及 real-microphone Pending，并拒绝路径、设备标识、PCM/音频字段。
 - `test/tool/p4_08_android_evidence_test.dart`：validator 的通过、错误 endpoint/root、缩短 run/queue drop、生命周期缺失、real-mic 冒领与隐私字段回归。
 - `DriftSessionRepository` 的 feature schema v3 不改变 SQLite schema：不规则 timeline 增加 checksum-protected `sample_index_u64` packed absolute-index column；规则 v1/v2 与旧数据库继续可读。
+
+## 13. P4-13 release seal 资产
+
+- `.github/workflows/{dart_rust_checks,windows_build,android_build,web_build}.yml`：同一提交的标准检查、三平台release与actual-target/部署合同；所有直接action固定完整SHA并保留版本注释。
+- `licenses/THIRD_PARTY_NOTICES.md`：release随附的Rust主要组件、Symphonia MPL源码获取、tract与vendored Flutter Android许可/provenance索引。
+- `tool/p4_13_release_audit.dart`：读取两份locked Cargo metadata，拒绝缺失/不允许的许可，并校验四workflow的release命令、NOTICE与完整action SHA。
+- `tool/p4_11_prepare_web_release.dart` / `tool/p4_11_web_server.dart`：把NOTICE纳入release hash manifest与critical no-store合同。

@@ -6,7 +6,7 @@
 |---|---|---|---|
 | Dart/Rust 静态检查与 fake 会话 | CI：`Dart and Rust checks` | 本地通过；hosted CI 已首次触发，链接见 C1 执行记录 | headless 测试不请求真实浏览器麦克风权限。 |
 | FRB Rust WASM | CI：`Web build`，`flutter_rust_bridge_codegen build-web --release` | 本地通过；首轮 drift 已修复并重新触发，链接见 C1 执行记录 | 检查提交的 `web/pkg` 无漂移。 |
-| 默认 JS Web 构建 | CI：`Web build`，`flutter build web --release` | 本地通过；hosted CI 已首次触发，链接见 C1 执行记录 | 不把 Flutter `--wasm` dry-run 当作已通过。 |
+| 默认 JS Web 构建 | CI：`Web build`，canonical self-contained flags | P4-13本地通过；hosted候选Pending | 固定 `--no-web-resources-cdn --csp`及`nightly-2026-08-02`；不把Flutter `--wasm` dry-run当作通过。 |
 | Edge 512-sample PCM16 48 kHz | 手动，真实麦克风 | Phase 0 已通过 | 60 秒样本误差 0.0356%，interval P95 19.761 ms，无 discontinuity。 |
 | Edge 1024-sample fallback | 手动，真实麦克风 | Phase 0 已通过 | 60 秒样本误差 0.0533%，interval P95 30.070 ms，无 discontinuity。 |
 | P4-09 dedicated Rust worker | 自动，Edge headless + synthetic PCM | 本地通过 | 94 frames / checksum 2,098,080；8-band DTO，unknown operation、crash pending rejection、replacement worker 通过；`crossOriginIsolated=false`，不依赖 SharedArrayBuffer。 |
@@ -17,6 +17,7 @@
 | P4-11 self-contained deployment/cache | 自动 + Edge headless | 本地通过 | release 固定 `--no-web-resources-cdn --csp`；27 个关键资产/8 个 WASM 的 release hash、统一 header、`no-store`、WASM MIME、CSP、本地 CanvasKit 通过；无 COOP/COEP，`crossOriginIsolated=false`。 |
 | P4-11 lifecycle | Flutter unit + Edge headless synthetic lifecycle | 本地通过 | typed permission/devicechange/hidden/visible/AudioContext/worker events；hidden 和 AudioContext interruption 保存 sample-index checkpoint，恢复后仍需用户显式继续。不是实际后台录音或真实麦克风证据。 |
 | P4-12 UI/错误/无障碍 | Widget profile matrix + Edge self-contained regression | 本地通过（synthetic） | Web profile 覆盖 393×852、深色、200% 文字、五主页面和歌曲导入、typed errors、worker/quality/completed/delete、touch/mouse/keyboard/back 与 bounded semantics；Edge 再验证自包含 release/header/lifecycle。Flutter WebDriver integration 因本机无 4444 driver 未执行，不误记为产品失败。 |
+| P4-13 release seal | CI + local equivalent-server validator | 本地候选通过；hosted CI Pending | 28个关键资产（含NOTICE）、8个WASM通过release hash、no-store、MIME、CSP和本地CanvasKit；不是P4-15真实浏览器/麦克风证据。 |
 | Chrome、Firefox、Safari/iOS Web | 手动，真实浏览器与麦克风 | Pending | 同时检查权限、有效采样率、后台 tab、设备路由与部署的 WASM MIME/CSP/缓存 headers。 |
 
 普通 CI 的 fake capture 和 Edge fake audio device 不可用于通过真实麦克风、真人声 cadence、后台限频或麦克风质量项目。

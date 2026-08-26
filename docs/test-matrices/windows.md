@@ -5,8 +5,8 @@
 | 范围 | 自动化 / 手动 | 当前状态 | 验收记录 |
 |---|---|---|---|
 | Dart/Rust 静态检查 | CI：`Dart and Rust checks` | 本地通过；hosted CI 已首次触发，链接见 C1 执行记录 | 不使用麦克风或模拟设备宣称硬件通过。 |
-| Fake capture 集成闭环 | CI：`Windows build`，`flutter test -d windows integration_test/fake_capture_session_flow_test.dart` | 本地通过；hosted CI 已首次触发，链接见 C1 执行记录 | 验证流程恢复，不计入硬件覆盖。 |
-| Release 构建 | CI：`Windows build`，`flutter build windows --release` | 本地通过；hosted CI 已首次触发，链接见 C1 执行记录 | 上传 release runner artifact。 |
+| Fake/P4-12/reference集成闭环 | CI：`Windows build` actual-target integrations | P4-13本地通过；hosted候选Pending | fake 6/6、P4-12 route 1/1、reference extraction/comparison/playback 1/1；不计入真实麦克风或扬声器听感覆盖。 |
+| Release 构建 | CI：`Windows build`，`flutter build windows --release` | P4-13本地通过；hosted候选Pending | 上传release runner并附NOTICE/vendor license/provenance。 |
 | P4-12 UI/错误/无障碍 | Widget matrix + Windows target integration | 通过（synthetic adapters） | 393×852/1280×800、深色、200% 文字、五主页面和歌曲导入、typed errors、mouse/keyboard/back、bounded semantics 均回归；Windows executable 实际构建运行，但不请求真实麦克风。 |
 | 内置 Realtek PCM16 48 kHz 长音与暂停恢复 | 手动，真实设备 | P3-07 部分通过 | 2026-08-06 明确选择 Realtek 麦克风阵列：10 秒为 48 kHz/mono/PCM16、样本误差 0%、interval P95 47.437 ms；出现 1 次间隔代理断点（max 169.969 ms），不可将稳定度视为无断点。另有 default 60 秒（含 5 秒 pause/resume）捕获成功，但默认 device identity 不作为内置设备确证。 |
 | USB Audio PCM16 48 kHz 长音 | 手动，真实设备 | P3-07 部分通过 | 2026-08-06 明确选择 USB Audio：60 秒活动采集加 5 秒 pause/resume，48 kHz/mono/PCM16、样本误差 0.2167%、interval P95 47.587 ms、0 odd bytes、0 discontinuity proxy；pause/resume 调用分别 0.629/0.723 ms。物理拔下后，重新插入并由 Windows 正常枚举，显式选择该设备完成 10 秒恢复采集：样本误差 0.2%、interval P95 47.276 ms、0 discontinuity proxy。随后完成一次连续 1,800 秒采集；其 PCM16 WAV data chunk 为 172,800,000 bytes，独立换算时长恰为 1,800 秒。 |

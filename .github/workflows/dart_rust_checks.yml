@@ -12,13 +12,13 @@ jobs:
   checks:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: subosito/flutter-action@v2
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
         with:
           flutter-version: 3.44.7
           channel: stable
           cache: true
-      - uses: dtolnay/rust-toolchain@1.97.1
+      - uses: dtolnay/rust-toolchain@032958afbdc797a9164d3bc0b56325c1308924a5 # 1.97.1
         with:
           components: rustfmt, clippy
       - name: Restore Dart dependencies
@@ -35,6 +35,14 @@ jobs:
         run: cargo clippy --manifest-path rust/Cargo.toml --all-targets -- -D warnings
       - name: Run Rust tests
         run: cargo test --manifest-path rust/Cargo.toml
+      - name: Check song-separation R&D formatting
+        run: cargo fmt --check --manifest-path tool/song_separation/Cargo.toml
+      - name: Lint song-separation R&D
+        run: cargo clippy --manifest-path tool/song_separation/Cargo.toml --all-targets -- -D warnings
+      - name: Run song-separation R&D tests
+        run: cargo test --manifest-path tool/song_separation/Cargo.toml
+      - name: Audit release and third-party licenses
+        run: dart run tool/p4_13_release_audit.dart
       - name: Regenerate committed code
         run: |
           dart run build_runner build --delete-conflicting-outputs

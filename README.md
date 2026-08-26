@@ -2,9 +2,9 @@
 
 这是一个面向 Windows、Android、Web，并逐步覆盖 macOS、iOS、Linux 的本地优先练声应用规划仓库。
 
-当前状态：**Phase 1 与 Closure C1–C4、P2-01 至 P2-07，以及 Phase 3 的 P3-00 至 P3-06、工作树 checkpoint `P3-07P`、证据合同 `P3-07A`、性能观测 `P3-07B` 和故障运行手册 `P3-07C`，以及 P4-00 至 P4-04 与 P4-09 均已形成可复验实现，等待集成接受**。Android 当前默认使用 `record` + native Rust worker + native Drift/WAV persistence，并覆盖保存、恢复与 tombstone；`tool/p4_03_android_permission_test.ps1` 用标准 SDK ADB 自动执行录音权限 allow/deny，不要求 root。Web 默认使用 `record_web` + dedicated Rust WASM worker，保留显式单线程 fallback，persistence 仍为 in-memory，待 P4-10 完成；synthetic browser 自动化不代表 P4-15 真实麦克风通过。仓库所有者于 2026-08-26 授权在保持文件边界和证据真实性的前提下并行推进可独立工作。`P3-07D`、Android 真机、真实浏览器麦克风和最终 Closure 仍明确阻塞，任何模拟器/root/fake 结果都不能替代。
+当前状态：**P4-00 至 P4-12 已形成可复验实现；P4-13 的 release workflow、许可 NOTICE 和本地 preflight 已实现并通过本机门禁，仍等待同一候选提交的 hosted CI、最终 emulator bundle 与只读审计接受**。Android 默认使用 `record` + native Rust worker + native Drift/WAV persistence；Web 默认使用 `record_web` + dedicated single-thread Rust WASM worker、Drift shared IndexedDB 与 OPFS recording store，并有自包含 CSP deployment gate。歌曲分离在 Windows/Android native 使用 Git 外固定哈希模型与 typed capability probe，Web 明确 unavailable。`P3-07D`、P4-14 Android 真机、P4-15 真实浏览器/麦克风及最终 Closure 仍 Pending，任何 build、模拟器、root、fake 或 synthetic 结果都不能替代。
 
-首页现提供“导入歌曲并准备原唱对比”入口：可跨平台选择本地音频、确认处理权利，并走 typed 分离任务合同。当前生产构建尚未包含通过数值/许可 gate 的模型 runtime，因此会诚实显示 unavailable；开发期 UMX-HQ oracle 与部署研究位于 `tool/song_separation/`，不会用伪 stem 冒充自动分离成功。
+首页现提供“导入歌曲并准备原唱对比”入口。模型权重不进入 Git 或 release artifact；Windows/Android 只有在用户提供固定哈希模型且本机 probe 成功时才开放 native runtime，Web 保持 typed unavailable。开发期质量工具位于 `tool/song_separation/`，不会用伪 stem 冒充分离成功。
 
 应用提供可覆盖的 audio capture、analysis engine、recording sink/store 和 session repository provider，默认接入确定性 fake session；最小导航包含首页、实时练习、结果、历史和设置。它不直接在页面中引用 `record`、Drift 或 FRB，也不恢复 FRB 2.12 默认 WASM WorkerPool。Gate 0A–0E 的实测证据及 Phase 1 决策见 `docs/RESEARCH_NOTES.md` 和 `docs/adr/0001-frb-2-12-phase0-compatibility.md`。
 
@@ -38,4 +38,4 @@
 
 ## 下一步
 
-按 [`docs/PHASE3_TASKS.md`](docs/PHASE3_TASKS.md) 在仓库所有者电脑旁时执行 `P3-07D`；否则可进入 [`docs/PHASE4_TASKS.md`](docs/PHASE4_TASKS.md) 的 `P4-00`，按卡推进到 `P4-13`。不得并行混合两张卡，也不得把 MuMu 模拟器证据写成 Android 真机通过。
+先在同一候选提交完成 P4-13 hosted CI、最终 emulator bundle 与零 blocker/high 只读审计；这只封存远程实现基线。随后 P4-14 Android 真机、P4-15 真实浏览器/麦克风仍需人工设备，P3-07D 也仍须仓库所有者在 Windows 工作站旁执行。

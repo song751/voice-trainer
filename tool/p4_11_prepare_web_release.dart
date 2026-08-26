@@ -27,6 +27,7 @@ Future<void> main(List<String> arguments) async {
     'sqlite3.wasm',
     'version.json',
     'deployment_contract.json',
+    'licenses/THIRD_PARTY_NOTICES.md',
   ];
   final assets = <String, String>{};
   for (final relative in required) {

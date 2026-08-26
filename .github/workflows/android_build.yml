@@ -12,18 +12,18 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
         with:
           distribution: temurin
           java-version: '17'
-      - uses: android-actions/setup-android@v3
-      - uses: subosito/flutter-action@v2
+      - uses: android-actions/setup-android@40fd30fb8d7440372e1316f5d1809ec01dcd3699 # v4.0.1
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
         with:
           flutter-version: 3.44.7
           channel: stable
           cache: true
-      - uses: dtolnay/rust-toolchain@1.97.1
+      - uses: dtolnay/rust-toolchain@032958afbdc797a9164d3bc0b56325c1308924a5 # 1.97.1
         with:
           targets: aarch64-linux-android, armv7-linux-androideabi, i686-linux-android, x86_64-linux-android
       - name: Audit Android compatibility patches
@@ -36,11 +36,20 @@ jobs:
           grep -Fq 'execOperations.exec {' rust_builder/cargokit/gradle/plugin.gradle
       - name: Restore dependencies
         run: flutter pub get --enforce-lockfile
-      - name: Build debug APK
-        run: flutter build apk --debug
-      - name: Upload debug APK
-        uses: actions/upload-artifact@v4
+      - name: Build release APK
+        run: flutter build apk --release --no-pub
+      - name: Audit release notices
+        run: dart run tool/p4_13_release_audit.dart
+      - name: Upload release APK and notices
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
-          name: android-debug-apk
-          path: build/app/outputs/flutter-apk/app-debug.apk
+          name: android-release-apk
+          path: |
+            build/app/outputs/flutter-apk/app-release.apk
+            licenses/THIRD_PARTY_NOTICES.md
+            third_party/audioplayers_android/LICENSE
+            third_party/audioplayers_android/UPSTREAM.md
+            third_party/file_selector_android/LICENSE
+            third_party/file_selector_android/AUTHORS
+            third_party/file_selector_android/UPSTREAM.md
           if-no-files-found: error

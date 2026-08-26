@@ -12,21 +12,35 @@ jobs:
   build:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: subosito/flutter-action@v2
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
         with:
           flutter-version: 3.44.7
           channel: stable
           cache: true
-      - uses: dtolnay/rust-toolchain@1.97.1
+      - uses: dtolnay/rust-toolchain@032958afbdc797a9164d3bc0b56325c1308924a5 # 1.97.1
       - name: Restore dependencies
         run: flutter pub get --enforce-lockfile
       - name: Build Windows release application
         run: flutter build windows --release
       - name: Run fake capture integration flow on Windows
         run: flutter test -d windows integration_test/fake_capture_session_flow_test.dart
+      - name: Run P4-12 cross-platform route integration on Windows
+        run: flutter test -d windows integration_test/p4_12_cross_platform_ui_contract_test.dart
+      - name: Run reference comparison integration on Windows
+        run: flutter test -d windows integration_test/reference_comparison_windows_test.dart
+      - name: Add release notices
+        shell: pwsh
+        run: |
+          $release = 'build/windows/x64/runner/Release/licenses'
+          New-Item -ItemType Directory -Force "$release/audioplayers_android", "$release/file_selector_android" | Out-Null
+          Copy-Item licenses/THIRD_PARTY_NOTICES.md $release/
+          Copy-Item third_party/audioplayers_android/LICENSE, third_party/audioplayers_android/UPSTREAM.md "$release/audioplayers_android/"
+          Copy-Item third_party/file_selector_android/LICENSE, third_party/file_selector_android/AUTHORS, third_party/file_selector_android/UPSTREAM.md "$release/file_selector_android/"
+      - name: Audit release notices
+        run: dart run tool/p4_13_release_audit.dart
       - name: Upload Windows build
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: windows-release
           path: build/windows/x64/runner/Release/

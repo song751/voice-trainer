@@ -80,7 +80,8 @@ bool _isCritical(String path) {
   return lower.endsWith('.html') ||
       lower.endsWith('.js') ||
       lower.endsWith('.wasm') ||
-      lower.endsWith('.json');
+      lower.endsWith('.json') ||
+      lower.endsWith('.md');
 }
 
 ContentType _contentType(String path) {
