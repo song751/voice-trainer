@@ -49,13 +49,36 @@ final class NativeManagedAudioStore {
   Future<VerifiedAudioLease> openVerified({
     required String locator,
     required AudioContentIdentity? expected,
+    required int maximumBytes,
   }) async {
+    if (maximumBytes <= 0) {
+      throw ArgumentError.value(maximumBytes, 'maximumBytes');
+    }
     if (expected == null || !expected.isWellFormed) {
       throw const AudioContentFailure(AudioContentFailureReason.legacyUnbound);
     }
+    if (expected.byteLength > maximumBytes) {
+      throw const AudioContentFailure(AudioContentFailureReason.resourceLimit);
+    }
     final source = await resolveManaged(locator);
     try {
-      final bytes = await source.readAsBytes();
+      if (await source.length() > maximumBytes) {
+        throw const AudioContentFailure(
+          AudioContentFailureReason.resourceLimit,
+        );
+      }
+      final builder = BytesBuilder(copy: false);
+      var byteLength = 0;
+      await for (final chunk in source.openRead()) {
+        byteLength += chunk.length;
+        if (byteLength > maximumBytes) {
+          throw const AudioContentFailure(
+            AudioContentFailureReason.resourceLimit,
+          );
+        }
+        builder.add(chunk);
+      }
+      final bytes = builder.takeBytes();
       final actual = identityForBytes(bytes);
       if (actual.byteLength != expected.byteLength) {
         throw const AudioContentFailure(

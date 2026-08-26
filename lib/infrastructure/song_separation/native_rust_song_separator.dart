@@ -344,9 +344,11 @@ Future<SongStemReference> _verifiedStem(
     sha256: stem.sha256,
     byteLength: stem.byteLength.toInt(),
   );
-  final lease = await NativeManagedAudioStore(
-    outputDirectory,
-  ).openVerified(locator: stem.path, expected: identity);
+  final lease = await NativeManagedAudioStore(outputDirectory).openVerified(
+    locator: stem.path,
+    expected: identity,
+    maximumBytes: 44_100 * 2 * 2 * 60 * (Platform.isAndroid ? 1 : 5) + 44,
+  );
   await lease.dispose();
   return SongStemReference(
     locator: source.uri.pathSegments.last,

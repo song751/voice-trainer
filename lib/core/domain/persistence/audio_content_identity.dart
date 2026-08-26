@@ -30,6 +30,7 @@ enum AudioContentFailureReason {
   missing,
   lengthMismatch,
   hashMismatch,
+  resourceLimit,
   ioFailure,
 }
 

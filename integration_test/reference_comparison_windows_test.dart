@@ -121,6 +121,13 @@ void main() {
           vocals: stem,
         ),
         referenceFeatures: referenceFeatures,
+        userFeatures: ReferenceAnalysisSeries(
+          sampleRate: 48000,
+          frameRateHz: 100,
+          algorithmVersion: referenceFeatures.algorithmVersion,
+          frames: userFrames,
+          sourceAudioIdentity: identity,
+        ),
         session: session,
         referenceRange: const PhraseRange(startSeconds: 0, endSeconds: 2.5),
         userRange: const PhraseRange(startSeconds: 0, endSeconds: 2.5),

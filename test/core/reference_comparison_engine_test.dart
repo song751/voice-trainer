@@ -393,6 +393,13 @@ ReferenceComparisonReport _compare(
       frames: referenceFeatures.frames,
       sourceAudioIdentity: _identity,
     ),
+    userFeatures: ReferenceAnalysisSeries(
+      sampleRate: 44100,
+      frameRateHz: session.features.frameRateHz,
+      algorithmVersion: 'reference-test-v1',
+      frames: session.features.frames,
+      sourceAudioIdentity: _identity,
+    ),
     session: session,
     referenceRange: referenceRange,
     userRange: userRange,
@@ -413,7 +420,7 @@ List<AnalysisFrame> _frames({
   final voiced = index >= voicedStart && index < voicedEnd;
   final phase = voiced ? (index - voicedStart) / (voicedEnd - voicedStart) : 0;
   return AnalysisFrame(
-    sampleIndex: index * 480,
+    sampleIndex: index * 441,
     rmsDbfs: voiced
         ? -24 + levelOffsetDb + 2 * math.sin(phase * math.pi * 2)
         : -90,

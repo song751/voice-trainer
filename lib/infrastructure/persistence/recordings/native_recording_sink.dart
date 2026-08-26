@@ -138,6 +138,12 @@ final class NativeRecordingStore
     return _managed.openVerified(
       locator: locator.value,
       expected: locator.identity,
+      // A/B verification is bounded even though native capture itself is not:
+      // Android admits one canonical minute; Windows admits the documented
+      // ten-minute soak. The managed store enforces this while streaming.
+      maximumBytes: Platform.isAndroid
+          ? 48_000 * 2 * 60 + 44
+          : 48_000 * 2 * 60 * 10 + 44,
     );
   }
 

@@ -65,6 +65,33 @@ void main() {
     expect(await file.exists(), isFalse);
   });
 
+  test(
+    'verified byte cap accepts the boundary and rejects one byte over',
+    () async {
+      final file = File('${root.path}${Platform.pathSeparator}bounded.wav');
+      await file.writeAsBytes(<int>[1, 2, 3]);
+      final identity = await NativeManagedAudioStore.identify(file);
+      final managed = NativeManagedAudioStore(root);
+
+      final lease = await managed.openVerified(
+        locator: 'bounded.wav',
+        expected: identity,
+        maximumBytes: 3,
+      );
+      expect(lease.bytes, hasLength(3));
+      await lease.dispose();
+
+      await expectLater(
+        managed.openVerified(
+          locator: 'bounded.wav',
+          expected: identity,
+          maximumBytes: 2,
+        ),
+        throwsA(_failure(AudioContentFailureReason.resourceLimit)),
+      );
+    },
+  );
+
   test('missing, length swap, and same-length hash swap are typed', () async {
     final store = NativeRecordingStore(root);
     const missingIdentity = AudioContentIdentity(

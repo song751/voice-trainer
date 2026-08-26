@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:typed_data';
+
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -798,13 +800,35 @@ final class _FixtureLease implements VerifiedAudioLease {
   final String path;
 
   @override
-  Uint8List get bytes => Uint8List.fromList(const <int>[1, 2, 3]);
+  Uint8List get bytes => _comparisonWavBytes();
 
   @override
   AudioContentIdentity get identity => _referenceIdentity;
 
   @override
   Future<void> dispose() async {}
+}
+
+Uint8List _comparisonWavBytes() {
+  const sampleRate = 44_100;
+  const frameCount = sampleRate * 3;
+  const dataBytes = frameCount * 2;
+  final bytes = Uint8List(44 + dataBytes);
+  final data = ByteData.sublistView(bytes);
+  bytes.setRange(0, 4, 'RIFF'.codeUnits);
+  data.setUint32(4, 36 + dataBytes, Endian.little);
+  bytes.setRange(8, 12, 'WAVE'.codeUnits);
+  bytes.setRange(12, 16, 'fmt '.codeUnits);
+  data.setUint32(16, 16, Endian.little);
+  data.setUint16(20, 1, Endian.little);
+  data.setUint16(22, 1, Endian.little);
+  data.setUint32(24, sampleRate, Endian.little);
+  data.setUint32(28, sampleRate * 2, Endian.little);
+  data.setUint16(32, 2, Endian.little);
+  data.setUint16(34, 16, Endian.little);
+  bytes.setRange(36, 40, 'data'.codeUnits);
+  data.setUint32(40, dataBytes, Endian.little);
+  return bytes;
 }
 
 final class _RecordingResolver implements VerifiedRecordingResolver {

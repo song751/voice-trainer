@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -52,7 +54,7 @@ class _ReferenceComparisonPageState
     final selected = state.selectedSession;
     final userDuration = selected == null
         ? 0.0
-        : selected.features.frames.length / selected.features.frameRateHz;
+        : state.selectedUserMediaDuration ?? 0.0;
     final busy = state.status == ReferenceComparisonStatus.analyzing;
     return Scaffold(
       appBar: AppBar(title: const Text('歌曲短句 A/B 对比')),
@@ -98,10 +100,12 @@ class _ReferenceComparisonPageState
                       ),
                     )
                     .toList(),
-                onChanged: busy
+                onChanged: busy || state.loadingUserMedia
                     ? null
                     : (value) {
-                        if (value != null) controller.selectSession(value);
+                        if (value != null) {
+                          unawaited(controller.selectSession(value));
+                        }
                       },
               ),
               const SizedBox(height: 16),
@@ -119,9 +123,11 @@ class _ReferenceComparisonPageState
                 title: '我的练唱窗口',
                 durationSeconds: userDuration,
                 range: state.userRange,
-                enabled: !busy,
+                enabled: !busy && !state.loadingUserMedia,
                 onChanged: controller.setUserRange,
-                onPreview: ref.watch(audioPreviewProvider).available
+                onPreview:
+                    ref.watch(audioPreviewProvider).available &&
+                        !state.loadingUserMedia
                     ? controller.previewUser
                     : null,
               ),
@@ -161,7 +167,9 @@ class _ReferenceComparisonPageState
               ),
               FilledButton.icon(
                 key: const Key('run-reference-comparison'),
-                onPressed: busy ? null : controller.compare,
+                onPressed: busy || state.loadingUserMedia
+                    ? null
+                    : controller.compare,
                 icon: const Icon(Icons.analytics_outlined),
                 label: const Text('分析这两个窗口'),
               ),
@@ -394,6 +402,8 @@ String _qualityFlag(ReferenceComparisonQualityFlag flag) => switch (flag) {
   ReferenceComparisonQualityFlag.userContentUnverified => '练唱内容未验证',
   ReferenceComparisonQualityFlag.referenceContentMismatch => '参考内容已变化',
   ReferenceComparisonQualityFlag.userContentMismatch => '练唱内容已变化',
+  ReferenceComparisonQualityFlag.referenceResourceLimit => '参考音频超过本地资源上限',
+  ReferenceComparisonQualityFlag.userResourceLimit => '练唱音频超过本地资源上限',
   ReferenceComparisonQualityFlag.referenceIsSeparationEstimate => '分离估计',
   ReferenceComparisonQualityFlag.separationArtifactPossible => '可能含分离伪影',
   ReferenceComparisonQualityFlag.artifactReviewRequired => '需听检伪影',
@@ -425,5 +435,6 @@ String _previewFailure(AudioPreviewFailureReason reason) => switch (reason) {
   AudioPreviewFailureReason.unavailable => '当前平台没有本地播放器。',
   AudioPreviewFailureReason.sourceMissing => '音频文件已不存在。',
   AudioPreviewFailureReason.unsupportedLocator => '这份录音的存储类型暂不支持回放。',
+  AudioPreviewFailureReason.resourceLimit => '音频超过本地对比资源上限，请裁剪后重试。',
   AudioPreviewFailureReason.playbackFailed => '播放器无法打开这个窗口。',
 };

@@ -91,6 +91,7 @@ enum AudioPreviewFailureReason {
   unavailable,
   sourceMissing,
   unsupportedLocator,
+  resourceLimit,
   playbackFailed,
 }
 
@@ -140,6 +141,8 @@ enum ReferenceComparisonQualityFlag {
   userContentUnverified,
   referenceContentMismatch,
   userContentMismatch,
+  referenceResourceLimit,
+  userResourceLimit,
   referenceIsSeparationEstimate,
   separationArtifactPossible,
   artifactReviewRequired,
@@ -163,12 +166,14 @@ final class ComparisonInputSnapshot {
     required this.review,
     required this.referenceLeaseIdentity,
     required this.userLeaseIdentity,
+    this.userFeatures,
     this.referenceIntegrityFailure,
     this.userIntegrityFailure,
   });
 
   final SeparatedSongReference reference;
   final ReferenceAnalysisSeries? referenceFeatures;
+  final ReferenceAnalysisSeries? userFeatures;
   final PracticeSessionRecord session;
   final PhraseRange referenceRange;
   final PhraseRange userRange;
@@ -308,6 +313,7 @@ final class ReferenceComparisonEngine {
   ReferenceComparisonReport compare(ComparisonInputSnapshot input) {
     final reference = input.reference;
     final referenceFeatures = input.referenceFeatures;
+    final userFeatures = input.userFeatures;
     final session = input.session;
     final referenceRange = input.referenceRange;
     final userRange = input.userRange;
@@ -334,8 +340,16 @@ final class ReferenceComparisonEngine {
         packedIdentity == null ||
         !storedRecordingIdentity.isWellFormed ||
         !packedIdentity.isWellFormed ||
+        (userFeatures == null && input.referenceIntegrityFailure == null) ||
         (input.userLeaseIdentity == null &&
             input.referenceIntegrityFailure == null);
+    if (input.referenceIntegrityFailure ==
+        AudioContentFailureReason.resourceLimit) {
+      flags.add(ReferenceComparisonQualityFlag.referenceResourceLimit);
+    }
+    if (input.userIntegrityFailure == AudioContentFailureReason.resourceLimit) {
+      flags.add(ReferenceComparisonQualityFlag.userResourceLimit);
+    }
     if (referenceIntegrityMissing) {
       flags.add(ReferenceComparisonQualityFlag.referenceContentUnverified);
     }
@@ -348,8 +362,10 @@ final class ReferenceComparisonEngine {
             input.referenceLeaseIdentity != referenceIdentity)) {
       flags.add(ReferenceComparisonQualityFlag.referenceContentMismatch);
     }
-    if (!userIntegrityMissing &&
-        (packedIdentity != storedRecordingIdentity ||
+    if (userFeatures != null &&
+        !userIntegrityMissing &&
+        (userFeatures.sourceAudioIdentity != storedRecordingIdentity ||
+            packedIdentity != storedRecordingIdentity ||
             input.userLeaseIdentity != storedRecordingIdentity)) {
       flags.add(ReferenceComparisonQualityFlag.userContentMismatch);
     }
@@ -382,6 +398,7 @@ final class ReferenceComparisonEngine {
       );
     }
     final verifiedReferenceFeatures = referenceFeatures!;
+    final verifiedUserFeatures = userFeatures!;
     final verifiedReferenceIdentity = referenceIdentity!;
     final verifiedRecordingIdentity = storedRecordingIdentity!;
     if (!review.artifactsAcceptable) {
@@ -404,12 +421,12 @@ final class ReferenceComparisonEngine {
 
     final referenceWindow = _window(
       verifiedReferenceFeatures.frames,
-      verifiedReferenceFeatures.frameRateHz,
+      verifiedReferenceFeatures.sampleRate,
       referenceRange,
     );
     final userWindow = _window(
-      session.features.frames,
-      session.features.frameRateHz,
+      verifiedUserFeatures.frames,
+      verifiedUserFeatures.sampleRate,
       userRange,
     );
     if (referenceWindow.any(
@@ -758,16 +775,19 @@ final class ReferenceComparisonEngine {
 
   List<_TimedFrame> _window(
     List<AnalysisFrame> frames,
-    int frameRateHz,
+    int sampleRate,
     PhraseRange range,
   ) {
     if (frames.isEmpty) return const <_TimedFrame>[];
-    return List<_TimedFrame>.generate(frames.length, (index) {
-      return _TimedFrame(index / frameRateHz, frames[index]);
-    }).where((item) {
-      return item.timeSeconds >= range.startSeconds &&
-          item.timeSeconds <= range.endSeconds;
-    }).toList();
+    return frames
+        .map((frame) {
+          return _TimedFrame(frame.sampleIndex / sampleRate, frame);
+        })
+        .where((item) {
+          return item.timeSeconds >= range.startSeconds &&
+              item.timeSeconds <= range.endSeconds;
+        })
+        .toList();
   }
 
   bool _isValidVoiced(_TimedFrame timed) {

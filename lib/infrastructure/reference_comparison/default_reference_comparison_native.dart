@@ -35,9 +35,13 @@ final class NativeVerifiedSongStemResolver implements VerifiedSongStemResolver {
       '${support.path}${Platform.pathSeparator}song-separation'
       '${Platform.pathSeparator}stems',
     );
-    return NativeManagedAudioStore(
-      root,
-    ).openVerified(locator: stem.locator, expected: stem.identity);
+    return NativeManagedAudioStore(root).openVerified(
+      locator: stem.locator,
+      expected: stem.identity,
+      // Separator admission is one minute on Android and five on Windows;
+      // stems are 44.1 kHz stereo PCM16 WAV.
+      maximumBytes: 44_100 * 2 * 2 * 60 * (Platform.isAndroid ? 1 : 5) + 44,
+    );
   }
 }
 

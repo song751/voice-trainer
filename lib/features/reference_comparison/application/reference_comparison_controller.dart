@@ -9,6 +9,7 @@ import '../../../core/domain/persistence/session_repository.dart';
 import '../../../core/domain/persistence/verified_recording_resolver.dart';
 import '../../../core/domain/reference/reference_comparison.dart';
 import '../../../core/domain/reference/song_reference.dart';
+import '../../../core/domain/reference/wav_media_timeline.dart';
 import '../../song_reference/application/song_reference_controller.dart';
 
 enum ReferenceComparisonStatus {
@@ -33,6 +34,8 @@ final class ReferenceComparisonState {
     this.report,
     this.failure,
     this.previewFailure,
+    this.userMediaDurations = const <String, double>{},
+    this.loadingUserMedia = false,
   });
 
   final ReferenceComparisonStatus status;
@@ -46,6 +49,8 @@ final class ReferenceComparisonState {
   final ReferenceComparisonReport? report;
   final ReferenceAnalysisFailureReason? failure;
   final AudioPreviewFailureReason? previewFailure;
+  final Map<String, double> userMediaDurations;
+  final bool loadingUserMedia;
 
   PracticeSessionRecord? get selectedSession {
     for (final session in sessions) {
@@ -53,6 +58,9 @@ final class ReferenceComparisonState {
     }
     return null;
   }
+
+  double? get selectedUserMediaDuration =>
+      selectedSessionId == null ? null : userMediaDurations[selectedSessionId];
 
   ReferenceComparisonState copyWith({
     ReferenceComparisonStatus? status,
@@ -66,6 +74,8 @@ final class ReferenceComparisonState {
     ReferenceComparisonReport? report,
     ReferenceAnalysisFailureReason? failure,
     AudioPreviewFailureReason? previewFailure,
+    Map<String, double>? userMediaDurations,
+    bool? loadingUserMedia,
     bool clearReport = false,
     bool clearFailure = false,
     bool clearPreviewFailure = false,
@@ -84,6 +94,8 @@ final class ReferenceComparisonState {
     previewFailure: clearPreviewFailure
         ? null
         : previewFailure ?? this.previewFailure,
+    userMediaDurations: userMediaDurations ?? this.userMediaDurations,
+    loadingUserMedia: loadingUserMedia ?? this.loadingUserMedia,
   );
 }
 
@@ -136,18 +148,26 @@ final class ReferenceComparisonController
           )
           .toList(growable: false);
       final selected = sessions.isEmpty ? null : sessions.first;
+      final mediaDuration = selected == null
+          ? null
+          : await _verifiedMediaDuration(selected);
+      final mediaDurations = mediaDuration == null
+          ? const <String, double>{}
+          : <String, double>{selected!.id: mediaDuration};
       final reference = ref.read(songReferenceControllerProvider).reference;
       final referenceDuration = reference == null
           ? 8.0
           : reference.durationSamples / reference.sampleRate;
       final userDuration = selected == null
           ? 8.0
-          : selected.features.frames.length / selected.features.frameRateHz;
+          : mediaDurations[selected.id] ?? 0.1;
       if (!_isCurrent(epoch)) return;
       state = state.copyWith(
         status: ReferenceComparisonStatus.ready,
         sessions: sessions,
         selectedSessionId: selected?.id,
+        userMediaDurations: mediaDurations,
+        loadingUserMedia: false,
         referenceRange: _initialRange(referenceDuration),
         userRange: _initialRange(userDuration),
       );
@@ -157,19 +177,30 @@ final class ReferenceComparisonController
     }
   }
 
-  void selectSession(String sessionId) {
+  Future<void> selectSession(String sessionId) async {
     final selected = state.sessions.firstWhere(
       (session) => session.id == sessionId,
     );
+    final epoch = ++_operationEpoch;
     state = state.copyWith(
       selectedSessionId: sessionId,
-      userRange: _initialRange(
-        selected.features.frames.length / selected.features.frameRateHz,
-      ),
+      userRange: _initialRange(state.userMediaDurations[selected.id] ?? 0.1),
+      loadingUserMedia: true,
       artifactsAcceptable: false,
       monophonicLeadConfirmed: false,
       clearReport: true,
       clearFailure: true,
+    );
+    final duration =
+        state.userMediaDurations[sessionId] ??
+        await _verifiedMediaDuration(selected);
+    if (!_isCurrent(epoch)) return;
+    final durations = <String, double>{...state.userMediaDurations};
+    if (duration != null) durations[sessionId] = duration;
+    state = state.copyWith(
+      userMediaDurations: Map.unmodifiable(durations),
+      userRange: _initialRange(duration ?? 0.1),
+      loadingUserMedia: false,
     );
   }
 
@@ -220,19 +251,50 @@ final class ReferenceComparisonController
       clearFailure: true,
       clearReport: true,
     );
-    _VerifiedComparisonInputs? leases;
+    ReferenceAnalysisSeries? referenceFeatures;
+    AudioContentIdentity? referenceLeaseIdentity;
+    var verifyingReference = true;
     try {
-      leases = await _verifiedInputs(vocals, session);
+      _validateReferenceIdentity(vocals);
+      verifyingReference = false;
+      _validateUserIdentity(session);
+      verifyingReference = true;
+      VerifiedAudioLease? referenceLease;
+      try {
+        referenceLease = await _stemResolver.openVerified(vocals);
+        referenceLeaseIdentity = referenceLease.identity;
+        referenceFeatures = await _extractor.analyze(
+          vocals: referenceLease,
+          onProgress: (progress) {
+            if (_isCurrent(epoch) &&
+                state.status == ReferenceComparisonStatus.analyzing) {
+              state = state.copyWith(progress: progress * 0.5);
+            }
+          },
+        );
+      } finally {
+        await referenceLease?.dispose();
+      }
       if (!_isCurrent(epoch)) return;
-      final referenceFeatures = await _extractor.analyze(
-        vocals: leases.reference,
-        onProgress: (progress) {
-          if (_isCurrent(epoch) &&
-              state.status == ReferenceComparisonStatus.analyzing) {
-            state = state.copyWith(progress: progress);
-          }
-        },
-      );
+      verifyingReference = false;
+      VerifiedAudioLease? userLease;
+      late final AudioContentIdentity userLeaseIdentity;
+      late final ReferenceAnalysisSeries userFeatures;
+      try {
+        userLease = await _recordingResolver.openVerified(session.recording!);
+        userLeaseIdentity = userLease.identity;
+        userFeatures = await _extractor.analyze(
+          vocals: userLease,
+          onProgress: (progress) {
+            if (_isCurrent(epoch) &&
+                state.status == ReferenceComparisonStatus.analyzing) {
+              state = state.copyWith(progress: 0.5 + progress * 0.5);
+            }
+          },
+        );
+      } finally {
+        await userLease?.dispose();
+      }
       if (!_isCurrent(epoch)) return;
       final report = ref
           .read(referenceComparisonEngineProvider)
@@ -240,12 +302,13 @@ final class ReferenceComparisonController
             ComparisonInputSnapshot(
               reference: reference,
               referenceFeatures: referenceFeatures,
+              userFeatures: userFeatures,
               session: session,
               referenceRange: referenceRange,
               userRange: userRange,
               review: review,
-              referenceLeaseIdentity: leases.reference.identity,
-              userLeaseIdentity: leases.user.identity,
+              referenceLeaseIdentity: referenceLeaseIdentity,
+              userLeaseIdentity: userLeaseIdentity,
             ),
           );
       if (!_isCurrent(epoch)) return;
@@ -254,26 +317,25 @@ final class ReferenceComparisonController
         progress: 1,
         report: report,
       );
-    } on _InputIntegrityFailure catch (failure) {
+    } on AudioContentFailure catch (failure) {
       if (!_isCurrent(epoch)) return;
       final report = ref
           .read(referenceComparisonEngineProvider)
           .compare(
             ComparisonInputSnapshot(
               reference: reference,
-              referenceFeatures: null,
+              referenceFeatures: referenceFeatures,
+              userFeatures: null,
               session: session,
               referenceRange: referenceRange,
               userRange: userRange,
               review: review,
-              referenceLeaseIdentity: failure.referenceLeaseIdentity,
+              referenceLeaseIdentity: referenceLeaseIdentity,
               userLeaseIdentity: null,
-              referenceIntegrityFailure: failure.reference
-                  ? failure.failure.reason
+              referenceIntegrityFailure: verifyingReference
+                  ? failure.reason
                   : null,
-              userIntegrityFailure: failure.reference
-                  ? null
-                  : failure.failure.reason,
+              userIntegrityFailure: verifyingReference ? null : failure.reason,
             ),
           );
       state = state.copyWith(
@@ -293,8 +355,6 @@ final class ReferenceComparisonController
         status: ReferenceComparisonStatus.failed,
         failure: ReferenceAnalysisFailureReason.processingFailed,
       );
-    } finally {
-      await leases?.dispose();
     }
   }
 
@@ -383,47 +443,39 @@ final class ReferenceComparisonController
   bool _isPreviewCurrent(int generation) =>
       !_disposed && generation == _previewGeneration;
 
-  Future<_VerifiedComparisonInputs> _verifiedInputs(
-    SongStemReference vocals,
-    PracticeSessionRecord session,
-  ) async {
-    if (!vocals.identity.isWellFormed) {
-      throw const _InputIntegrityFailure(
-        reference: true,
-        failure: AudioContentFailure(AudioContentFailureReason.legacyUnbound),
-      );
+  Future<double?> _verifiedMediaDuration(PracticeSessionRecord session) async {
+    final recording = session.recording;
+    if (recording == null) return null;
+    VerifiedAudioLease? lease;
+    try {
+      lease = await _recordingResolver.openVerified(recording);
+      return WavMediaTimeline.parse(lease.bytes).durationSeconds;
+    } on AudioContentFailure catch (_) {
+      // Keep the candidate: explicit preview/compare surfaces the same typed
+      // identity or resource-limit failure.
+      return null;
+    } on FormatException catch (_) {
+      // A malformed verified WAV has no honest seek timeline.
+      return null;
+    } finally {
+      await lease?.dispose();
     }
+  }
+
+  void _validateReferenceIdentity(SongStemReference vocals) {
+    if (!vocals.identity.isWellFormed) {
+      throw const AudioContentFailure(AudioContentFailureReason.legacyUnbound);
+    }
+  }
+
+  void _validateUserIdentity(PracticeSessionRecord session) {
     final recording = session.recording;
     if (recording?.identity == null ||
         session.features.sourceAudioIdentity == null) {
-      throw const _InputIntegrityFailure(
-        reference: false,
-        failure: AudioContentFailure(AudioContentFailureReason.legacyUnbound),
-      );
+      throw const AudioContentFailure(AudioContentFailureReason.legacyUnbound);
     }
     if (recording!.identity != session.features.sourceAudioIdentity) {
-      throw const _InputIntegrityFailure(
-        reference: false,
-        failure: AudioContentFailure(AudioContentFailureReason.hashMismatch),
-      );
-    }
-    late final VerifiedAudioLease reference;
-    try {
-      reference = await _stemResolver.openVerified(vocals);
-    } on AudioContentFailure catch (failure) {
-      throw _InputIntegrityFailure(reference: true, failure: failure);
-    }
-    try {
-      final user = await _recordingResolver.openVerified(recording);
-      return _VerifiedComparisonInputs(reference: reference, user: user);
-    } on AudioContentFailure catch (failure) {
-      final referenceIdentity = reference.identity;
-      await reference.dispose();
-      throw _InputIntegrityFailure(
-        reference: false,
-        failure: failure,
-        referenceLeaseIdentity: referenceIdentity,
-      );
+      throw const AudioContentFailure(AudioContentFailureReason.hashMismatch);
     }
   }
 
@@ -439,6 +491,8 @@ final class ReferenceComparisonController
         AudioContentFailureReason.lengthMismatch ||
         AudioContentFailureReason.hashMismatch =>
           AudioPreviewFailureReason.unsupportedLocator,
+        AudioContentFailureReason.resourceLimit =>
+          AudioPreviewFailureReason.resourceLimit,
         _ => AudioPreviewFailureReason.playbackFailed,
       },
     );
@@ -448,34 +502,4 @@ final class ReferenceComparisonController
     startSeconds: 0,
     endSeconds: durationSeconds.clamp(0.1, 8.0).toDouble(),
   );
-}
-
-final class _VerifiedComparisonInputs {
-  const _VerifiedComparisonInputs({
-    required this.reference,
-    required this.user,
-  });
-
-  final VerifiedAudioLease reference;
-  final VerifiedAudioLease user;
-
-  Future<void> dispose() async {
-    try {
-      await reference.dispose();
-    } finally {
-      await user.dispose();
-    }
-  }
-}
-
-final class _InputIntegrityFailure implements Exception {
-  const _InputIntegrityFailure({
-    required this.reference,
-    required this.failure,
-    this.referenceLeaseIdentity,
-  });
-
-  final bool reference;
-  final AudioContentFailure failure;
-  final AudioContentIdentity? referenceLeaseIdentity;
 }

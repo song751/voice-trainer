@@ -120,7 +120,7 @@ void main() {
 
   test('verified file mismatch produces typed suppression', () async {
     final harness = await _createHarness(
-      extractor: _DelayedExtractor(),
+      extractor: const _ImmediateExtractor(),
       recordingResolver: const _FailingRecordingResolver(
         AudioContentFailureReason.hashMismatch,
       ),
@@ -141,14 +141,88 @@ void main() {
     expect(report.metrics, isNull);
   });
 
+  test('resource limit is typed for comparison and preview', () async {
+    final harness = await _createHarness(
+      extractor: const _ImmediateExtractor(),
+      recordingResolver: const _FailingRecordingResolver(
+        AudioContentFailureReason.resourceLimit,
+      ),
+    );
+    addTearDown(harness.dispose);
+    final controller = harness.container.read(
+      referenceComparisonControllerProvider.notifier,
+    );
+
+    await controller.compare();
+    var state = harness.container.read(referenceComparisonControllerProvider);
+    expect(state.report!.suppressedReason, 'user_content_resourceLimit');
+    expect(
+      state.report!.qualityFlags,
+      contains(ReferenceComparisonQualityFlag.userResourceLimit),
+    );
+
+    await controller.previewUser();
+    state = harness.container.read(referenceComparisonControllerProvider);
+    expect(state.previewFailure, AudioPreviewFailureReason.resourceLimit);
+  });
+
+  test(
+    'gap capture uses compact verified WAV time for range and preview',
+    () async {
+      final preview = _PreviewProbe();
+      final harness = await _createHarness(
+        extractor: const _ImmediateExtractor(),
+        preview: preview,
+        session: _sessionWithCaptureGap(),
+      );
+      addTearDown(harness.dispose);
+      final controller = harness.container.read(
+        referenceComparisonControllerProvider.notifier,
+      );
+      final loaded = harness.container.read(
+        referenceComparisonControllerProvider,
+      );
+      expect(loaded.selectedUserMediaDuration, 3);
+      expect(loaded.userRange.endSeconds, 3);
+
+      const mediaRange = PhraseRange(startSeconds: 2, endSeconds: 2.5);
+      controller.setUserRange(mediaRange);
+      await controller.previewUser();
+      expect(preview.playedRanges.single.startSeconds, 2);
+      expect(preview.playedRanges.single.endSeconds, 2.5);
+    },
+  );
+
+  test('duration verification opens only the selected session', () async {
+    final resolver = _CountingRecordingResolver();
+    final harness = await _createHarness(
+      extractor: const _ImmediateExtractor(),
+      recordingResolver: resolver,
+      additionalSession: _olderSession(),
+    );
+    addTearDown(harness.dispose);
+    expect(resolver.openedLocators, <String>[r'C:\test\practice.wav']);
+
+    await harness.container
+        .read(referenceComparisonControllerProvider.notifier)
+        .selectSession('session-older');
+    expect(resolver.openedLocators, <String>[
+      r'C:\test\practice.wav',
+      r'C:\test\older.wav',
+    ]);
+  });
+
   test('comparison and preview dispose verified bytes immediately', () async {
+    final loadingLease = _Lease(r'C:\test\practice.wav');
     final referenceLease = _Lease(r'C:\test\vocals.wav');
     final comparisonUserLease = _Lease(r'C:\test\practice.wav');
     final previewUserLease = _Lease(r'C:\test\practice.wav');
-    final recordingResolver = _LeaseQueueRecordingResolver(<_Lease>[
-      comparisonUserLease,
-      previewUserLease,
-    ]);
+    final recordingResolver = _LeaseQueueRecordingResolver(
+      <_Lease>[loadingLease, comparisonUserLease, previewUserLease],
+      onOpen: (openCall) {
+        if (openCall == 2) expect(referenceLease.disposeCalls, 1);
+      },
+    );
     final harness = await _createHarness(
       extractor: const _ImmediateExtractor(),
       recordingResolver: recordingResolver,
@@ -166,6 +240,7 @@ void main() {
     await controller.previewUser();
 
     expect(referenceLease.disposeCalls, 1);
+    expect(loadingLease.disposeCalls, 1);
     expect(comparisonUserLease.disposeCalls, 1);
     expect(previewUserLease.disposeCalls, 1);
   });
@@ -177,9 +252,11 @@ Future<_Harness> _createHarness({
   PracticeSessionRecord? session,
   VerifiedRecordingResolver? recordingResolver,
   VerifiedSongStemResolver? stemResolver,
+  PracticeSessionRecord? additionalSession,
 }) async {
   final repository = InMemorySessionRepository();
   await repository.save(session ?? _session());
+  if (additionalSession != null) await repository.save(additionalSession);
   final container = ProviderContainer(
     overrides: <Override>[
       songFilePickerProvider.overrideWithValue(const _Picker(_Source())),
@@ -284,6 +361,7 @@ final class _PreviewProbe implements AudioPreview {
 
   final bool blockFirstStop;
   final events = <String>[];
+  final playedRanges = <PhraseRange>[];
   final firstStopStarted = Completer<void>();
   final _firstStopRelease = Completer<void>();
   var stopCalls = 0;
@@ -300,6 +378,7 @@ final class _PreviewProbe implements AudioPreview {
     required PhraseRange range,
   }) async {
     events.add('play:${(source as _Lease).path}');
+    playedRanges.add(range);
   }
 
   @override
@@ -433,6 +512,51 @@ PracticeSessionRecord _legacySession() {
   );
 }
 
+PracticeSessionRecord _sessionWithCaptureGap() {
+  final session = _session();
+  final frames = _frames();
+  final discontinuous = List<AnalysisFrame>.generate(frames.length, (index) {
+    final frame = frames[index];
+    return AnalysisFrame(
+      sampleIndex: frame.sampleIndex + (index < 150 ? 0 : 48_000),
+      rmsDbfs: frame.rmsDbfs,
+      peakDbfs: frame.peakDbfs,
+      pitchClarity: frame.pitchClarity,
+      voiced: frame.voiced,
+      algorithmVersion: frame.algorithmVersion,
+      pitchCents: frame.pitchCents,
+    );
+  });
+  return PracticeSessionRecord(
+    id: session.id,
+    template: session.template,
+    startedAt: session.startedAt,
+    summary: session.summary,
+    features: FeatureSeries(
+      frameRateHz: 100,
+      frames: discontinuous,
+      sourceAudioIdentity: _identity,
+    ),
+    recording: session.recording,
+  );
+}
+
+PracticeSessionRecord _olderSession() {
+  final session = _session();
+  return PracticeSessionRecord(
+    id: 'session-older',
+    template: session.template,
+    startedAt: DateTime.utc(2026, 8, 26),
+    summary: session.summary,
+    features: session.features,
+    recording: const RecordingLocator(
+      value: r'C:\test\older.wav',
+      storageKind: RecordingStorageKind.file,
+      identity: _identity,
+    ),
+  );
+}
+
 const _identity = AudioContentIdentity(
   sha256: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
   byteLength: 100,
@@ -445,7 +569,7 @@ final class _Lease implements VerifiedAudioLease {
   var disposeCalls = 0;
 
   @override
-  Uint8List get bytes => Uint8List.fromList(const <int>[1, 2, 3]);
+  Uint8List get bytes => _wavBytes(sampleRate: 100, frameCount: 300);
 
   @override
   AudioContentIdentity get identity => _identity;
@@ -454,6 +578,26 @@ final class _Lease implements VerifiedAudioLease {
   Future<void> dispose() async {
     disposeCalls++;
   }
+}
+
+Uint8List _wavBytes({required int sampleRate, required int frameCount}) {
+  final dataBytes = frameCount * 2;
+  final bytes = Uint8List(44 + dataBytes);
+  final data = ByteData.sublistView(bytes);
+  bytes.setRange(0, 4, 'RIFF'.codeUnits);
+  data.setUint32(4, 36 + dataBytes, Endian.little);
+  bytes.setRange(8, 12, 'WAVE'.codeUnits);
+  bytes.setRange(12, 16, 'fmt '.codeUnits);
+  data.setUint32(16, 16, Endian.little);
+  data.setUint16(20, 1, Endian.little);
+  data.setUint16(22, 1, Endian.little);
+  data.setUint32(24, sampleRate, Endian.little);
+  data.setUint32(28, sampleRate * 2, Endian.little);
+  data.setUint16(32, 2, Endian.little);
+  data.setUint16(34, 16, Endian.little);
+  bytes.setRange(36, 40, 'data'.codeUnits);
+  data.setUint32(40, dataBytes, Endian.little);
+  return bytes;
 }
 
 final class _RecordingResolver implements VerifiedRecordingResolver {
@@ -465,6 +609,19 @@ final class _RecordingResolver implements VerifiedRecordingResolver {
   @override
   Future<VerifiedAudioLease> openVerified(RecordingLocator locator) async =>
       _Lease(locator.value);
+}
+
+final class _CountingRecordingResolver implements VerifiedRecordingResolver {
+  final openedLocators = <String>[];
+
+  @override
+  bool get available => true;
+
+  @override
+  Future<VerifiedAudioLease> openVerified(RecordingLocator locator) async {
+    openedLocators.add(locator.value);
+    return _Lease(locator.value);
+  }
 }
 
 final class _FailingRecordingResolver implements VerifiedRecordingResolver {
@@ -493,16 +650,21 @@ final class _StemResolver implements VerifiedSongStemResolver {
 }
 
 final class _LeaseQueueRecordingResolver implements VerifiedRecordingResolver {
-  _LeaseQueueRecordingResolver(this.leases);
+  _LeaseQueueRecordingResolver(this.leases, {this.onOpen});
 
   final List<_Lease> leases;
+  final void Function(int openCall)? onOpen;
+  var _openCalls = 0;
 
   @override
   bool get available => true;
 
   @override
-  Future<VerifiedAudioLease> openVerified(RecordingLocator locator) async =>
-      leases.removeAt(0);
+  Future<VerifiedAudioLease> openVerified(RecordingLocator locator) async {
+    _openCalls++;
+    onOpen?.call(_openCalls);
+    return leases.removeAt(0);
+  }
 }
 
 final class _LeaseStemResolver implements VerifiedSongStemResolver {
