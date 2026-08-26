@@ -2,7 +2,7 @@
 
 这是一个面向 Windows、Android、Web，并逐步覆盖 macOS、iOS、Linux 的本地优先练声应用规划仓库。
 
-当前状态：**Phase 1 与 Closure C1–C4、P2-01 至 P2-07，以及 Phase 3 的 P3-00 至 P3-06、工作树 checkpoint `P3-07P`、证据合同 `P3-07A`、性能观测 `P3-07B` 和故障运行手册 `P3-07C`，以及 P4-00 至 P4-02 均已形成可复验基线；P4-03 Android capture/DSP production composition 已完成，等待集成接受**。Android 当前默认使用 record + native Rust worker，但持久化仍保持 fallback，P4-04 前不宣称 durable save/recovery。仓库所有者于 2026-08-26 授权在保持文件边界和证据真实性的前提下并行推进可独立工作。`P3-07D`、Android 真机、真实浏览器麦克风和最终 Closure 仍明确阻塞，任何模拟器/root/fake 结果都不能替代。
+当前状态：**Phase 1 与 Closure C1–C4、P2-01 至 P2-07，以及 Phase 3 的 P3-00 至 P3-06、工作树 checkpoint `P3-07P`、证据合同 `P3-07A`、性能观测 `P3-07B` 和故障运行手册 `P3-07C`，以及 P4-00 至 P4-02 均已形成可复验基线；P4-03 Android capture/DSP production composition 已完成，等待集成接受**。Android 当前默认使用 record + native Rust worker，但持久化仍保持 fallback，P4-04 前不宣称 durable save/recovery。模拟器 integration 可用 `tool/p4_03_android_permission_test.ps1 -Endpoint 127.0.0.1:16384 -Permission allow` 由标准 SDK ADB 自动授予录音权限，不需要 root；`deny` 同样可自动覆盖拒绝路径。仓库所有者于 2026-08-26 授权在保持文件边界和证据真实性的前提下并行推进可独立工作。`P3-07D`、Android 真机、真实浏览器麦克风和最终 Closure 仍明确阻塞，任何模拟器/root/fake 结果都不能替代。
 
 应用提供可覆盖的 audio capture、analysis engine、recording sink/store 和 session repository provider，默认接入确定性 fake session；最小导航包含首页、实时练习、结果、历史和设置。它不直接在页面中引用 `record`、Drift 或 FRB，也不恢复 FRB 2.12 默认 WASM WorkerPool。Gate 0A–0E 的实测证据及 Phase 1 决策见 `docs/RESEARCH_NOTES.md` 和 `docs/adr/0001-frb-2-12-phase0-compatibility.md`。
 

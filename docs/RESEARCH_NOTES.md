@@ -634,6 +634,7 @@ Phase-boundary 回归：FRB codegen 连续两次 7 个生成文件 SHA-256 不�
 - 真实 composition smoke 发现应用默认路径没有先调用 `RustLib.init()`；P4-02 的专用 probe 自行初始化因而未暴露该问题。`FrbAnalysisWorker` 现在在创建 analyzer 前幂等初始化 FRB，并在初始化失败时清除缓存 Future，以允许 supervisor restart/fallback 再试。
 - API 35/x86_64 emulator `127.0.0.1:16384` permission granted smoke：请求与 effective format 均为 PCM16 mono 48 kHz，188 chunks / 48,128 samples，真实 plugin pause/resume/stop 成功，production Rust analyzer产生 94 frames。报告不保存 PCM，不判断这些输入是否为真实麦克风/真人声。
 - 同一 emulator 在 `RECORD_AUDIO` 预先 revoke 且设为 user-fixed/user-set 后，permission smoke 返回 denied、capture 未启动、0 analysis frame；测试结束后 integration package 被卸载。另一个 emulator integration 以 fake/synthetic contract 覆盖 unsupported/changed format、worker failure 和 queue drop，不能替代真机证据。
+- `tool/p4_03_android_permission_test.ps1` 在 Flutter 安装 integration package 后轮询包出现，并使用标准 SDK ADB 的 `pm grant/revoke` 与 `appops allow/deny` 自动设置 `RECORD_AUDIO`。这解决了测试包每次重装后权限丢失造成的人工弹窗；正常 allow/deny gate 不使用 root。root 仍只允许用于明确隔离、可恢复的存储故障注入，不能成为产品或录音权限前提。
 
 ### SRD-01 歌曲人声分离基线（2026-08-26，R&D evidence only）
 
