@@ -76,6 +76,7 @@ void main() {
     expect(find.byKey(const Key('result-pitch-stability')), findsOneWidget);
     expect(find.byKey(const Key('result-level-stability')), findsOneWidget);
     expect(find.byKey(const Key('result-onset')), findsOneWidget);
+    expect(find.textContaining('目标音高中位偏差：+40.0 cents'), findsOneWidget);
     expect(find.textContaining('置信度 92%'), findsOneWidget);
     expect(find.textContaining('范围：会话'), findsOneWidget);
     expect(find.textContaining('证据：目标命中率'), findsOneWidget);
@@ -142,6 +143,7 @@ PracticeSessionRecord _record() => PracticeSessionRecord(
     validFrameCount: 92,
     totalFrameCount: 100,
     targetHitRate: .68,
+    targetDeviationMedianCents: 40,
     pitchStability: const StabilitySummary(
       median: 6902,
       medianAbsoluteDeviation: 7.5,

@@ -85,6 +85,7 @@ class _SummaryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final hitRate = record.summary.targetHitRate;
+    final targetDeviation = record.summary.targetDeviationMedianCents;
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -103,6 +104,11 @@ class _SummaryCard extends StatelessWidget {
                   : '目标命中率：${(hitRate * 100).toStringAsFixed(0)}%',
               key: const Key('result-hit-rate'),
             ),
+            if (targetDeviation != null)
+              Text(
+                '目标音高中位偏差：${_signedValue(targetDeviation, 1)} cents',
+                key: const Key('result-target-deviation'),
+              ),
             Text('录音状态：${record.recording == null ? '仅保存指标' : '已保存录音'}'),
           ],
         ),
@@ -264,6 +270,15 @@ String _observationLabel(Observation observation) =>
       'recording_quality_limited' => '本次录音质量不足，仅提供录音改善建议。',
       'target_alignment_consistent' => '有效帧大多落在目标音容差内。',
       'target_alignment_practice_needed' => '有效帧落在目标音容差内的比例有限，可重复目标音练习。',
+      'target_pitch_consistently_high' => '有效帧的音高中位数高于目标容差。',
+      'target_pitch_consistently_low' => '有效帧的音高中位数低于目标容差。',
+      'pitch_variation_observed' => '稳态片段测得的音高波动较大。',
+      'pitch_drift_upward' => '稳态片段测得音高随时间上升。',
+      'pitch_drift_downward' => '稳态片段测得音高随时间下降。',
+      'level_variation_observed' => '稳态片段测得的音量波动较大。',
+      'level_drift_upward' => '稳态片段测得音量随时间上升。',
+      'level_drift_downward' => '稳态片段测得音量随时间下降。',
+      'stable_pitch_onset_delayed' => '从达到输入能量到形成稳定音高的时间较长。',
       _ => '本次练习的描述性观察已生成。',
     };
 
@@ -290,6 +305,17 @@ String _evidenceLabel(Evidence evidence) {
   final label = switch (evidence.metric) {
     'target_hit_rate' => '目标命中率',
     'target_tolerance_cents' => '目标容差',
+    'target_deviation_median_cents' => '目标音高中位偏差',
+    'pitch_mad_cents' => '音高 MAD',
+    'pitch_variation_threshold_cents' => '音高波动门槛',
+    'pitch_slope_cents_per_second' => '音高漂移',
+    'pitch_drift_threshold_cents_per_second' => '音高漂移门槛',
+    'level_mad_db' => '音量 MAD',
+    'level_variation_threshold_db' => '音量波动门槛',
+    'level_slope_db_per_second' => '音量漂移',
+    'level_drift_threshold_db_per_second' => '音量漂移门槛',
+    'onset_delay_samples' => '稳定音高形成时间',
+    'onset_delay_threshold_samples' => '起音时间门槛',
     'valid_frame_count' => '有效帧数',
     'valid_frame_ratio' => '有效帧比例',
     _ => evidence.metric,
@@ -299,8 +325,20 @@ String _evidenceLabel(Evidence evidence) {
   final value = isRatio
       ? '${(evidence.value * 100).toStringAsFixed(0)}%'
       : evidence.value.toStringAsFixed(1);
-  return '$label $value（${_basisLabel(evidence.basis)}）';
+  return '$label $value${_evidenceUnit(evidence.metric)}（${_basisLabel(evidence.basis)}）';
 }
+
+String _evidenceUnit(String metric) {
+  if (metric.contains('cents_per_second')) return ' cents/秒';
+  if (metric.contains('cents')) return ' cents';
+  if (metric.contains('db_per_second')) return ' dB/秒';
+  if (metric.contains('_db')) return ' dB';
+  if (metric.contains('samples')) return ' samples';
+  return '';
+}
+
+String _signedValue(double value, int fractionDigits) =>
+    '${value >= 0 ? '+' : ''}${value.toStringAsFixed(fractionDigits)}';
 
 String _qualityLabel(AnalysisQualityFlag flag) => switch (flag) {
   AnalysisQualityFlag.clipping => '检测到削波：请降低输入音量或远离麦克风。',
