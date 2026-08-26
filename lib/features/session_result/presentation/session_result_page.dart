@@ -12,6 +12,7 @@ import '../../../core/domain/practice/practice_template.dart';
 import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/responsive_page_body.dart';
 import '../../live_practice/application/live_practice_controller.dart';
+import '../../voice_comparison/presentation/voice_comparison_evidence_card.dart';
 
 class SessionResultPage extends ConsumerWidget {
   const SessionResultPage({super.key});
@@ -41,6 +42,10 @@ class SessionResultPage extends ConsumerWidget {
             _SummaryCard(record: record),
             const SizedBox(height: 12),
             _MeasurementsCard(summary: record.summary),
+            if (record.voiceComparison case final context?) ...<Widget>[
+              const SizedBox(height: 12),
+              VoiceComparisonEvidenceCard(plan: context.plan),
+            ],
             if (record.summary.qualityFlags.isNotEmpty) ...<Widget>[
               const SizedBox(height: 12),
               _QualityCard(flags: record.summary.qualityFlags),

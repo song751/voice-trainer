@@ -12,6 +12,8 @@ import '../../../core/platform/platform_capabilities.dart';
 import '../../../core/widgets/responsive_page_body.dart';
 import '../application/live_practice_controller.dart';
 import '../domain/practice_session_state.dart';
+import '../../voice_comparison/application/active_voice_comparison_take.dart';
+import '../../voice_comparison/presentation/voice_comparison_evidence_card.dart';
 
 class LivePracticePage extends ConsumerWidget {
   const LivePracticePage({super.key});
@@ -28,6 +30,7 @@ class LivePracticePage extends ConsumerWidget {
         .targetMidiNote;
     final controller = ref.read(livePracticeControllerProvider.notifier);
     final capabilities = ref.watch(platformCapabilitiesProvider);
+    final comparisonTake = ref.watch(activeVoiceComparisonTakeProvider);
     final hasNoData =
         sessionState is Completed &&
         (completedSession == null || completedSession.features.frames.isEmpty);
@@ -38,6 +41,23 @@ class LivePracticePage extends ConsumerWidget {
         child: ListView(
           key: const Key('live-page-scroll'),
           children: <Widget>[
+            if (comparisonTake case final take?)
+              Card(
+                key: const Key('active-voice-comparison-take'),
+                child: ListTile(
+                  leading: const Icon(Icons.compare_arrows),
+                  title: Text(
+                    '本次录制 ${take.side.name.toUpperCase()} · '
+                    '${voiceIntentLabel(take.label.labelKey)}',
+                  ),
+                  subtitle: Text(
+                    '${take.plan.scope.pitchContextKey} · '
+                    '/${take.plan.scope.vowelIpa}/ · '
+                    '${take.plan.scope.loudnessConditionKey} · '
+                    '${take.plan.scope.protocolId}',
+                  ),
+                ),
+              ),
             if (capabilities.capture == PlatformAdapterMode.fallback)
               const Card(
                 child: ListTile(

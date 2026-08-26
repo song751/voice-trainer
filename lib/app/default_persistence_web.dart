@@ -3,22 +3,27 @@ import '../core/domain/persistence/recording_locator.dart';
 import '../core/domain/persistence/recording_sink.dart';
 import '../core/domain/persistence/recording_store.dart';
 import '../core/domain/persistence/session_repository.dart';
+import '../core/domain/persistence/voice_comparison_plan_store.dart';
+import '../core/domain/analysis/voice_comparison.dart';
 import '../core/errors/failure.dart';
 import '../core/platform/platform_capabilities.dart';
 import '../infrastructure/persistence/database/app_database.dart';
 import '../infrastructure/persistence/database/connection/open_database.dart';
 import '../infrastructure/persistence/in_memory_recording_store.dart';
 import '../infrastructure/persistence/in_memory_session_repository.dart';
+import '../infrastructure/persistence/in_memory_voice_comparison_plan_store.dart';
 import '../infrastructure/persistence/recordings/recording_recovery_service.dart';
 import '../infrastructure/persistence/recordings/web_recording_sink.dart';
 import '../infrastructure/persistence/recordings/web_storage_result.dart';
 import '../infrastructure/persistence/repositories/drift_session_repository.dart';
+import '../infrastructure/persistence/repositories/drift_voice_comparison_plan_store.dart';
 
 final class DefaultPersistenceAdapters {
   DefaultPersistenceAdapters._({
     required this.recordingStore,
     required this.recordingSink,
     required this.sessionRepository,
+    required this.voiceComparisonPlanStore,
     required this.usesNativePersistence,
     required this.usesPersistentStorage,
     this._web,
@@ -27,6 +32,7 @@ final class DefaultPersistenceAdapters {
   final RecordingStore recordingStore;
   final RecordingSink recordingSink;
   final SessionRepository sessionRepository;
+  final VoiceComparisonPlanStore voiceComparisonPlanStore;
   final bool usesNativePersistence;
   final bool usesPersistentStorage;
   final _WebPersistenceHost? _web;
@@ -59,6 +65,7 @@ DefaultPersistenceAdapters createDefaultPersistenceAdapters(
       recordingStore: store,
       recordingSink: InMemoryRecordingSink(store),
       sessionRepository: InMemorySessionRepository(recordingStore: store),
+      voiceComparisonPlanStore: InMemoryVoiceComparisonPlanStore(),
       usesNativePersistence: false,
       usesPersistentStorage: false,
     );
@@ -72,6 +79,7 @@ DefaultPersistenceAdapters createDefaultPersistenceAdapters(
           capabilities.maximumRecordingDuration ?? const Duration(seconds: 60),
     ),
     sessionRepository: _DeferredWebSessionRepository(web),
+    voiceComparisonPlanStore: _DeferredWebVoiceComparisonPlanStore(web),
     usesNativePersistence: false,
     usesPersistentStorage: true,
     web: web,
@@ -108,6 +116,7 @@ final class _WebPersistenceHost {
         database,
         recordingStore: store,
       );
+      final voiceComparisonPlanStore = DriftVoiceComparisonPlanStore(database);
       await RecordingRecoveryService(
         database: database,
         store: store,
@@ -115,6 +124,7 @@ final class _WebPersistenceHost {
       return _WebPersistence(
         database: database,
         repository: repository,
+        voiceComparisonPlanStore: voiceComparisonPlanStore,
         report: PersistenceStorageReport(
           structuredDataKind: databaseResult.chosenImplementation,
           recordingStorageKind: recordingKind,
@@ -138,12 +148,31 @@ final class _WebPersistence {
   const _WebPersistence({
     required this.database,
     required this.repository,
+    required this.voiceComparisonPlanStore,
     required this.report,
   });
 
   final AppDatabase database;
   final DriftSessionRepository repository;
+  final DriftVoiceComparisonPlanStore voiceComparisonPlanStore;
   final PersistenceStorageReport report;
+}
+
+final class _DeferredWebVoiceComparisonPlanStore
+    implements VoiceComparisonPlanStore {
+  const _DeferredWebVoiceComparisonPlanStore(this._web);
+  final _WebPersistenceHost _web;
+
+  Future<DriftVoiceComparisonPlanStore> get _delegate async =>
+      (await _web.open()).voiceComparisonPlanStore;
+
+  @override
+  Future<VoiceComparisonPlan?> loadLatestPlan() async =>
+      (await _delegate).loadLatestPlan();
+
+  @override
+  Future<void> savePlan(VoiceComparisonPlan plan) async =>
+      (await _delegate).savePlan(plan);
 }
 
 final class _DeferredWebRecordingStore implements RecordingStore {

@@ -76,6 +76,7 @@ enum VoiceMeasurementUnit {
   ratio,
   percent,
   milliseconds,
+  samples,
   normalizedScore,
   unitless,
 }

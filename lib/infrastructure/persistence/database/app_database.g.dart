@@ -85,6 +85,17 @@ class $PracticeSessionsTable extends PracticeSessions
     requiredDuringInsert: false,
     defaultValue: const Constant('{}'),
   );
+  static const VerificationMeta _voiceComparisonJsonMeta =
+      const VerificationMeta('voiceComparisonJson');
+  @override
+  late final GeneratedColumn<String> voiceComparisonJson =
+      GeneratedColumn<String>(
+        'voice_comparison_json',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -94,6 +105,7 @@ class $PracticeSessionsTable extends PracticeSessions
     totalFrameCount,
     qualityFlagsJson,
     summaryJson,
+    voiceComparisonJson,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -173,6 +185,15 @@ class $PracticeSessionsTable extends PracticeSessions
         ),
       );
     }
+    if (data.containsKey('voice_comparison_json')) {
+      context.handle(
+        _voiceComparisonJsonMeta,
+        voiceComparisonJson.isAcceptableOrUnknown(
+          data['voice_comparison_json']!,
+          _voiceComparisonJsonMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -210,6 +231,10 @@ class $PracticeSessionsTable extends PracticeSessions
         DriftSqlType.string,
         data['${effectivePrefix}summary_json'],
       )!,
+      voiceComparisonJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}voice_comparison_json'],
+      ),
     );
   }
 
@@ -227,6 +252,7 @@ class PracticeSession extends DataClass implements Insertable<PracticeSession> {
   final int totalFrameCount;
   final String qualityFlagsJson;
   final String summaryJson;
+  final String? voiceComparisonJson;
   const PracticeSession({
     required this.id,
     required this.templateJson,
@@ -235,6 +261,7 @@ class PracticeSession extends DataClass implements Insertable<PracticeSession> {
     required this.totalFrameCount,
     required this.qualityFlagsJson,
     required this.summaryJson,
+    this.voiceComparisonJson,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -246,6 +273,9 @@ class PracticeSession extends DataClass implements Insertable<PracticeSession> {
     map['total_frame_count'] = Variable<int>(totalFrameCount);
     map['quality_flags_json'] = Variable<String>(qualityFlagsJson);
     map['summary_json'] = Variable<String>(summaryJson);
+    if (!nullToAbsent || voiceComparisonJson != null) {
+      map['voice_comparison_json'] = Variable<String>(voiceComparisonJson);
+    }
     return map;
   }
 
@@ -258,6 +288,9 @@ class PracticeSession extends DataClass implements Insertable<PracticeSession> {
       totalFrameCount: Value(totalFrameCount),
       qualityFlagsJson: Value(qualityFlagsJson),
       summaryJson: Value(summaryJson),
+      voiceComparisonJson: voiceComparisonJson == null && nullToAbsent
+          ? const Value.absent()
+          : Value(voiceComparisonJson),
     );
   }
 
@@ -274,6 +307,9 @@ class PracticeSession extends DataClass implements Insertable<PracticeSession> {
       totalFrameCount: serializer.fromJson<int>(json['totalFrameCount']),
       qualityFlagsJson: serializer.fromJson<String>(json['qualityFlagsJson']),
       summaryJson: serializer.fromJson<String>(json['summaryJson']),
+      voiceComparisonJson: serializer.fromJson<String?>(
+        json['voiceComparisonJson'],
+      ),
     );
   }
   @override
@@ -287,6 +323,7 @@ class PracticeSession extends DataClass implements Insertable<PracticeSession> {
       'totalFrameCount': serializer.toJson<int>(totalFrameCount),
       'qualityFlagsJson': serializer.toJson<String>(qualityFlagsJson),
       'summaryJson': serializer.toJson<String>(summaryJson),
+      'voiceComparisonJson': serializer.toJson<String?>(voiceComparisonJson),
     };
   }
 
@@ -298,6 +335,7 @@ class PracticeSession extends DataClass implements Insertable<PracticeSession> {
     int? totalFrameCount,
     String? qualityFlagsJson,
     String? summaryJson,
+    Value<String?> voiceComparisonJson = const Value.absent(),
   }) => PracticeSession(
     id: id ?? this.id,
     templateJson: templateJson ?? this.templateJson,
@@ -306,6 +344,9 @@ class PracticeSession extends DataClass implements Insertable<PracticeSession> {
     totalFrameCount: totalFrameCount ?? this.totalFrameCount,
     qualityFlagsJson: qualityFlagsJson ?? this.qualityFlagsJson,
     summaryJson: summaryJson ?? this.summaryJson,
+    voiceComparisonJson: voiceComparisonJson.present
+        ? voiceComparisonJson.value
+        : this.voiceComparisonJson,
   );
   PracticeSession copyWithCompanion(PracticeSessionsCompanion data) {
     return PracticeSession(
@@ -326,6 +367,9 @@ class PracticeSession extends DataClass implements Insertable<PracticeSession> {
       summaryJson: data.summaryJson.present
           ? data.summaryJson.value
           : this.summaryJson,
+      voiceComparisonJson: data.voiceComparisonJson.present
+          ? data.voiceComparisonJson.value
+          : this.voiceComparisonJson,
     );
   }
 
@@ -338,7 +382,8 @@ class PracticeSession extends DataClass implements Insertable<PracticeSession> {
           ..write('validFrameCount: $validFrameCount, ')
           ..write('totalFrameCount: $totalFrameCount, ')
           ..write('qualityFlagsJson: $qualityFlagsJson, ')
-          ..write('summaryJson: $summaryJson')
+          ..write('summaryJson: $summaryJson, ')
+          ..write('voiceComparisonJson: $voiceComparisonJson')
           ..write(')'))
         .toString();
   }
@@ -352,6 +397,7 @@ class PracticeSession extends DataClass implements Insertable<PracticeSession> {
     totalFrameCount,
     qualityFlagsJson,
     summaryJson,
+    voiceComparisonJson,
   );
   @override
   bool operator ==(Object other) =>
@@ -363,7 +409,8 @@ class PracticeSession extends DataClass implements Insertable<PracticeSession> {
           other.validFrameCount == this.validFrameCount &&
           other.totalFrameCount == this.totalFrameCount &&
           other.qualityFlagsJson == this.qualityFlagsJson &&
-          other.summaryJson == this.summaryJson);
+          other.summaryJson == this.summaryJson &&
+          other.voiceComparisonJson == this.voiceComparisonJson);
 }
 
 class PracticeSessionsCompanion extends UpdateCompanion<PracticeSession> {
@@ -374,6 +421,7 @@ class PracticeSessionsCompanion extends UpdateCompanion<PracticeSession> {
   final Value<int> totalFrameCount;
   final Value<String> qualityFlagsJson;
   final Value<String> summaryJson;
+  final Value<String?> voiceComparisonJson;
   final Value<int> rowid;
   const PracticeSessionsCompanion({
     this.id = const Value.absent(),
@@ -383,6 +431,7 @@ class PracticeSessionsCompanion extends UpdateCompanion<PracticeSession> {
     this.totalFrameCount = const Value.absent(),
     this.qualityFlagsJson = const Value.absent(),
     this.summaryJson = const Value.absent(),
+    this.voiceComparisonJson = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   PracticeSessionsCompanion.insert({
@@ -393,6 +442,7 @@ class PracticeSessionsCompanion extends UpdateCompanion<PracticeSession> {
     required int totalFrameCount,
     required String qualityFlagsJson,
     this.summaryJson = const Value.absent(),
+    this.voiceComparisonJson = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        templateJson = Value(templateJson),
@@ -408,6 +458,7 @@ class PracticeSessionsCompanion extends UpdateCompanion<PracticeSession> {
     Expression<int>? totalFrameCount,
     Expression<String>? qualityFlagsJson,
     Expression<String>? summaryJson,
+    Expression<String>? voiceComparisonJson,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -418,6 +469,8 @@ class PracticeSessionsCompanion extends UpdateCompanion<PracticeSession> {
       if (totalFrameCount != null) 'total_frame_count': totalFrameCount,
       if (qualityFlagsJson != null) 'quality_flags_json': qualityFlagsJson,
       if (summaryJson != null) 'summary_json': summaryJson,
+      if (voiceComparisonJson != null)
+        'voice_comparison_json': voiceComparisonJson,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -430,6 +483,7 @@ class PracticeSessionsCompanion extends UpdateCompanion<PracticeSession> {
     Value<int>? totalFrameCount,
     Value<String>? qualityFlagsJson,
     Value<String>? summaryJson,
+    Value<String?>? voiceComparisonJson,
     Value<int>? rowid,
   }) {
     return PracticeSessionsCompanion(
@@ -440,6 +494,7 @@ class PracticeSessionsCompanion extends UpdateCompanion<PracticeSession> {
       totalFrameCount: totalFrameCount ?? this.totalFrameCount,
       qualityFlagsJson: qualityFlagsJson ?? this.qualityFlagsJson,
       summaryJson: summaryJson ?? this.summaryJson,
+      voiceComparisonJson: voiceComparisonJson ?? this.voiceComparisonJson,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -468,6 +523,11 @@ class PracticeSessionsCompanion extends UpdateCompanion<PracticeSession> {
     if (summaryJson.present) {
       map['summary_json'] = Variable<String>(summaryJson.value);
     }
+    if (voiceComparisonJson.present) {
+      map['voice_comparison_json'] = Variable<String>(
+        voiceComparisonJson.value,
+      );
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -484,6 +544,7 @@ class PracticeSessionsCompanion extends UpdateCompanion<PracticeSession> {
           ..write('totalFrameCount: $totalFrameCount, ')
           ..write('qualityFlagsJson: $qualityFlagsJson, ')
           ..write('summaryJson: $summaryJson, ')
+          ..write('voiceComparisonJson: $voiceComparisonJson, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -2037,6 +2098,338 @@ class FeatureSeriesMetadataCompanion
   }
 }
 
+class $SavedVoiceComparisonPlansTable extends SavedVoiceComparisonPlans
+    with TableInfo<$SavedVoiceComparisonPlansTable, SavedVoiceComparisonPlan> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $SavedVoiceComparisonPlansTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _schemaVersionMeta = const VerificationMeta(
+    'schemaVersion',
+  );
+  @override
+  late final GeneratedColumn<int> schemaVersion = GeneratedColumn<int>(
+    'schema_version',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _payloadJsonMeta = const VerificationMeta(
+    'payloadJson',
+  );
+  @override
+  late final GeneratedColumn<String> payloadJson = GeneratedColumn<String>(
+    'payload_json',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    schemaVersion,
+    payloadJson,
+    updatedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'saved_voice_comparison_plans';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<SavedVoiceComparisonPlan> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('schema_version')) {
+      context.handle(
+        _schemaVersionMeta,
+        schemaVersion.isAcceptableOrUnknown(
+          data['schema_version']!,
+          _schemaVersionMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_schemaVersionMeta);
+    }
+    if (data.containsKey('payload_json')) {
+      context.handle(
+        _payloadJsonMeta,
+        payloadJson.isAcceptableOrUnknown(
+          data['payload_json']!,
+          _payloadJsonMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_payloadJsonMeta);
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_updatedAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  SavedVoiceComparisonPlan map(
+    Map<String, dynamic> data, {
+    String? tablePrefix,
+  }) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return SavedVoiceComparisonPlan(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      schemaVersion: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}schema_version'],
+      )!,
+      payloadJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}payload_json'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      )!,
+    );
+  }
+
+  @override
+  $SavedVoiceComparisonPlansTable createAlias(String alias) {
+    return $SavedVoiceComparisonPlansTable(attachedDatabase, alias);
+  }
+}
+
+class SavedVoiceComparisonPlan extends DataClass
+    implements Insertable<SavedVoiceComparisonPlan> {
+  final String id;
+  final int schemaVersion;
+  final String payloadJson;
+  final DateTime updatedAt;
+  const SavedVoiceComparisonPlan({
+    required this.id,
+    required this.schemaVersion,
+    required this.payloadJson,
+    required this.updatedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['schema_version'] = Variable<int>(schemaVersion);
+    map['payload_json'] = Variable<String>(payloadJson);
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    return map;
+  }
+
+  SavedVoiceComparisonPlansCompanion toCompanion(bool nullToAbsent) {
+    return SavedVoiceComparisonPlansCompanion(
+      id: Value(id),
+      schemaVersion: Value(schemaVersion),
+      payloadJson: Value(payloadJson),
+      updatedAt: Value(updatedAt),
+    );
+  }
+
+  factory SavedVoiceComparisonPlan.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return SavedVoiceComparisonPlan(
+      id: serializer.fromJson<String>(json['id']),
+      schemaVersion: serializer.fromJson<int>(json['schemaVersion']),
+      payloadJson: serializer.fromJson<String>(json['payloadJson']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'schemaVersion': serializer.toJson<int>(schemaVersion),
+      'payloadJson': serializer.toJson<String>(payloadJson),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+    };
+  }
+
+  SavedVoiceComparisonPlan copyWith({
+    String? id,
+    int? schemaVersion,
+    String? payloadJson,
+    DateTime? updatedAt,
+  }) => SavedVoiceComparisonPlan(
+    id: id ?? this.id,
+    schemaVersion: schemaVersion ?? this.schemaVersion,
+    payloadJson: payloadJson ?? this.payloadJson,
+    updatedAt: updatedAt ?? this.updatedAt,
+  );
+  SavedVoiceComparisonPlan copyWithCompanion(
+    SavedVoiceComparisonPlansCompanion data,
+  ) {
+    return SavedVoiceComparisonPlan(
+      id: data.id.present ? data.id.value : this.id,
+      schemaVersion: data.schemaVersion.present
+          ? data.schemaVersion.value
+          : this.schemaVersion,
+      payloadJson: data.payloadJson.present
+          ? data.payloadJson.value
+          : this.payloadJson,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SavedVoiceComparisonPlan(')
+          ..write('id: $id, ')
+          ..write('schemaVersion: $schemaVersion, ')
+          ..write('payloadJson: $payloadJson, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, schemaVersion, payloadJson, updatedAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is SavedVoiceComparisonPlan &&
+          other.id == this.id &&
+          other.schemaVersion == this.schemaVersion &&
+          other.payloadJson == this.payloadJson &&
+          other.updatedAt == this.updatedAt);
+}
+
+class SavedVoiceComparisonPlansCompanion
+    extends UpdateCompanion<SavedVoiceComparisonPlan> {
+  final Value<String> id;
+  final Value<int> schemaVersion;
+  final Value<String> payloadJson;
+  final Value<DateTime> updatedAt;
+  final Value<int> rowid;
+  const SavedVoiceComparisonPlansCompanion({
+    this.id = const Value.absent(),
+    this.schemaVersion = const Value.absent(),
+    this.payloadJson = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  SavedVoiceComparisonPlansCompanion.insert({
+    required String id,
+    required int schemaVersion,
+    required String payloadJson,
+    required DateTime updatedAt,
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       schemaVersion = Value(schemaVersion),
+       payloadJson = Value(payloadJson),
+       updatedAt = Value(updatedAt);
+  static Insertable<SavedVoiceComparisonPlan> custom({
+    Expression<String>? id,
+    Expression<int>? schemaVersion,
+    Expression<String>? payloadJson,
+    Expression<DateTime>? updatedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (schemaVersion != null) 'schema_version': schemaVersion,
+      if (payloadJson != null) 'payload_json': payloadJson,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  SavedVoiceComparisonPlansCompanion copyWith({
+    Value<String>? id,
+    Value<int>? schemaVersion,
+    Value<String>? payloadJson,
+    Value<DateTime>? updatedAt,
+    Value<int>? rowid,
+  }) {
+    return SavedVoiceComparisonPlansCompanion(
+      id: id ?? this.id,
+      schemaVersion: schemaVersion ?? this.schemaVersion,
+      payloadJson: payloadJson ?? this.payloadJson,
+      updatedAt: updatedAt ?? this.updatedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (schemaVersion.present) {
+      map['schema_version'] = Variable<int>(schemaVersion.value);
+    }
+    if (payloadJson.present) {
+      map['payload_json'] = Variable<String>(payloadJson.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SavedVoiceComparisonPlansCompanion(')
+          ..write('id: $id, ')
+          ..write('schemaVersion: $schemaVersion, ')
+          ..write('payloadJson: $payloadJson, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -2049,6 +2442,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
       $FeatureSeriesTableTable(this);
   late final $FeatureSeriesMetadataTable featureSeriesMetadata =
       $FeatureSeriesMetadataTable(this);
+  late final $SavedVoiceComparisonPlansTable savedVoiceComparisonPlans =
+      $SavedVoiceComparisonPlansTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -2059,6 +2454,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     analysisRuns,
     featureSeriesTable,
     featureSeriesMetadata,
+    savedVoiceComparisonPlans,
   ];
 }
 
@@ -2071,6 +2467,7 @@ typedef $$PracticeSessionsTableCreateCompanionBuilder =
       required int totalFrameCount,
       required String qualityFlagsJson,
       Value<String> summaryJson,
+      Value<String?> voiceComparisonJson,
       Value<int> rowid,
     });
 typedef $$PracticeSessionsTableUpdateCompanionBuilder =
@@ -2082,6 +2479,7 @@ typedef $$PracticeSessionsTableUpdateCompanionBuilder =
       Value<int> totalFrameCount,
       Value<String> qualityFlagsJson,
       Value<String> summaryJson,
+      Value<String?> voiceComparisonJson,
       Value<int> rowid,
     });
 
@@ -2172,6 +2570,11 @@ class $$PracticeSessionsTableFilterComposer
 
   ColumnFilters<String> get summaryJson => $composableBuilder(
     column: $table.summaryJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get voiceComparisonJson => $composableBuilder(
+    column: $table.voiceComparisonJson,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -2269,6 +2672,11 @@ class $$PracticeSessionsTableOrderingComposer
     column: $table.summaryJson,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get voiceComparisonJson => $composableBuilder(
+    column: $table.voiceComparisonJson,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$PracticeSessionsTableAnnotationComposer
@@ -2308,6 +2716,11 @@ class $$PracticeSessionsTableAnnotationComposer
 
   GeneratedColumn<String> get summaryJson => $composableBuilder(
     column: $table.summaryJson,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get voiceComparisonJson => $composableBuilder(
+    column: $table.voiceComparisonJson,
     builder: (column) => column,
   );
 
@@ -2399,6 +2812,7 @@ class $$PracticeSessionsTableTableManager
                 Value<int> totalFrameCount = const Value.absent(),
                 Value<String> qualityFlagsJson = const Value.absent(),
                 Value<String> summaryJson = const Value.absent(),
+                Value<String?> voiceComparisonJson = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => PracticeSessionsCompanion(
                 id: id,
@@ -2408,6 +2822,7 @@ class $$PracticeSessionsTableTableManager
                 totalFrameCount: totalFrameCount,
                 qualityFlagsJson: qualityFlagsJson,
                 summaryJson: summaryJson,
+                voiceComparisonJson: voiceComparisonJson,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -2419,6 +2834,7 @@ class $$PracticeSessionsTableTableManager
                 required int totalFrameCount,
                 required String qualityFlagsJson,
                 Value<String> summaryJson = const Value.absent(),
+                Value<String?> voiceComparisonJson = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => PracticeSessionsCompanion.insert(
                 id: id,
@@ -2428,6 +2844,7 @@ class $$PracticeSessionsTableTableManager
                 totalFrameCount: totalFrameCount,
                 qualityFlagsJson: qualityFlagsJson,
                 summaryJson: summaryJson,
+                voiceComparisonJson: voiceComparisonJson,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -4055,6 +4472,210 @@ typedef $$FeatureSeriesMetadataTableProcessedTableManager =
       FeatureSeriesMetadataData,
       PrefetchHooks Function({bool runId})
     >;
+typedef $$SavedVoiceComparisonPlansTableCreateCompanionBuilder =
+    SavedVoiceComparisonPlansCompanion Function({
+      required String id,
+      required int schemaVersion,
+      required String payloadJson,
+      required DateTime updatedAt,
+      Value<int> rowid,
+    });
+typedef $$SavedVoiceComparisonPlansTableUpdateCompanionBuilder =
+    SavedVoiceComparisonPlansCompanion Function({
+      Value<String> id,
+      Value<int> schemaVersion,
+      Value<String> payloadJson,
+      Value<DateTime> updatedAt,
+      Value<int> rowid,
+    });
+
+class $$SavedVoiceComparisonPlansTableFilterComposer
+    extends Composer<_$AppDatabase, $SavedVoiceComparisonPlansTable> {
+  $$SavedVoiceComparisonPlansTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get schemaVersion => $composableBuilder(
+    column: $table.schemaVersion,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get payloadJson => $composableBuilder(
+    column: $table.payloadJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$SavedVoiceComparisonPlansTableOrderingComposer
+    extends Composer<_$AppDatabase, $SavedVoiceComparisonPlansTable> {
+  $$SavedVoiceComparisonPlansTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get schemaVersion => $composableBuilder(
+    column: $table.schemaVersion,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get payloadJson => $composableBuilder(
+    column: $table.payloadJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$SavedVoiceComparisonPlansTableAnnotationComposer
+    extends Composer<_$AppDatabase, $SavedVoiceComparisonPlansTable> {
+  $$SavedVoiceComparisonPlansTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<int> get schemaVersion => $composableBuilder(
+    column: $table.schemaVersion,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get payloadJson => $composableBuilder(
+    column: $table.payloadJson,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+}
+
+class $$SavedVoiceComparisonPlansTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $SavedVoiceComparisonPlansTable,
+          SavedVoiceComparisonPlan,
+          $$SavedVoiceComparisonPlansTableFilterComposer,
+          $$SavedVoiceComparisonPlansTableOrderingComposer,
+          $$SavedVoiceComparisonPlansTableAnnotationComposer,
+          $$SavedVoiceComparisonPlansTableCreateCompanionBuilder,
+          $$SavedVoiceComparisonPlansTableUpdateCompanionBuilder,
+          (
+            SavedVoiceComparisonPlan,
+            BaseReferences<
+              _$AppDatabase,
+              $SavedVoiceComparisonPlansTable,
+              SavedVoiceComparisonPlan
+            >,
+          ),
+          SavedVoiceComparisonPlan,
+          PrefetchHooks Function()
+        > {
+  $$SavedVoiceComparisonPlansTableTableManager(
+    _$AppDatabase db,
+    $SavedVoiceComparisonPlansTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$SavedVoiceComparisonPlansTableFilterComposer(
+                $db: db,
+                $table: table,
+              ),
+          createOrderingComposer: () =>
+              $$SavedVoiceComparisonPlansTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$SavedVoiceComparisonPlansTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<int> schemaVersion = const Value.absent(),
+                Value<String> payloadJson = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => SavedVoiceComparisonPlansCompanion(
+                id: id,
+                schemaVersion: schemaVersion,
+                payloadJson: payloadJson,
+                updatedAt: updatedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required int schemaVersion,
+                required String payloadJson,
+                required DateTime updatedAt,
+                Value<int> rowid = const Value.absent(),
+              }) => SavedVoiceComparisonPlansCompanion.insert(
+                id: id,
+                schemaVersion: schemaVersion,
+                payloadJson: payloadJson,
+                updatedAt: updatedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$SavedVoiceComparisonPlansTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $SavedVoiceComparisonPlansTable,
+      SavedVoiceComparisonPlan,
+      $$SavedVoiceComparisonPlansTableFilterComposer,
+      $$SavedVoiceComparisonPlansTableOrderingComposer,
+      $$SavedVoiceComparisonPlansTableAnnotationComposer,
+      $$SavedVoiceComparisonPlansTableCreateCompanionBuilder,
+      $$SavedVoiceComparisonPlansTableUpdateCompanionBuilder,
+      (
+        SavedVoiceComparisonPlan,
+        BaseReferences<
+          _$AppDatabase,
+          $SavedVoiceComparisonPlansTable,
+          SavedVoiceComparisonPlan
+        >,
+      ),
+      SavedVoiceComparisonPlan,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -4069,4 +4690,9 @@ class $AppDatabaseManager {
       $$FeatureSeriesTableTableTableManager(_db, _db.featureSeriesTable);
   $$FeatureSeriesMetadataTableTableManager get featureSeriesMetadata =>
       $$FeatureSeriesMetadataTableTableManager(_db, _db.featureSeriesMetadata);
+  $$SavedVoiceComparisonPlansTableTableManager get savedVoiceComparisonPlans =>
+      $$SavedVoiceComparisonPlansTableTableManager(
+        _db,
+        _db.savedVoiceComparisonPlans,
+      );
 }

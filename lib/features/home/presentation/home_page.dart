@@ -10,6 +10,7 @@ import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/responsive_page_body.dart';
 import '../../history/application/history_records_provider.dart';
 import '../../live_practice/application/live_practice_controller.dart';
+import '../../voice_comparison/application/active_voice_comparison_take.dart';
 
 class HomePage extends ConsumerWidget {
   const HomePage({super.key});
@@ -39,7 +40,11 @@ class HomePage extends ConsumerWidget {
             const SizedBox(height: 20),
             FilledButton.icon(
               key: const Key('open-live-practice'),
-              onPressed: () => context.go(RoutePaths.livePractice),
+              onPressed: () {
+                ref.read(activeVoiceComparisonTakeProvider.notifier).state =
+                    null;
+                context.go(RoutePaths.livePractice);
+              },
               icon: const Icon(Icons.mic_none),
               label: Text(
                 capabilities.capture == PlatformAdapterMode.fallback
@@ -60,6 +65,13 @@ class HomePage extends ConsumerWidget {
               onPressed: () => context.go(RoutePaths.songImport),
               icon: const Icon(Icons.library_music_outlined),
               label: const Text('导入歌曲并准备原唱对比'),
+            ),
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              key: const Key('open-voice-comparison'),
+              onPressed: () => context.go(RoutePaths.voiceComparison),
+              icon: const Icon(Icons.compare_arrows),
+              label: const Text('设置发声方式 A/B 对比'),
             ),
             const SizedBox(height: 28),
             Text('最近结果', style: Theme.of(context).textTheme.titleLarge),

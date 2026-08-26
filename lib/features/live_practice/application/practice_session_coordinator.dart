@@ -5,6 +5,7 @@ import '../../../core/domain/analysis/analysis_engine.dart';
 import '../../../core/domain/analysis/analysis_frame.dart';
 import '../../../core/domain/analysis/analysis_quality_flag.dart';
 import '../../../core/domain/analysis/session_summary.dart';
+import '../../../core/domain/analysis/voice_comparison.dart';
 import '../../../core/domain/audio/audio_capture.dart';
 import '../../../core/domain/audio/capture_format.dart';
 import '../../../core/domain/audio/capture_health.dart';
@@ -26,12 +27,14 @@ final class PracticeSessionRequest {
     required this.template,
     required this.startedAt,
     this.captureRequest = const CaptureRequest(),
+    this.voiceComparison,
   });
 
   final String sessionId;
   final PracticeTemplate template;
   final DateTime startedAt;
   final CaptureRequest captureRequest;
+  final VoiceComparisonTakeContext? voiceComparison;
 }
 
 final class QueueAccounting {
@@ -494,6 +497,7 @@ final class PracticeSessionCoordinator {
           summary: summary,
           features: finalized.featureSeries,
           recording: recording,
+          voiceComparison: request.voiceComparison,
         ),
       );
       _state = _stateMachine.transition(_state, const FinalizationSucceeded());

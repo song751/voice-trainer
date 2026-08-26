@@ -216,7 +216,7 @@ Suppression 优先级：
 
 ## 9. Domain schema 边界
 
-`voice_production_profile.dart` 只提供研究/未来产品可复用的值对象：
+`voice_production_profile.dart` 提供研究与描述性产品原型共用的值对象：
 
 - `PedagogicalVoiceLabel` 保存词表 ID/version、human source、可选 reference anchor 与 limitations；没有 algorithm classifier；
 - `VoiceProductionMeasurement` 将 metric、domain、unit、modality、sample window 和 confidence 绑定；
@@ -225,7 +225,7 @@ Suppression 优先级：
 - `VoiceProductionConfidence` 提供透明的保守证据分数；
 - `VoiceProductionProfile` 将标签与测量分开保存。
 
-本 schema 不进入 Drift，不新增 DSP 指标，不更改 Observation rules，也不解锁自动 register/style feedback。
+描述性对比原型只把版本化 exercise cell、人工标签来源与每个 take 的不可变计划快照写入 Drift；旧记录保持 `null`。它复用既有 pitch/level/periodicity/onset/8-band spectrum 测量，不新增 DSP 指标，不更改 Observation rules，也不解锁自动 register/style feedback。质量或任务匹配失败时，所有 A/B 差异必须抑制。
 
 ## 10. 验证路线
 
@@ -251,3 +251,7 @@ Suppression 优先级：
 | `MEHTA_2012` | Primary multimodal | harmonic/OQ/voice-quality relation 跨人变化 | sustained phonation/lab |
 | `NATS_REGISTER_RESOURCE` | PED | 教学术语与 source/filter 区分 | 教学资源，不是临床/机制共识 |
 | `SMARTPHONE_META_2025` | Systematic review/meta-analysis | 消费设备与临床录音不等价 | 设备/指标异质；[PubMed](https://pubmed.ncbi.nlm.nih.gov/41037430/) |
+| `LEE_MIX_2021` | Primary multimodal | 同 F0 chest/mix/falsetto 的声学、HSDI、EGG 与气动差异 | 消费麦克风只覆盖声学代理；[PubMed 33518476](https://pubmed.ncbi.nlm.nih.gov/33518476/) |
+| `RESONANCE_REGISTER_2005` | Primary source/filter study | 顺滑 register transition 与声道共振调谐有关 | 不支持声门源单轴解释；[PubMed 16280630](https://pubmed.ncbi.nlm.nih.gov/16280630/) |
+| `METAL_DENSITY_2025` | Double-case multimodal | amount of metal、density、pitch、SPL、spectrum 与 EGG 分轴记录 | 仅 2 人，只适合词表内纵向比较；[PubMed 40640024](https://pubmed.ncbi.nlm.nih.gov/40640024/) |
+| `CPP_DEVICE_2025` | Device/noise/task study | CPP 对麦克风、噪声与语料敏感 | 不可作为跨设备机制或健康阈值；[PubMed 40704366](https://pubmed.ncbi.nlm.nih.gov/40704366/) |

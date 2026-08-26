@@ -8,6 +8,7 @@ import '../core/domain/audio/audio_capture.dart';
 import '../core/domain/persistence/recording_sink.dart';
 import '../core/domain/persistence/recording_store.dart';
 import '../core/domain/persistence/session_repository.dart';
+import '../core/domain/persistence/voice_comparison_plan_store.dart';
 import '../core/domain/practice/practice_target.dart';
 import '../core/domain/practice/practice_template.dart';
 import '../core/domain/reference/song_reference.dart';
@@ -16,6 +17,7 @@ import '../core/logging/app_logger.dart';
 import '../core/platform/platform_capabilities.dart';
 import '../core/platform/application_lifecycle.dart';
 import '../features/live_practice/application/practice_session_coordinator.dart';
+import '../features/voice_comparison/application/active_voice_comparison_take.dart';
 import '../features/session_result/application/deterministic_observation_engine.dart';
 import '../infrastructure/audio_import/file_selector_song_picker.dart';
 import '../infrastructure/audio_import/file_selector_song_model_picker.dart';
@@ -78,6 +80,11 @@ final sessionRepositoryProvider = Provider<SessionRepository>(
   (ref) => ref.watch(defaultPersistenceAdaptersProvider).sessionRepository,
 );
 
+final voiceComparisonPlanStoreProvider = Provider<VoiceComparisonPlanStore>(
+  (ref) =>
+      ref.watch(defaultPersistenceAdaptersProvider).voiceComparisonPlanStore,
+);
+
 final appErrorMapperProvider = Provider<AppErrorMapper>(
   (ref) => const AppErrorMapper(),
 );
@@ -109,15 +116,31 @@ final songModelManagerProvider = Provider<SongModelManager>((ref) {
   return const UnavailableSongSeparator();
 });
 
-final practiceTemplateProvider = Provider<PracticeTemplate>(
-  (ref) => const PracticeTemplate(
+final practiceTemplateProvider = Provider<PracticeTemplate>((ref) {
+  final comparison = ref.watch(activeVoiceComparisonTakeProvider);
+  if (comparison != null) {
+    return PracticeTemplate(
+      id: 'voice-comparison-${comparison.plan.scope.protocolId}',
+      version: comparison.plan.schemaVersion,
+      kind: PracticeKind.targetNote,
+      target: PracticeTarget(
+        targetMidiNote: switch (comparison.plan.scope.pitchContextKey) {
+          'C4' => 60,
+          'E4' => 64,
+          _ => 57,
+        },
+      ),
+      reviewStatus: ContentReviewStatus.draft,
+    );
+  }
+  return const PracticeTemplate(
     id: 'phase1-fake-sustained-note',
     version: 1,
     kind: PracticeKind.sustainedNote,
     target: PracticeTarget(targetMidiNote: 57),
     reviewStatus: ContentReviewStatus.draft,
-  ),
-);
+  );
+});
 
 final sessionIdGeneratorProvider = Provider<String Function()>(
   (ref) =>

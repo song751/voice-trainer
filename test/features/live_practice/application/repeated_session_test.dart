@@ -3,6 +3,8 @@ import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:voice_trainer/core/domain/analysis/analysis_quality_flag.dart';
+import 'package:voice_trainer/core/domain/analysis/voice_comparison.dart';
+import 'package:voice_trainer/core/domain/analysis/voice_production_profile.dart';
 import 'package:voice_trainer/core/domain/audio/capture_format.dart';
 import 'package:voice_trainer/core/domain/audio/pcm_chunk.dart';
 import 'package:voice_trainer/core/domain/persistence/recording_locator.dart';
@@ -180,6 +182,62 @@ void main() {
     },
   );
 
+  test(
+    'completed recording preserves its immutable A/B take context',
+    () async {
+      final capture = FakeAudioCapture();
+      final analysis = FakeAnalysisEngine();
+      final store = InMemoryRecordingStore();
+      final sink = InMemoryRecordingSink(store);
+      final repository = InMemorySessionRepository(recordingStore: store);
+      final coordinator = PracticeSessionCoordinator(
+        audioCapture: capture,
+        analysisEngine: analysis,
+        recordingSink: sink,
+        recordingStore: store,
+        sessionRepository: repository,
+      );
+      addTearDown(coordinator.dispose);
+
+      final context = VoiceComparisonTakeContext(
+        plan: VoiceComparisonPlan(
+          id: 'comparison-1',
+          labelA: _label(VoiceIntentKey.chestVoice),
+          labelB: _label(VoiceIntentKey.weakMix),
+          scope: VoiceProductionScope(
+            protocolId: 'VP-MIX-01',
+            taskKind: VoiceProductionTaskKind.matchedPitchContrast,
+            pitchContextKey: 'C4',
+            vowelIpa: 'a',
+            loudnessConditionKey: 'comfortable',
+            styleContextKey: 'sustained',
+            captureProfileKey: 'same-device-distance',
+            algorithmVersion: 'analysis-v1',
+          ),
+          updatedAt: DateTime.utc(2026, 8, 27),
+        ),
+        side: VoiceComparisonSide.b,
+      );
+      final request = PracticeSessionRequest(
+        sessionId: 'comparison-take-b',
+        template: _request('unused', 0).template,
+        startedAt: DateTime.utc(2026, 8, 27),
+        voiceComparison: context,
+      );
+
+      expect(await coordinator.start(request), isA<Running>());
+      capture.emit(_chunk());
+      await _drainMicrotasks();
+      expect(await coordinator.stop(), isA<Completed>());
+
+      final saved = await repository.findById('comparison-take-b');
+      expect(saved?.voiceComparison?.plan.id, 'comparison-1');
+      expect(saved?.voiceComparison?.side, VoiceComparisonSide.b);
+      expect(saved?.voiceComparison?.label.labelKey, 'weakMix');
+      expect(saved?.voiceComparison?.plan.scope.pitchContextKey, 'C4');
+    },
+  );
+
   test('aborting an in-memory sink discards PCM before reuse', () async {
     final store = InMemoryRecordingStore();
     final sink = InMemoryRecordingSink(store);
@@ -226,6 +284,13 @@ Future<void> _drainMicrotasks() async {
     await Future<void>.delayed(Duration.zero);
   }
 }
+
+PedagogicalVoiceLabel _label(VoiceIntentKey intent) => PedagogicalVoiceLabel(
+  labelKey: intent.name,
+  vocabularyId: 'voice-intent',
+  vocabularyVersion: '1',
+  source: PedagogicalLabelSource.singerIntent,
+);
 
 final class _FailOnceFinalizeSink implements RecordingSink {
   _FailOnceFinalizeSink(this._delegate);

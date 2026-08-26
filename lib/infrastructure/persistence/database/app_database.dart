@@ -10,6 +10,17 @@ class PracticeSessions extends Table {
   IntColumn get totalFrameCount => integer()();
   TextColumn get qualityFlagsJson => text()();
   TextColumn get summaryJson => text().withDefault(const Constant('{}'))();
+  TextColumn get voiceComparisonJson => text().nullable()();
+  @override
+  Set<Column<Object>> get primaryKey => {id};
+}
+
+class SavedVoiceComparisonPlans extends Table {
+  TextColumn get id => text()();
+  IntColumn get schemaVersion => integer()();
+  TextColumn get payloadJson => text()();
+  DateTimeColumn get updatedAt => dateTime()();
+
   @override
   Set<Column<Object>> get primaryKey => {id};
 }
@@ -67,13 +78,14 @@ class FeatureSeriesMetadata extends Table {
     AnalysisRuns,
     FeatureSeriesTable,
     FeatureSeriesMetadata,
+    SavedVoiceComparisonPlans,
   ],
 )
 class AppDatabase extends _$AppDatabase {
   AppDatabase(super.executor);
 
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 5;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -100,6 +112,18 @@ class AppDatabase extends _$AppDatabase {
           practiceSessions,
           practiceSessions.summaryJson,
         );
+      }
+      if (from < 5) {
+        if (!await _columnExists(
+          practiceSessions.actualTableName,
+          practiceSessions.voiceComparisonJson.name,
+        )) {
+          await migrator.addColumn(
+            practiceSessions,
+            practiceSessions.voiceComparisonJson,
+          );
+        }
+        await migrator.createTable(savedVoiceComparisonPlans);
       }
     },
     beforeOpen: (details) async {
@@ -204,6 +228,12 @@ class AppDatabase extends _$AppDatabase {
             ..orderBy([(row) => OrderingTerm.desc(row.startedAt)])
             ..limit(limit))
           .get();
+
+  Future<SavedVoiceComparisonPlan?> latestVoiceComparisonPlan() =>
+      (select(savedVoiceComparisonPlans)
+            ..orderBy([(row) => OrderingTerm.desc(row.updatedAt)])
+            ..limit(1))
+          .getSingleOrNull();
 
   Future<void> deleteSessionData(String sessionId) => transaction(() async {
     final runs = await (select(

@@ -63,7 +63,8 @@ voice-trainer/
 │  │  │  │  ├─ analysis_quality_flag.dart
 │  │  │  │  ├─ feature_series.dart
 │  │  │  │  ├─ session_summary.dart
-│  │  │  │  └─ voice_production_profile.dart       [R&D；任务/人工标签/多模态证据边界]
+│  │  │  │  ├─ voice_production_profile.dart       [R&D；任务/人工标签/多模态证据边界]
+│  │  │  │  └─ voice_comparison.dart               [版本化 A/B 计划与 take 快照]
 │  │  │  ├─ observation/
 │  │  │  │  ├─ observation.dart
 │  │  │  │  ├─ evidence.dart
@@ -77,7 +78,8 @@ voice-trainer/
 │  │  │     ├─ recording_locator.dart
 │  │  │     ├─ recording_sink.dart
 │  │  │     ├─ recording_store.dart
-│  │  │     └─ session_repository.dart
+│  │  │     ├─ session_repository.dart
+│  │  │     └─ voice_comparison_plan_store.dart
 │  │  ├─ audio/
 │  │  │  ├─ audio_math.dart
 │  │  │  ├─ note_mapper.dart
@@ -132,12 +134,15 @@ voice-trainer/
 │  │  │     ├─ history_page.dart
 │  │  │     ├─ session_list_item.dart
 │  │  │     └─ trend_chart_painter.dart
-│  │  └─ settings/
+│  │  ├─ settings/
 │  │     ├─ application/settings_controller.dart
 │  │     └─ presentation/
 │  │        ├─ settings_page.dart
 │  │        ├─ microphone_settings_section.dart
 │  │        └─ privacy_settings_section.dart
+│  │  └─ voice_comparison/
+│  │     ├─ application/                            [计划状态、严格匹配、质量抑制与多维差异]
+│  │     └─ presentation/                           [设置入口、A/B 录制动作与证据卡]
 │  ├─ infrastructure/
 │  │  ├─ audio/
 │  │  │  ├─ record_audio_capture.dart
@@ -188,7 +193,8 @@ voice-trainer/
 │  │     │  └─ wav_stream_writer.dart
 │  │     └─ codecs/
 │  │        ├─ feature_blob_codec.dart
-│  │        └─ bitset_codec.dart
+│  │        ├─ bitset_codec.dart
+│  │        └─ voice_comparison_json_codec.dart    [schema v1]
 │  ├─ l10n/
 │  │  ├─ app_zh.arb
 │  │  └─ app_en.arb

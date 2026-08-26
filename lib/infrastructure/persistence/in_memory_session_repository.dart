@@ -47,6 +47,7 @@ final class InMemorySessionRepository implements SessionRepository {
       checkIn: record.checkIn,
       summary: record.summary,
       features: record.features,
+      voiceComparison: record.voiceComparison,
     );
   }
 }

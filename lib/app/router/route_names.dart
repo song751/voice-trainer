@@ -5,4 +5,5 @@ abstract final class RoutePaths {
   static const history = '/history';
   static const settings = '/settings';
   static const songImport = '/songs/import';
+  static const voiceComparison = '/practice/voice-comparison';
 }

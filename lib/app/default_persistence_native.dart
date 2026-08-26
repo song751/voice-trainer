@@ -4,18 +4,22 @@ import 'dart:io' show Directory, File, Platform;
 import 'package:drift/native.dart';
 import 'package:path_provider/path_provider.dart';
 
+import '../core/domain/analysis/voice_comparison.dart';
 import '../core/domain/persistence/recording_locator.dart';
 import '../core/domain/persistence/persistence_storage_report.dart';
 import '../core/domain/persistence/recording_sink.dart';
 import '../core/domain/persistence/recording_store.dart';
 import '../core/domain/persistence/session_repository.dart';
+import '../core/domain/persistence/voice_comparison_plan_store.dart';
 import '../core/platform/platform_capabilities.dart';
 import '../infrastructure/persistence/database/app_database.dart';
 import '../infrastructure/persistence/in_memory_recording_store.dart';
 import '../infrastructure/persistence/in_memory_session_repository.dart';
+import '../infrastructure/persistence/in_memory_voice_comparison_plan_store.dart';
 import '../infrastructure/persistence/recordings/native_recording_sink.dart';
 import '../infrastructure/persistence/recordings/recording_recovery_service.dart';
 import '../infrastructure/persistence/repositories/drift_session_repository.dart';
+import '../infrastructure/persistence/repositories/drift_voice_comparison_plan_store.dart';
 
 /// Lazily opens native files so app composition remains synchronous while the
 /// first recording still waits for recovery before it accepts PCM.
@@ -24,6 +28,7 @@ final class DefaultPersistenceAdapters {
     this.recordingStore,
     this.recordingSink,
     this.sessionRepository,
+    this.voiceComparisonPlanStore,
     this.usesNativePersistence,
     this.usesPersistentStorage,
   );
@@ -31,6 +36,7 @@ final class DefaultPersistenceAdapters {
   final RecordingStore recordingStore;
   final RecordingSink recordingSink;
   final SessionRepository sessionRepository;
+  final VoiceComparisonPlanStore voiceComparisonPlanStore;
   final bool usesNativePersistence;
   final bool usesPersistentStorage;
 
@@ -67,6 +73,7 @@ DefaultPersistenceAdapters createDefaultPersistenceAdapters(
       store,
       InMemoryRecordingSink(store),
       InMemorySessionRepository(recordingStore: store),
+      InMemoryVoiceComparisonPlanStore(),
       false,
       false,
     );
@@ -76,6 +83,7 @@ DefaultPersistenceAdapters createDefaultPersistenceAdapters(
     _DeferredRecordingStore(native),
     _DeferredRecordingSink(native),
     _DeferredSessionRepository(native),
+    _DeferredVoiceComparisonPlanStore(native),
     true,
     true,
   );
@@ -112,11 +120,13 @@ final class _NativePersistenceHost {
     );
     final store = NativeRecordingStore(recordings);
     final repository = DriftSessionRepository(database, recordingStore: store);
+    final voiceComparisonPlanStore = DriftVoiceComparisonPlanStore(database);
     await RecordingRecoveryService(database: database, store: store).recover();
     return _NativePersistence(
       database: database,
       store: store,
       repository: repository,
+      voiceComparisonPlanStore: voiceComparisonPlanStore,
       recordings: recordings,
     );
   }
@@ -127,13 +137,32 @@ final class _NativePersistence {
     required this.database,
     required this.store,
     required this.repository,
+    required this.voiceComparisonPlanStore,
     required this.recordings,
   });
 
   final AppDatabase database;
   final NativeRecordingStore store;
   final DriftSessionRepository repository;
+  final DriftVoiceComparisonPlanStore voiceComparisonPlanStore;
   final Directory recordings;
+}
+
+final class _DeferredVoiceComparisonPlanStore
+    implements VoiceComparisonPlanStore {
+  const _DeferredVoiceComparisonPlanStore(this._native);
+  final _NativePersistenceHost _native;
+
+  Future<DriftVoiceComparisonPlanStore> get _delegate async =>
+      (await _native.open()).voiceComparisonPlanStore;
+
+  @override
+  Future<VoiceComparisonPlan?> loadLatestPlan() async =>
+      (await _delegate).loadLatestPlan();
+
+  @override
+  Future<void> savePlan(VoiceComparisonPlan plan) async =>
+      (await _delegate).savePlan(plan);
 }
 
 final class _DeferredRecordingStore implements RecordingStore {

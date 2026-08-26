@@ -1,5 +1,6 @@
 import '../analysis/feature_series.dart';
 import '../analysis/session_summary.dart';
+import '../analysis/voice_comparison.dart';
 import '../practice/practice_template.dart';
 import '../practice/subjective_check_in.dart';
 import 'recording_locator.dart';
@@ -13,6 +14,7 @@ final class PracticeSessionRecord {
     required this.features,
     this.checkIn,
     this.recording,
+    this.voiceComparison,
   });
 
   final String id;
@@ -22,6 +24,7 @@ final class PracticeSessionRecord {
   final SessionSummary summary;
   final FeatureSeries features;
   final RecordingLocator? recording;
+  final VoiceComparisonTakeContext? voiceComparison;
 }
 
 abstract interface class SessionRepository {

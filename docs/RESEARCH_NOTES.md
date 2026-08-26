@@ -744,3 +744,11 @@ Phase-boundary 回归：FRB codegen 连续两次 7 个生成文件 SHA-256 不�
 - 回归发现录音 append 的异步 failure 只改变 coordinator 内部 state、Riverpod 页面仍停在 running。修复新增单向 typed state-change stream，并将 recording 与 persistence failure 保持为原 domain 类型；UI 因而能给出相应操作提示。该变化没有修改 DSP、Observation 阈值或发声方式判断。
 - 实时分析 accessibility 保持一个合并的 semantics container；测试不对 100 Hz raw frame 建立页面 watcher。歌曲导入测试覆盖权利确认、runtime unavailable、进度、取消与隐私文案，不生成 stem 或读取真实用户文件。
 - Windows target integration 与 API 35/x86_64 emulator `127.0.0.1:16384` target integration 通过，均为 synthetic adapter evidence。Android 额外真实打开 DocumentsUI SAF 后取消；安装恢复以 source/device APK 相同 SHA-256 证明。Web release 继续使用 `--no-web-resources-cdn --csp`，Edge headless deployment/lifecycle gate 通过；缺少 4444 WebDriver 仅限制 Flutter Web integration harness，不改变 P4-11 release 结果，也不满足 P4-15 真实浏览器/麦克风 Gate。
+
+### 发声对比练习描述性产品切片（2026-08-27）
+
+- 新增独立入口保存 A/B 练习计划：意图标签只允许中性、胸声、头声、假声、弱混、强混和金属性，并明确保存 `singer_intent|teacher_prompt`、词表 ID/version；盲听共识没有在缺少标注协议时伪开放。每组还固定 protocol、pitch、IPA vowel、loudness、style、capture condition 与 algorithm version。A/B 可使用不同标签，也可使用相同标签观察重复样本。
+- Drift schema v5 增加版本化 plan 表和 session nullable take snapshot；旧会话保持可读。每次录音保存不可变 plan/side/label provenance，编辑设置后录制按钮会禁用，必须保存为新组，避免把新 UI 条件写到旧组。
+- comparison engine 只报告 `B − A` 的 pitch median、input level median、periodicity/clarity、onset samples 与 2–4 kHz relative energy；没有总分、自动 label 或生理字段。任一 take 含 quality flag、有效帧比例不足或 exact task scope 不匹配时，整组差异被抑制。confidence 显示 signal/task/repeatability/可选 label agreement 的保守最小值，不表示唱法概率。
+- 页面与结果卡明确说明消费麦克风未测量闭合、喉位、肌肉活动或机制，且所有计划内容仍为 draft/unreviewed。新增测试覆盖五维差异、质量抑制、plan/take round-trip、旧记录、入口、保存、A/B 动作、窄屏、200% 字体、键盘和语义；没有新增生产依赖或 DSP 变化。
+- 协议文案补充研究边界：PubMed `33518476` 的 chest/mix/falsetto 同 F0 比较仍使用 HSDI/EGG/气动，`16280630` 指出顺滑 register transition 包含声道共振调谐，`40640024` 的 metal/density 仅为 2 人多模态案例，`40704366` 提醒 CPP 对设备/噪声/语料敏感。NATS science-informed syllabus、Estill 与 CVT 只允许作为可选词表来源记录，不自动映射、不标 expert-approved。

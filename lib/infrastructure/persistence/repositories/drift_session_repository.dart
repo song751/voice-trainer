@@ -14,6 +14,7 @@ import '../../../core/domain/persistence/session_repository.dart';
 import '../../../core/domain/practice/practice_target.dart';
 import '../../../core/domain/practice/practice_template.dart';
 import '../codecs/feature_blob_codec.dart';
+import '../codecs/voice_comparison_json_codec.dart';
 import '../database/app_database.dart';
 
 /// Maps the minimal v1 session projection to Drift. Audio bytes are never part
@@ -23,10 +24,12 @@ final class DriftSessionRepository implements SessionRepository {
     this._database, {
     required this.recordingStore,
     this.codec = const FeatureBlobCodec(),
+    this.voiceComparisonCodec = const VoiceComparisonJsonCodec(),
   });
   final AppDatabase _database;
   final RecordingStore recordingStore;
   final FeatureBlobCodec codec;
+  final VoiceComparisonJsonCodec voiceComparisonCodec;
 
   @override
   Future<void> save(PracticeSessionRecord record) async {
@@ -53,6 +56,11 @@ final class DriftSessionRepository implements SessionRepository {
           record.summary.qualityFlags.map((flag) => flag.name).toList(),
         ),
         summaryJson: Value(_encodeSummary(record.summary)),
+        voiceComparisonJson: Value(
+          record.voiceComparison == null
+              ? null
+              : voiceComparisonCodec.encodeTake(record.voiceComparison!),
+        ),
       ),
       recording: record.recording == null
           ? null
@@ -158,6 +166,9 @@ final class DriftSessionRepository implements SessionRepository {
                 recording.storageKind,
               ),
             ),
+      voiceComparison: session.voiceComparisonJson == null
+          ? null
+          : voiceComparisonCodec.decodeTake(session.voiceComparisonJson!),
     );
   }
 

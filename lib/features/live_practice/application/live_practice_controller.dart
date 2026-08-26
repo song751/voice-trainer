@@ -8,6 +8,7 @@ import '../../../core/domain/persistence/session_repository.dart';
 import '../../../core/domain/practice/practice_template.dart';
 import '../../../core/domain/analysis/ui_analysis_frame.dart';
 import '../domain/practice_session_state.dart';
+import '../../voice_comparison/application/active_voice_comparison_take.dart';
 import 'practice_session_coordinator.dart';
 import 'ui_frame_decimator.dart';
 
@@ -87,6 +88,7 @@ final class LivePracticeController extends Notifier<PracticeSessionState> {
         sessionId: id,
         template: _template,
         startedAt: DateTime.now().toUtc(),
+        voiceComparison: ref.read(activeVoiceComparisonTakeProvider),
       ),
     );
   }
