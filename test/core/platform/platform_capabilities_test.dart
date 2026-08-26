@@ -13,16 +13,22 @@ void main() {
     expect(capabilities.supportsLifecycleEvents, isFalse);
   });
 
-  test('Android remains an explicit fallback until its device cards pass', () {
-    const capabilities = PlatformCapabilities.android;
+  test(
+    'Android promotes capture and Rust while persistence stays fallback',
+    () {
+      const capabilities = PlatformCapabilities.android;
 
-    expect(capabilities.capture, PlatformAdapterMode.fallback);
-    expect(capabilities.persistence, PlatformAdapterMode.fallback);
-    expect(capabilities.analysisWorker, AnalysisWorkerCapability.fallback);
-    expect(capabilities.maximumRecordingDuration, isNull);
-    expect(capabilities.supportsDeviceSelection, isFalse);
-    expect(capabilities.supportsLifecycleEvents, isFalse);
-  });
+      expect(capabilities.capture, PlatformAdapterMode.production);
+      expect(capabilities.persistence, PlatformAdapterMode.fallback);
+      expect(
+        capabilities.analysisWorker,
+        AnalysisWorkerCapability.nativeWorker,
+      );
+      expect(capabilities.maximumRecordingDuration, isNull);
+      expect(capabilities.supportsDeviceSelection, isFalse);
+      expect(capabilities.supportsLifecycleEvents, isFalse);
+    },
+  );
 
   test('Web retains its fallback and published recording limit', () {
     const capabilities = PlatformCapabilities.web;

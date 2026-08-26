@@ -29,13 +29,13 @@ final class PlatformCapabilities {
     supportsLifecycleEvents: false,
   );
 
-  /// Android stays deliberately explicit about its fallback state until its
-  /// capture, persistence, and lifecycle task cards have passed.
+  /// P4-03 promotes Android capture and native Rust analysis only. Persistence
+  /// and lifecycle remain explicit fallbacks until their own cards pass.
   static const android = PlatformCapabilities(
     target: PlatformTarget.android,
-    capture: PlatformAdapterMode.fallback,
+    capture: PlatformAdapterMode.production,
     persistence: PlatformAdapterMode.fallback,
-    analysisWorker: AnalysisWorkerCapability.fallback,
+    analysisWorker: AnalysisWorkerCapability.nativeWorker,
     maximumRecordingDuration: null,
     supportsDeviceSelection: false,
     supportsLifecycleEvents: false,

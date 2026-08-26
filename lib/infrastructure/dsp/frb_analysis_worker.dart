@@ -6,6 +6,7 @@ import '../../core/domain/analysis/analysis_frame.dart' as domain;
 import '../../core/domain/analysis/feature_series.dart';
 import '../../core/domain/audio/pcm_chunk.dart';
 import '../../src/rust/api/realtime.dart';
+import '../../src/rust/frb_generated.dart';
 import 'analysis_frame_dto_mapper.dart';
 import 'analysis_worker_supervisor.dart';
 import 'segment_summary_dto_mapper.dart';
@@ -21,6 +22,7 @@ final class FrbAnalysisWorker implements AnalysisWorker {
 
   @override
   Future<void> initialize(AnalysisConfig config) async {
+    await _ensureRustInitialized();
     _analyzer = RealtimeAnalyzer(sampleRate: config.inputFormatSampleRate);
     _frames.clear();
   }
@@ -90,4 +92,25 @@ final class FrbAnalysisWorker implements AnalysisWorker {
 
   RealtimeAnalyzer _requireAnalyzer() =>
       _analyzer ?? (throw StateError('FRB analyzer is not initialized.'));
+}
+
+Future<void>? _rustInitialization;
+
+Future<void> _ensureRustInitialized() async {
+  // Generated singleton access is the only FRB 2.12 API that can distinguish
+  // app-owned initialization (for example a dedicated probe entrypoint) from
+  // the production worker's lazy initialization.
+  // ignore: invalid_use_of_internal_member
+  if (RustLib.instance.initialized) {
+    return;
+  }
+  final initialization = _rustInitialization ??= RustLib.init();
+  try {
+    await initialization;
+  } catch (_) {
+    if (identical(_rustInitialization, initialization)) {
+      _rustInitialization = null;
+    }
+    rethrow;
+  }
 }

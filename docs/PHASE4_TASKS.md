@@ -136,6 +136,14 @@ cargo test --manifest-path rust\Cargo.toml
 
 **目标结果：** Android 默认使用 `RecordAudioCapture` + `RustAnalysisEngine`，按 `effectiveFormat` 初始化并走 P3 的有界队列、断点和 25 Hz UI 合同；fake provider 继续可覆盖。
 
+#### P4-03 执行记录（2026-08-26，已完成，待集成接受）
+
+- `PlatformCapabilities.android` 仅将 capture 提升为 production、analysis worker 提升为 native worker；persistence 与 lifecycle 仍是 fallback。既有 native composition 因此在 Android 复用 `RecordAudioCapture`、`RustAnalysisEngine`、P3 coordinator 有界队列/断点和 25 Hz decimator，没有复制平台实现或改变 Web。
+- 首次真实 composition smoke 暴露默认 native analyzer 未自行初始化 FRB：record 插件成功运行后，worker 会以 `flutter_rust_bridge has not been initialized` 进入 terminal failure。修复收敛在 `FrbAnalysisWorker` adapter，以共享 Future 幂等执行 `RustLib.init()`，失败时允许下一次初始化重试；未修改 Rust 算法、DTO 或 worker 恢复状态机。
+- 新增 `p4_03_android_contract_test.dart`，在 Windows 与 API 35/x86_64 emulator 覆盖 Android production 类型、persistence fallback、fake override、permission allow/deny、start/pause/resume/stop、unsupported/changed format、worker processing failure 和 oldest-drop queue accounting。全部失败继续映射为既有 typed domain result。
+- `p4_03_android_capture_smoke_test.dart` 在显式 endpoint `127.0.0.1:16384` 运行真实 record 插件。permission granted 运行请求/有效格式均为 PCM16 mono 48 kHz，采集 188 chunks / 48,128 samples，pause/resume/stop 成功，Rust production analyzer 返回 94 frames；permission 预先固定 denied 时返回 `PermissionDenied`、capture 未启动、0 frame。报告固定 `evidenceType=emulator`、`emulator=true`、`realDevice=false`，不记录 PCM、设备标识或路径，也不把 emulator 输入解释为真实人声/voiced 证据。
+- Android persistence 仍为 in-memory fallback，P4-04 之前不得宣称 durable save/recovery 已支持。
+
 **允许修改：** Android conditional composition、capture mapper、Android integration、矩阵。
 
 **禁止修改：** persistence 默认、Web composition、Rust算法、Observation规则、页面扩张。

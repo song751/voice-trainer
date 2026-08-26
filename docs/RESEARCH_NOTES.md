@@ -627,3 +627,10 @@ Phase-boundary 回归：FRB codegen 连续两次 7 个生成文件 SHA-256 不�
 - 在质量 gate 通过后，确定性规则现在可生成以下描述性 Observation：目标音整体偏高/偏低、pitch MAD 较大、pitch slope 上升/下降、level MAD 较大、level slope 上升/下降、稳定音形成延迟。每条都包含测量值、对应技术门槛、confidence、scope 和 quality flags；目标相关建议继续只引用既有 `repeat-target-note` exercise ID。
 - 当前 v1 门槛为 pitch MAD `15 cents`、pitch slope `8 cents/s`、level MAD `2 dB`、level slope `1 dB/s`、onset delay `24,000 samples`（当前生产输入仅接受 48 kHz，即 0.5 s）。这些是可解释的产品起点，不是临床或生理阈值；没有输出提喉、挤压、漏气、闭合不足、疲劳风险等结论。真实人声分层验证前，UI 必须把它们表述为“测得变化”，不能表述为技术诊断。
 - 窄测试覆盖 signed median 对离群值的稳健性、全部新增 rule、低质量 suppression 以及 summary round-trip；完整 `flutter test` 为 80/80，format/analyze 通过。
+
+### P4-03 Android capture/DSP production composition（2026-08-26，已完成，待集成接受）
+
+- Android capability 只提升 `RecordAudioCapture` 与 native `RustAnalysisEngine`；persistence/lifecycle 仍为 fallback，Web 与 Rust DSP 算法不变。默认 adapters 继续由 capability 驱动，fake provider override 仍可完整替换。
+- 真实 composition smoke 发现应用默认路径没有先调用 `RustLib.init()`；P4-02 的专用 probe 自行初始化因而未暴露该问题。`FrbAnalysisWorker` 现在在创建 analyzer 前幂等初始化 FRB，并在初始化失败时清除缓存 Future，以允许 supervisor restart/fallback 再试。
+- API 35/x86_64 emulator `127.0.0.1:16384` permission granted smoke：请求与 effective format 均为 PCM16 mono 48 kHz，188 chunks / 48,128 samples，真实 plugin pause/resume/stop 成功，production Rust analyzer产生 94 frames。报告不保存 PCM，不判断这些输入是否为真实麦克风/真人声。
+- 同一 emulator 在 `RECORD_AUDIO` 预先 revoke 且设为 user-fixed/user-set 后，permission smoke 返回 denied、capture 未启动、0 analysis frame；测试结束后 integration package 被卸载。另一个 emulator integration 以 fake/synthetic contract 覆盖 unsupported/changed format、worker failure 和 queue drop，不能替代真机证据。
