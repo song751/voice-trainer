@@ -64,6 +64,20 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  Future<void> tapStartPractice(WidgetTester tester) async {
+    final start = find.byKey(const Key('start-practice'));
+    await tester.scrollUntilVisible(
+      start,
+      200,
+      scrollable: find.descendant(
+        of: find.byKey(const Key('live-page-scroll')),
+        matching: find.byType(Scrollable),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(start);
+  }
+
   testWidgets('shows a permission error from an overridden capture adapter', (
     tester,
   ) async {
@@ -80,7 +94,7 @@ void main() {
       ],
     );
 
-    await tester.tap(find.byKey(const Key('start-practice')));
+    await tapStartPractice(tester);
     await tester.pumpAndSettle();
 
     expect(find.byKey(const Key('practice-error')), findsOneWidget);
@@ -103,7 +117,7 @@ void main() {
       ],
     );
 
-    await tester.tap(find.byKey(const Key('start-practice')));
+    await tapStartPractice(tester);
     await tester.pumpAndSettle();
 
     expect(find.byKey(const Key('practice-error')), findsOneWidget);
@@ -128,7 +142,7 @@ void main() {
       ],
     );
 
-    await tester.tap(find.byKey(const Key('start-practice')));
+    await tapStartPractice(tester);
     await tester.pump();
     capture.emit(
       PcmChunk(
