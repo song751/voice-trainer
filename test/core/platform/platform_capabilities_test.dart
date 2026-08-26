@@ -35,7 +35,7 @@ void main() {
     );
     expect(capabilities.maximumRecordingDuration, const Duration(seconds: 60));
     expect(capabilities.supportsDeviceSelection, isFalse);
-    expect(capabilities.supportsLifecycleEvents, isFalse);
+    expect(capabilities.supportsLifecycleEvents, isTrue);
   });
 
   test(

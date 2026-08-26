@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "releaseBuildArguments": [
+    "--release",
+    "--no-web-resources-cdn",
+    "--csp"
+  ],
+  "runtimeMode": "single-thread",
+  "requiresCrossOriginIsolation": false,
+  "criticalAssetCacheControl": "no-store, max-age=0",
+  "wasmContentType": "application/wasm",
+  "contentSecurityPolicy": "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self' blob:; connect-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; media-src 'self' blob:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'"
+}

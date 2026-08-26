@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../features/live_practice/application/live_practice_controller.dart';
 import '../core/platform/application_lifecycle.dart';
+import '../core/platform/platform_capabilities.dart';
 import 'app_providers.dart';
 
 abstract interface class ApplicationLifecycleSource {
@@ -85,7 +86,13 @@ ApplicationLifecyclePhase mapFlutterLifecycleState(AppLifecycleState? state) {
 final applicationLifecycleSourceProvider = Provider<ApplicationLifecycleSource>(
   (ref) {
     final capabilities = ref.watch(platformCapabilitiesProvider);
-    final source = capabilities.supportsLifecycleEvents
+    // Android uses Flutter's coarse foreground/background callback and retains
+    // its accepted automatic resume policy. Web uses the richer JS lifecycle
+    // adapter (permission/device/AudioContext/worker) and must not also receive
+    // a second callback that would silently resume its microphone.
+    final source =
+        capabilities.supportsLifecycleEvents &&
+            capabilities.target == PlatformTarget.android
         ? WidgetsBindingApplicationLifecycleSource()
         : const DisabledApplicationLifecycleSource();
     ref.onDispose(source.dispose);
@@ -103,7 +110,11 @@ final applicationLifecyclePhaseProvider =
 /// Activates the application-level lifecycle policy. Presentation pages never
 /// observe WidgetsBinding directly and only see the resulting session state.
 final applicationLifecycleBindingProvider = Provider<void>((ref) {
-  if (!ref.watch(platformCapabilitiesProvider).supportsLifecycleEvents) return;
+  final capabilities = ref.watch(platformCapabilitiesProvider);
+  if (!capabilities.supportsLifecycleEvents ||
+      capabilities.target != PlatformTarget.android) {
+    return;
+  }
   ref.listen(applicationLifecyclePhaseProvider, (_, next) {
     final phase = next.valueOrNull;
     if (phase == null) return;

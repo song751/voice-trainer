@@ -1,6 +1,6 @@
 # Web 测试矩阵
 
-状态：Phase 1 建立于 2026-08-04；P4-09 于 2026-08-26 完成本地采集/worker 生产组合，P4-10 于 2026-08-27 完成本地持久化组合与 synthetic browser 自动化。默认发布路径是 Flutter JS + dedicated Rust WASM worker，显式保留单线程 fallback；Flutter `--wasm` 不是此矩阵的通过条件。
+状态：Phase 1 建立于 2026-08-04；P4-09 于 2026-08-26 完成本地采集/worker 生产组合，P4-10/P4-11 于 2026-08-27 完成本地持久化、生命周期与自包含部署合同。默认发布路径是 Flutter JS + dedicated Rust WASM worker，显式保留单线程 fallback；Flutter `--wasm` 不是此矩阵的通过条件。
 
 | 范围 | 自动化 / 手动 | 当前状态 | 验收记录 |
 |---|---|---|---|
@@ -14,7 +14,8 @@
 | P4-09 single-thread fallback/backpressure | Flutter unit/contract tests | 本地通过 | supervisor 覆盖 restart-once、fallback、terminal failure、timeout 和 oldest-drop accounting。 |
 | P4-10 Web persistence | 自动，Edge headless + synthetic PCM/metadata | 本地通过 | Drift `sharedIndexedDb` + recording OPFS；创建、reload、历史、删除、重建通过。JS contract 另覆盖 OPFS append cleanup、IndexedDB fallback、quota/private typed result。录音不进 SQLite。 |
 | P4-10 sample-index limit | Flutter unit + Edge release | 本地通过 | 60 秒按 sample index，跨界 chunk 精确裁剪；暂停 wall-clock 不计入。Edge gate 用 1 秒同构测试参数减少测试数据量。 |
-| P4-11 self-contained deployment/cache | 自动 + 浏览器 | Pending | 当前本机外部 CanvasKit CDN 被阻断会导致普通 release 白屏；P4-10 gate 使用 `--no-web-resources-cdn` 隔离该前置，不将其误报为 persistence failure。正式构建、缓存/MIME/CSP 合同由 P4-11 固化。 |
+| P4-11 self-contained deployment/cache | 自动 + Edge headless | 本地通过 | release 固定 `--no-web-resources-cdn --csp`；27 个关键资产/8 个 WASM 的 release hash、统一 header、`no-store`、WASM MIME、CSP、本地 CanvasKit 通过；无 COOP/COEP，`crossOriginIsolated=false`。 |
+| P4-11 lifecycle | Flutter unit + Edge headless synthetic lifecycle | 本地通过 | typed permission/devicechange/hidden/visible/AudioContext/worker events；hidden 和 AudioContext interruption 保存 sample-index checkpoint，恢复后仍需用户显式继续。不是实际后台录音或真实麦克风证据。 |
 | Chrome、Firefox、Safari/iOS Web | 手动，真实浏览器与麦克风 | Pending | 同时检查权限、有效采样率、后台 tab、设备路由与部署的 WASM MIME/CSP/缓存 headers。 |
 
 普通 CI 的 fake capture 和 Edge fake audio device 不可用于通过真实麦克风、真人声 cadence、后台限频或麦克风质量项目。

@@ -346,11 +346,14 @@ voice-trainer/
 ├─ web/                                           [flutter create 生成]
 │  ├─ index.html
 │  ├─ manifest.json
+│  ├─ deployment_contract.json                  [P4-11 release/header/cache/CSP contract]
+│  ├─ lifecycle_client.js                       [P4-11 permission/device/visibility/AudioContext observer]
+│  ├─ analysis_worker_client.js                 [dedicated worker facade + lifecycle events]
+│  ├─ analysis_worker.js                        [single-thread Rust WASM worker]
+│  ├─ recording_store_client.js                 [OPFS/IndexedDB recording BlobStore]
 │  ├─ sqlite3.wasm                               [Drift 2.34.3 同版资源]
 │  ├─ drift_worker.js                            [Drift 2.34.3 同版资源]
 │  ├─ pkg/                                       [FRB Web 生成并提交]
-│  ├─ headers.dev.json                            [COOP/COEP 开发配置]
-│  └─ drift_worker.dart                           [若 Drift 生成流程需要]
 ├─ packages/                                      [默认不创建]
 │  └─ voice_audio_capture/                        [仅 record gate 失败时]
 └─ .github/

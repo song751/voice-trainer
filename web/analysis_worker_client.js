@@ -4,6 +4,7 @@ class VoiceTrainerAnalysisWorker {
   constructor() {
     this._nextId = 1;
     this._pending = new Map();
+    this._terminated = false;
     this._worker = new Worker(new URL('analysis_worker.js', document.baseURI));
     this._worker.onmessage = ({ data }) => {
       if (!data || !Number.isInteger(data.id) || typeof data.ok !== 'boolean') {
@@ -23,7 +24,10 @@ class VoiceTrainerAnalysisWorker {
   }
 
   initialize(sampleRate) {
-    return this._request('initialize', { sampleRate });
+    return this._request('initialize', { sampleRate }).then((result) => {
+      new VoiceTrainerLifecycleClient().reportWorkerState('workerRecovered');
+      return result;
+    });
   }
 
   pushPcm(pcm, startSample, droppedSamplesBefore, discontinuityBefore) {
@@ -65,9 +69,12 @@ class VoiceTrainerAnalysisWorker {
   }
 
   _terminate(error) {
+    if (this._terminated) return;
+    this._terminated = true;
     for (const pending of this._pending.values()) pending.reject(error);
     this._pending.clear();
     this._worker.terminate();
+    new VoiceTrainerLifecycleClient().reportWorkerState('workerInterrupted');
   }
 }
 

@@ -142,7 +142,12 @@ class LivePracticePage extends ConsumerWidget {
     RequestingPermission() => '正在请求麦克风权限。',
     Ready() => '正在准备音频会话。',
     Running() => '练习进行中。',
-    Paused() => '练习已暂停。',
+    Paused(:final interruption) =>
+      interruption == null
+          ? '练习已暂停。'
+          : interruption.recoveryReady
+          ? '浏览器音频曾中断；已记录断点，请确认后继续。'
+          : '浏览器音频已中断；等待页面或音频恢复。',
     Finalizing() => '正在保存练习结果。',
     Completed() => '练习已完成。',
     Failed() => '练习未完成。',

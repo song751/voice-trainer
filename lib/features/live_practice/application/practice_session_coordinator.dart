@@ -16,6 +16,7 @@ import '../../../core/domain/persistence/session_repository.dart';
 import '../../../core/domain/practice/practice_template.dart';
 import '../../../core/errors/failure.dart';
 import '../../../core/metrics/p3_performance_observer.dart';
+import '../../../core/platform/application_lifecycle.dart';
 import '../domain/practice_session_state.dart';
 import '../../session_result/application/session_result_calculator.dart';
 
@@ -98,6 +99,8 @@ final class PracticeSessionCoordinator {
       StreamController<CaptureHealth>.broadcast(sync: true);
   final StreamController<AnalysisWorkerMetrics> _workerMetrics =
       StreamController<AnalysisWorkerMetrics>.broadcast(sync: true);
+  final StreamController<SessionInterruption> _lifecycleCheckpoints =
+      StreamController<SessionInterruption>.broadcast(sync: true);
 
   PracticeSessionState _state = const Idle();
   PracticeSessionRequest? _request;
@@ -117,6 +120,9 @@ final class PracticeSessionCoordinator {
   int? _expectedSequenceNumber;
   int? _expectedSampleIndex;
   bool _resumeDiscontinuityPending = false;
+  bool _lifecycleTransitioning = false;
+  bool _workerInterruptionPending = false;
+  int _lastWorkerRestartCount = 0;
 
   PracticeSessionState get state => _state;
 
@@ -127,6 +133,9 @@ final class PracticeSessionCoordinator {
   Stream<CaptureHealth> get captureHealth => _captureHealth.stream;
 
   Stream<AnalysisWorkerMetrics> get workerMetrics => _workerMetrics.stream;
+
+  Stream<SessionInterruption> get lifecycleCheckpoints =>
+      _lifecycleCheckpoints.stream;
 
   QueueAccounting get analysisQueueAccounting => QueueAccounting(
     droppedSamples: _droppedSamples,
@@ -169,6 +178,7 @@ final class PracticeSessionCoordinator {
       _workerMetricsSubscription = _analysisEngine.workerMetricsStream.listen((
         metrics,
       ) {
+        _observeWorkerRecovery(metrics);
         performanceObserver.onWorkerMetrics(metrics);
         _workerMetrics.add(metrics);
       });
@@ -214,7 +224,7 @@ final class PracticeSessionCoordinator {
     if (_state is! Running) {
       throw InvalidSessionTransition(from: _state.kind.name, event: 'pause');
     }
-    await _captureSession!.pause();
+    await _pauseCapture();
     _state = _stateMachine.transition(_state, const PauseRequested());
     return _state;
   }
@@ -222,6 +232,14 @@ final class PracticeSessionCoordinator {
   Future<PracticeSessionState> resume() async {
     if (_state is! Paused) {
       throw InvalidSessionTransition(from: _state.kind.name, event: 'resume');
+    }
+    final paused = _state as Paused;
+    if (paused.interruption case final interruption?
+        when !interruption.recoveryReady) {
+      throw InvalidSessionTransition(
+        from: _state.kind.name,
+        event: 'resumeBeforeLifecycleRecovery',
+      );
     }
     await _captureSession!.resume();
     _resumeDiscontinuityPending = true;
@@ -268,6 +286,159 @@ final class PracticeSessionCoordinator {
     await _realtimeFrames.close();
     await _captureHealth.close();
     await _workerMetrics.close();
+    await _lifecycleCheckpoints.close();
+  }
+
+  /// Applies browser lifecycle signals sequentially to the active session.
+  ///
+  /// Hidden tabs and suspended/interrupted AudioContexts pause capture and
+  /// retain an explicit sample-index checkpoint. Returning to a runnable state
+  /// only enables the user-controlled resume action; it never silently resumes
+  /// a microphone in the background.
+  Future<PracticeSessionState> handleLifecycleEvent(
+    ApplicationLifecycleEvent event,
+  ) async {
+    if (_lifecycleTransitioning) return _state;
+    switch (event.kind) {
+      case ApplicationLifecycleEventKind.microphonePermissionDenied:
+        if (_state is Running || _state is Paused) {
+          _state = _stateMachine.transition(
+            _state,
+            const PermissionDeniedEvent(PermissionDeniedFailure()),
+          );
+          _scheduleFailureCleanup();
+        }
+      case ApplicationLifecycleEventKind.pageHidden:
+        await _interrupt(SessionInterruptionReason.pageHidden);
+      case ApplicationLifecycleEventKind.inputDevicesChanged:
+        await _interrupt(
+          SessionInterruptionReason.inputDevicesChanged,
+          recoveryReady: true,
+        );
+      case ApplicationLifecycleEventKind.audioContextSuspended:
+        await _interrupt(SessionInterruptionReason.audioContextSuspended);
+      case ApplicationLifecycleEventKind.audioContextInterrupted:
+      case ApplicationLifecycleEventKind.audioContextClosed:
+        await _interrupt(SessionInterruptionReason.audioContextInterrupted);
+      case ApplicationLifecycleEventKind.workerInterrupted:
+        _workerInterruptionPending = true;
+        _resumeDiscontinuityPending = true;
+        _hasDiscontinuity = true;
+        _publishLifecycleCheckpoint(
+          SessionInterruption(
+            reason: SessionInterruptionReason.workerRestarted,
+            sampleIndex: _expectedSampleIndex ?? 0,
+            recoveryReady: false,
+          ),
+        );
+      case ApplicationLifecycleEventKind.workerRecovered:
+        if (!_workerInterruptionPending) break;
+        _workerInterruptionPending = false;
+        _resumeDiscontinuityPending = true;
+        _hasDiscontinuity = true;
+        _publishLifecycleCheckpoint(
+          SessionInterruption(
+            reason: SessionInterruptionReason.workerRestarted,
+            sampleIndex: _expectedSampleIndex ?? 0,
+            recoveryReady: true,
+          ),
+        );
+      case ApplicationLifecycleEventKind.pageVisible:
+        _markRecoveryReady(SessionInterruptionReason.pageHidden);
+      case ApplicationLifecycleEventKind.audioContextRunning:
+        _markRecoveryReady(SessionInterruptionReason.audioContextSuspended);
+        _markRecoveryReady(SessionInterruptionReason.audioContextInterrupted);
+      case ApplicationLifecycleEventKind.microphonePermissionGranted:
+      case ApplicationLifecycleEventKind.microphonePermissionPrompt:
+        break;
+    }
+    return _state;
+  }
+
+  Future<void> _interrupt(
+    SessionInterruptionReason reason, {
+    bool recoveryReady = false,
+  }) async {
+    if (_state is! Running || _captureSession == null) return;
+    _lifecycleTransitioning = true;
+    try {
+      await _pauseCapture();
+      _resumeDiscontinuityPending = true;
+      _hasDiscontinuity = true;
+      final interruption = SessionInterruption(
+        reason: reason,
+        sampleIndex: _expectedSampleIndex ?? 0,
+        recoveryReady: recoveryReady,
+      );
+      _publishLifecycleCheckpoint(interruption);
+      _state = _stateMachine.transition(
+        _state,
+        PauseRequested(interruption: interruption),
+      );
+    } catch (_) {
+      _state = _stateMachine.transition(
+        _state,
+        const CaptureFailedEvent(
+          CaptureFailure(CaptureFailureReason.streamInterrupted),
+        ),
+      );
+      _scheduleFailureCleanup();
+    } finally {
+      _lifecycleTransitioning = false;
+    }
+  }
+
+  Future<void> _pauseCapture() async {
+    _lifecycleTransitioning = true;
+    try {
+      await _captureSession!.pause();
+    } finally {
+      _lifecycleTransitioning = false;
+    }
+  }
+
+  void _markRecoveryReady(SessionInterruptionReason reason) {
+    final current = _state;
+    if (current is Paused &&
+        current.interruption?.reason == reason &&
+        !(current.interruption?.recoveryReady ?? false)) {
+      _state = _stateMachine.transition(
+        current,
+        const LifecycleRecoveryAvailable(),
+      );
+    }
+  }
+
+  void _observeWorkerRecovery(AnalysisWorkerMetrics metrics) {
+    if (metrics.restartCount > _lastWorkerRestartCount) {
+      _lastWorkerRestartCount = metrics.restartCount;
+      _resumeDiscontinuityPending = true;
+      _hasDiscontinuity = true;
+      _publishLifecycleCheckpoint(
+        SessionInterruption(
+          reason: SessionInterruptionReason.workerRestarted,
+          sampleIndex: _expectedSampleIndex ?? 0,
+          recoveryReady: true,
+        ),
+      );
+    }
+    if (metrics.state == AnalysisWorkerState.fallback) {
+      _resumeDiscontinuityPending = true;
+      _hasDiscontinuity = true;
+      _publishLifecycleCheckpoint(
+        SessionInterruption(
+          reason: SessionInterruptionReason.workerFallback,
+          sampleIndex: _expectedSampleIndex ?? 0,
+          recoveryReady: true,
+        ),
+      );
+    }
+  }
+
+  void _publishLifecycleCheckpoint(SessionInterruption interruption) {
+    if (!_lifecycleCheckpoints.isClosed) {
+      _lifecycleCheckpoints.add(interruption);
+    }
   }
 
   Future<PracticeSessionState> _finalize() async {
@@ -353,6 +524,8 @@ final class PracticeSessionCoordinator {
     _expectedSequenceNumber = null;
     _expectedSampleIndex = null;
     _resumeDiscontinuityPending = false;
+    _workerInterruptionPending = false;
+    _lastWorkerRestartCount = 0;
     _droppedSamples = 0;
     _hasDiscontinuity = false;
     _state = _stateMachine.transition(_state, const ResetRequested());

@@ -43,7 +43,7 @@ final class PlatformCapabilities {
 
   /// P4-09 promotes Web capture and the dedicated Rust WASM worker. P4-10
   /// promotes durable Drift/recording persistence while retaining the 60-second
-  /// sample-timeline limit. Lifecycle remains a later card.
+  /// sample-timeline limit. P4-11 adds the browser lifecycle observer.
   static const web = PlatformCapabilities(
     target: PlatformTarget.web,
     capture: PlatformAdapterMode.production,
@@ -51,7 +51,7 @@ final class PlatformCapabilities {
     analysisWorker: AnalysisWorkerCapability.dedicatedWebWorker,
     maximumRecordingDuration: Duration(seconds: 60),
     supportsDeviceSelection: false,
-    supportsLifecycleEvents: false,
+    supportsLifecycleEvents: true,
   );
 
   static const otherNative = PlatformCapabilities(

@@ -1,5 +1,32 @@
 import '../../../core/errors/failure.dart';
 
+enum SessionInterruptionReason {
+  pageHidden,
+  inputDevicesChanged,
+  audioContextSuspended,
+  audioContextInterrupted,
+  workerRestarted,
+  workerFallback,
+}
+
+final class SessionInterruption {
+  const SessionInterruption({
+    required this.reason,
+    required this.sampleIndex,
+    required this.recoveryReady,
+  });
+
+  final SessionInterruptionReason reason;
+  final int sampleIndex;
+  final bool recoveryReady;
+
+  SessionInterruption withRecoveryReady() => SessionInterruption(
+    reason: reason,
+    sampleIndex: sampleIndex,
+    recoveryReady: true,
+  );
+}
+
 enum PracticeSessionStateKind {
   idle,
   requestingPermission,
@@ -53,9 +80,10 @@ final class Running extends PracticeSessionState {
 }
 
 final class Paused extends PracticeSessionState {
-  const Paused({required this.sessionId});
+  const Paused({required this.sessionId, this.interruption});
 
   final String sessionId;
+  final SessionInterruption? interruption;
 
   @override
   PracticeSessionStateKind get kind => PracticeSessionStateKind.paused;
@@ -121,7 +149,13 @@ final class CaptureStarted extends PracticeSessionEvent {
 }
 
 final class PauseRequested extends PracticeSessionEvent {
-  const PauseRequested();
+  const PauseRequested({this.interruption});
+
+  final SessionInterruption? interruption;
+}
+
+final class LifecycleRecoveryAvailable extends PracticeSessionEvent {
+  const LifecycleRecoveryAvailable();
 }
 
 final class ResumeRequested extends PracticeSessionEvent {
@@ -209,9 +243,17 @@ final class PracticeSessionStateMachine {
           failure: failure,
           retryState: PracticeSessionStateKind.ready,
         ),
-      (Running(:final sessionId), PauseRequested()) => Paused(
-        sessionId: sessionId,
-      ),
+      (Running(:final sessionId), PauseRequested(:final interruption)) =>
+        Paused(sessionId: sessionId, interruption: interruption),
+      (
+        Paused(:final sessionId, :final interruption),
+        LifecycleRecoveryAvailable(),
+      )
+          when interruption != null =>
+        Paused(
+          sessionId: sessionId,
+          interruption: interruption.withRecoveryReady(),
+        ),
       (Paused(:final sessionId), ResumeRequested()) => Running(
         sessionId: sessionId,
       ),
@@ -225,6 +267,15 @@ final class PracticeSessionStateMachine {
         sessionId: sessionId,
         failure: failure,
         retryState: PracticeSessionStateKind.ready,
+      ),
+      (Running(:final sessionId), PermissionDeniedEvent(:final failure)) ||
+      (
+        Paused(:final sessionId),
+        PermissionDeniedEvent(:final failure),
+      ) => Failed(
+        sessionId: sessionId,
+        failure: failure,
+        retryState: PracticeSessionStateKind.requestingPermission,
       ),
       (Running(:final sessionId), AnalysisFailedEvent(:final failure)) ||
       (Paused(:final sessionId), AnalysisFailedEvent(:final failure)) => Failed(

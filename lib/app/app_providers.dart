@@ -14,10 +14,12 @@ import '../core/domain/reference/song_reference.dart';
 import '../core/errors/app_exception.dart';
 import '../core/logging/app_logger.dart';
 import '../core/platform/platform_capabilities.dart';
+import '../core/platform/application_lifecycle.dart';
 import '../features/live_practice/application/practice_session_coordinator.dart';
 import '../features/session_result/application/deterministic_observation_engine.dart';
 import '../infrastructure/audio_import/file_selector_song_picker.dart';
 import 'default_adapters.dart';
+import 'default_lifecycle.dart';
 import 'default_persistence.dart';
 import 'platform_capabilities.dart';
 
@@ -37,6 +39,20 @@ final audioCaptureProvider = Provider<AudioCapture>(
 final analysisEngineProvider = Provider<AnalysisEngine>(
   (ref) => createDefaultAnalysisEngine(ref.watch(platformCapabilitiesProvider)),
 );
+
+final applicationLifecycleProvider = Provider<ApplicationLifecycle>((ref) {
+  final lifecycle = createDefaultApplicationLifecycle(
+    ref.watch(platformCapabilitiesProvider),
+  );
+  unawaited(lifecycle.initialize());
+  ref.onDispose(() => unawaited(lifecycle.dispose()));
+  return lifecycle;
+});
+
+final applicationLifecycleEventsProvider =
+    StreamProvider<ApplicationLifecycleEvent>((ref) {
+      return ref.watch(applicationLifecycleProvider).events;
+    });
 
 final defaultPersistenceAdaptersProvider = Provider<DefaultPersistenceAdapters>(
   (ref) {

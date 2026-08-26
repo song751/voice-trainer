@@ -254,6 +254,13 @@ cargo test --manifest-path rust\Cargo.toml
 
 **目标结果：** 固化 permission/devicechange、hidden/background、AudioContext、worker生命周期和 WASM MIME/CSP/cache/version合同。
 
+#### P4-11 执行记录（2026-08-27，已完成，待集成接受）
+
+- 在 P4-05 已有 `application_lifecycle.dart` 上扩展平台中立的 typed event port 与 Web adapter，没有建立第二套 lifecycle vocabulary。`lifecycle_client.js` 在 Flutter/`record_web` 前加载，监听 Permissions API microphone state、`devicechange`、document visibility，并以构造器 proxy 观察随后由 `record_web` 创建的 AudioContext state；事件只携带 kind 和有界 state，不记录 device id/label/profile path。Android 保留 Flutter phase 自动 pause/resume 策略；Web 使用细粒度事件与显式恢复，二者由同一 controller 串行化且不会重复处理。
+- active session 收到 hidden、AudioContext suspended/interrupted 或 devicechange 时会暂停采集并保存单调 sample-index `SessionInterruption` 断点。hidden/AudioContext 必须收到对应 visible/running 后才开放用户显式 resume；应用不会在后台自动重启麦克风。permission revoked 进入 typed `PermissionDeniedFailure`；worker interrupted/recovered、restart/fallback 进入 typed checkpoint，并把下一个 PCM batch 标记 discontinuity，结果抑制跨断点稳定性解释。
+- 正式 Web release 合同固定为 `flutter build web --release --no-web-resources-cdn --csp`。构建后工具对 index、Flutter bootstrap/main、lifecycle/capture/persistence/worker JS、Rust/SQLite/CanvasKit WASM、service worker 等关键资产生成 SHA-256 release manifest。等价 server 对同一 release 返回统一 `X-Voice-Trainer-Release`，关键 JS/WASM/JSON/HTML 使用 `no-store, max-age=0`，避免旧 JS 与新 WASM 复用；WASM 使用 `application/wasm`，CSP 仅允许 self runtime/worker 与 `wasm-unsafe-eval`。
+- 默认仍是 dedicated worker 内的单线程 Rust WASM；server 不发送 COOP/COEP，Edge gate 实测 `crossOriginIsolated=false`。本地 validator 验证 27 个关键资产、8 个 WASM 的 body hash、release header、cache、MIME、CSP 与本地 CanvasKit。Edge synthetic lifecycle gate 覆盖 permission granted、hidden/visible、devicechange、真实 AudioContext state、worker terminate/replacement；`realMicrophone=false`，不替代 P4-15 的真实麦克风、真实后台限频或多浏览器验收。
+
 **验收：** 背景恢复显式断点；缓存不混用旧JS/new WASM；本地等价server通过header/cache validator；默认单线程路径不被错误要求COOP/COEP。Edge automation smoke和Web release通过。接受后解锁 P4-12。
 
 ### P4-12 — 跨平台 UI/错误/无障碍回归

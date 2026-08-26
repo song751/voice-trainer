@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/app_providers.dart';
@@ -46,7 +48,21 @@ final class LivePracticeController extends Notifier<PracticeSessionState> {
     _template = ref.watch(practiceTemplateProvider);
     _repository = ref.watch(sessionRepositoryProvider);
     _newSessionId = ref.watch(sessionIdGeneratorProvider);
+    ref.listen(applicationLifecycleEventsProvider, (_, next) {
+      final event = next.valueOrNull;
+      if (event != null) {
+        unawaited(_handleBrowserLifecycle(event));
+      }
+    });
     return _coordinator.state;
+  }
+
+  Future<void> _handleBrowserLifecycle(ApplicationLifecycleEvent event) {
+    final operation = _lifecycleSerial.then((_) async {
+      state = await _coordinator.handleLifecycleEvent(event);
+    });
+    _lifecycleSerial = operation.catchError((_) {});
+    return operation;
   }
 
   Future<void> start() async {

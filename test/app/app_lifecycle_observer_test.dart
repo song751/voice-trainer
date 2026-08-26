@@ -138,6 +138,51 @@ void main() {
 
     expect(container.read(livePracticeControllerProvider), isA<Paused>());
   });
+
+  test(
+    'Web hidden lifecycle updates controller state without automatic resume',
+    () async {
+      final lifecycle = _FakeWebLifecycle();
+      final capture = FakeAudioCapture();
+      final store = InMemoryRecordingStore();
+      final container = ProviderContainer(
+        overrides: [
+          platformCapabilitiesProvider.overrideWithValue(
+            PlatformCapabilities.web,
+          ),
+          applicationLifecycleProvider.overrideWith((ref) {
+            ref.onDispose(() => unawaited(lifecycle.dispose()));
+            return lifecycle;
+          }),
+          audioCaptureProvider.overrideWithValue(capture),
+          analysisEngineProvider.overrideWithValue(FakeAnalysisEngine()),
+          recordingStoreProvider.overrideWithValue(store),
+          recordingSinkProvider.overrideWithValue(InMemoryRecordingSink(store)),
+          sessionRepositoryProvider.overrideWithValue(
+            InMemorySessionRepository(recordingStore: store),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+      final controller = container.read(
+        livePracticeControllerProvider.notifier,
+      );
+
+      await controller.start();
+      lifecycle.emit(ApplicationLifecycleEventKind.pageHidden);
+      await _drainEvents();
+      var state = container.read(livePracticeControllerProvider) as Paused;
+      expect(state.interruption?.reason, SessionInterruptionReason.pageHidden);
+      expect(state.interruption?.recoveryReady, isFalse);
+
+      lifecycle.emit(ApplicationLifecycleEventKind.pageVisible);
+      await _drainEvents();
+      state = container.read(livePracticeControllerProvider) as Paused;
+      expect(state.interruption?.recoveryReady, isTrue);
+      await controller.resume();
+      expect(container.read(livePracticeControllerProvider), isA<Running>());
+    },
+  );
 }
 
 PcmChunk _chunk({required int sequence, required int firstSample}) => PcmChunk(
@@ -186,4 +231,23 @@ final class _FakeLifecycleSource implements ApplicationLifecycleSource {
     disposed = true;
     unawaited(_controller.close());
   }
+}
+
+final class _FakeWebLifecycle implements ApplicationLifecycle {
+  final _controller = StreamController<ApplicationLifecycleEvent>.broadcast(
+    sync: true,
+  );
+
+  @override
+  Stream<ApplicationLifecycleEvent> get events => _controller.stream;
+
+  void emit(ApplicationLifecycleEventKind kind) {
+    _controller.add(ApplicationLifecycleEvent(kind: kind));
+  }
+
+  @override
+  Future<void> initialize() async {}
+
+  @override
+  Future<void> dispose() => _controller.close();
 }
