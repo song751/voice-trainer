@@ -34,6 +34,8 @@
 
 本卡不把任一候选加到 production `rust/Cargo.toml`。只有导出与 operator smoke 成功后，才能在下一张明确任务卡记录实际 binary/model size、transitive license、平台包方式与 removal plan，再添加依赖。
 
+SRD-02 已在独立 tool package 固定 `tract-onnx 0.23.5` 做 Windows CPU smoke，并固定 Python `onnx 1.22.0` / `onnxruntime 1.29.0` 做开发验证。它们仍不是 production dependency：ONNX 为 Apache-2.0，ORT 为 MIT，tract 原始代码可选 MIT/Apache-2.0。tract 上游当前推荐 production 采用稳定 facade/NNEF 路线，而不是长期依赖内部 crate；下一次采用决策必须比较 NNEF/OPL 转换、WASM feature 集和 stripped binary，当前未 strip 的 Windows harness `tract_smoke.exe` 约 25.4 MB 不能当作最终包增量。
+
 ### 开发 oracle 与产品边界
 
 `tool/song_separation/oracle_umxhq.py` 可以使用 Python、PyTorch、Torchaudio 和 Open-Unmix 做开发期 oracle/导出尝试。它必须：
@@ -73,3 +75,12 @@
 - 许可音频的听感/残留与 reference-F0 confidence 评估。
 
 任一导出/runtime 失败时保留最小失败复现，继续提供手工双 stem fallback；不得生成假的 vocals 文件或把 contract test 写成模型成功。
+
+## SRD-02 结果补记（2026-08-26）
+
+- 直接 trace 上游 `OpenUnmix.forward` 时，`.data.shape` 把 32-frame reshape 固化；虽然 ONNX input 声明动态 frame，ORT 运行 47 frame 会在 `Reshape_1` 请求 `{32,1,512}` 失败，tract 对 47-frame fixed input 在 prepare 阶段返回 typed `backend_incompatible`。
+- 导出脚本因此包含一份仅开发期、语义等价的 MIT upstream forward wrapper，以 `.size()` 保留符号 frame。opset 17 ONNX 重复两次导出的 SHA-256 均为 `1dd15a2be2f15ba035205f866a035df38d85b27824ad67fe53566e80ec1f4258`，大小 `35,626,526` bytes；不提交该文件。
+- operator 集：`Add, BatchNormalization, Concat, Constant, ConstantOfShape, Gather, LSTM, MatMul, Mul, Relu, Reshape, Shape, Slice, Squeeze, Tanh, Transpose, Unsqueeze`。
+- ORT CPU 对 32/47/300 frames 全部通过；相对 PyTorch 最大绝对误差分别约 `8.27e-7 / 8.53e-7 / 1.53e-6`，300-frame 单次 core inference `0.0568 s`，session build `0.0551 s`，报告时 process RSS 约 `804.6 MB`。
+- tract CPU 对 32/47/300 frames 全部通过；最大绝对误差约 `1.05e-6 / 1.04e-6 / 1.13e-6`。300-frame release core inference `0.2679 s`，load/prepare `0.1155 s`；其他平台尚未验证。
+- 这只验证 44.1 kHz stereo magnitude core。production 仍缺 STFT/ISTFT、mask/Wiener/residual、长音频分块和端到端音频数值/质量 gate，因此不把本结果写成“歌曲分离已接入”。

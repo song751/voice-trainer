@@ -92,12 +92,43 @@ def export_core_onnx(model, output: Path) -> None:
         raise OracleFailure(
             "export_dependency_missing", "export_onnx", "install the development-only onnx package"
         ) from error
+    class ExportableOpenUnmix(torch.nn.Module):
+        """Equivalent MIT-licensed forward without `.data.shape` constants."""
+
+        def __init__(self, source) -> None:
+            super().__init__()
+            self.source = source
+
+        def forward(self, magnitude):
+            import torch.nn.functional as functional
+
+            value = magnitude.permute(3, 0, 1, 2)
+            frames = value.size(0)
+            samples = value.size(1)
+            channels = value.size(2)
+            mixture = value.detach().clone()
+            value = value[..., : self.source.nb_bins]
+            value = (value + self.source.input_mean) * self.source.input_scale
+            value = self.source.fc1(value.reshape(-1, channels * self.source.nb_bins))
+            value = self.source.bn1(value)
+            value = torch.tanh(value.reshape(frames, samples, self.source.hidden_size))
+            recurrent, _ = self.source.lstm(value)
+            value = torch.cat([value, recurrent], -1)
+            value = self.source.fc2(value.reshape(-1, value.size(-1)))
+            value = functional.relu(self.source.bn2(value))
+            value = self.source.bn3(self.source.fc3(value))
+            value = value.reshape(
+                frames, samples, channels, self.source.nb_output_bins
+            )
+            value = value * self.source.output_scale + self.source.output_mean
+            return (functional.relu(value) * mixture).permute(1, 2, 3, 0)
+
     output.parent.mkdir(parents=True, exist_ok=True)
     partial = output.with_suffix(output.suffix + ".partial")
     example = torch.zeros((1, 2, 2049, 32), dtype=torch.float32)
     try:
         torch.onnx.export(
-            model,
+            ExportableOpenUnmix(model).eval(),
             example,
             partial,
             dynamo=False,

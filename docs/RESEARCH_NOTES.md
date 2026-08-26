@@ -660,3 +660,11 @@ Phase-boundary 回归：FRB codegen 连续两次 7 个生成文件 SHA-256 不�
 - timing、level、range、spectrum 与 reference A/B 练习仍标为 `U/PED`。所有内容默认 unreviewed；需声乐教师与 SLP/嗓音医学联合复核后才可进入 production catalog。
 - 安全边界采用 AAO-HNSF dysphonia 指南：应用不从音频诊断症状；疼痛/严重警示症状停止并转介，持续声音异常 4 周未改善应提示喉科/耳鼻喉评估，临床 voice therapy 前需要诊断性喉镜检查。
 - `Recommendation` 产品合同现已携带 content version/review status、confidence、scope、quality flags、数值 evidence、证据等级/source IDs 和 limitations。质量失败只生成 `REC-QUALITY-01`；音准未达目标时生成 `PITCH-MATCH-01`，结果页展示练习步骤、研究等级和“尚未专家审核”状态，并包含疼痛/明显不适/呼吸困难时停止的安全提示。其他低证据课程尚未自动触发。
+
+### SRD-02 UMX-HQ core ONNX/runtime smoke（2026-08-26，R&D evidence only）
+
+- 开发依赖：隔离环境固定 `onnx 1.22.0`（Apache-2.0）用于格式检查/导出，`onnxruntime 1.29.0`（MIT）作为 native 备选 oracle；独立 tool Cargo package 固定 `tract-onnx 0.23.5`（MIT OR Apache-2.0）作为 Rust-first smoke。三者均未加入 production。fallback 仍为手工双 stem；移除时删除 tool scripts/Cargo dependency，不影响 Flutter/FRB/realtime DSP。官方许可来源：[ONNX](https://github.com/onnx/onnx)、[ONNX Runtime](https://github.com/microsoft/onnxruntime/blob/main/LICENSE)、[tract](https://github.com/sonos/tract)。
+- 初次 direct trace 暴露真实失败：上游 forward 的 `.data.shape` 固化 32-frame reshape，ORT 47-frame 运行失败，tract 47-frame prepare 返回 typed `backend_incompatible`。导出器改为语义等价、保留动态 `.size()` 的 development-only wrapper 后，opset 17 core 重复导出 hash 一致：`1dd15a2be2f15ba035205f866a035df38d85b27824ad67fe53566e80ec1f4258`，`35,626,526` bytes；模型不入 Git。
+- ORT CPU 32/47/300-frame 对 PyTorch max-abs 为 `8.27e-7 / 8.53e-7 / 1.53e-6`；300-frame inference `0.0568 s`、session `0.0551 s`、报告时 RSS `804,552,704` bytes。tract CPU 对应 max-abs `1.05e-6 / 1.04e-6 / 1.13e-6`，300-frame release inference `0.2679 s`、load/prepare `0.1155 s`。
+- Windows unstripped `tract_smoke.exe` 为 `25,375,744` bytes，只是全 ONNX loader 的 harness 尺寸，不是 production 增量。tract 上游现建议 facade/NNEF 路线；若未来采用，应评估固定模型转 NNEF/OPL、裁剪 operator、stripped size、Android/Web 与许可证清单，不能直接复制本 harness。
+- 当前成功仅限 vocals magnitude core；尚无 production STFT/ISTFT、mask/Wiener/residual、长音频分块、取消延迟、Android/Web 内存或许可歌曲质量证据，不关闭歌曲导入功能。

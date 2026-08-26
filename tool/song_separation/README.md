@@ -46,3 +46,29 @@ python tool/song_separation/oracle_umxhq.py `
   --output-dir $env:TEMP\voice-trainer-song-oracle `
   --export-onnx $env:TEMP\voice-trainer-song-models\umxhq-vocals-core.onnx
 ```
+
+The exporter uses a development-only equivalent forward that replaces upstream `.data.shape` constants with symbolic `.size()` values. The unmodified direct trace appears dynamic in its ONNX signature but fails for a frame count different from the 32-frame example; this failure is retained in ADR 0002.
+
+Compare the exported core with PyTorch through ORT and write deterministic raw tensors outside Git:
+
+```powershell
+python tool/song_separation/verify_umxhq_onnx.py `
+  --acknowledge-rights `
+  --model $env:TEMP\voice-trainer-song-models\vocals-b62c91ce.pth `
+  --onnx $env:TEMP\voice-trainer-song-models\umxhq-vocals-core.onnx `
+  --output-dir $env:TEMP\voice-trainer-song-onnx-golden `
+  --frames 32 47 300
+```
+
+Run the tract-first Rust smoke against one generated case:
+
+```powershell
+cargo run --release --manifest-path tool/song_separation/Cargo.toml --bin tract_smoke -- `
+  --acknowledge-rights `
+  --onnx $env:TEMP\voice-trainer-song-models\umxhq-vocals-core.onnx `
+  --input-raw $env:TEMP\voice-trainer-song-onnx-golden\input-300.f32 `
+  --expected-raw $env:TEMP\voice-trainer-song-onnx-golden\pytorch-expected-300.f32 `
+  --frames 300
+```
+
+These commands validate only the magnitude model core. They do not provide the production STFT/ISTFT, Wiener/mask composition, full-song chunking, mobile/Web runtime, or perceptual quality gate.
