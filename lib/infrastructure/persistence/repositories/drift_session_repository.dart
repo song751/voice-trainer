@@ -36,7 +36,7 @@ final class DriftSessionRepository implements SessionRepository {
     final frames = record.features.frames;
     final timeline = _timelineFor(record.features);
     _ensureSupportedFrames(frames);
-    final featureSchemaVersion = _schemaVersionFor(frames);
+    final featureSchemaVersion = _schemaVersionFor(frames, timeline);
     final template = jsonEncode({
       'id': record.template.id,
       'version': record.template.version,
@@ -100,8 +100,11 @@ final class DriftSessionRepository implements SessionRepository {
     final metadata = await _database.featureMetadataForSession(id);
     if (features.isEmpty || metadata == null) return null;
     final columns = <String, DecodedFeatureBlob>{
-      for (final feature in features) feature.kind: _decode(feature),
+      for (final feature in features)
+        if (feature.kind != _sampleIndexColumnKind)
+          feature.kind: _decode(feature),
     };
+    final sampleIndices = _sampleIndicesFor(features, metadata);
     final f0 = _column(columns, 'f0_hz', metadata.frameCount);
     final rms = _column(columns, 'rms_dbfs', metadata.frameCount);
     final peak = _column(columns, 'peak_dbfs', metadata.frameCount);
@@ -139,8 +142,7 @@ final class DriftSessionRepository implements SessionRepository {
         frames: List<AnalysisFrame>.generate(
           metadata.frameCount,
           (i) => AnalysisFrame(
-            sampleIndex:
-                metadata.startSampleIndex + i * metadata.samplePeriodSamples,
+            sampleIndex: sampleIndices[i],
             rmsDbfs: rms.values[i],
             peakDbfs: peak.values[i],
             pitchClarity: clarity.values[i],
@@ -230,6 +232,20 @@ final class DriftSessionRepository implements SessionRepository {
       );
     }
 
+    FeatureSeriesTableCompanion sampleIndexColumn() {
+      final payload = _encodeSampleIndices(
+        frames.map((frame) => frame.sampleIndex).toList(growable: false),
+      );
+      return FeatureSeriesTableCompanion.insert(
+        runId: 0,
+        kind: _sampleIndexColumnKind,
+        frameCount: frames.length,
+        codecVersion: _sampleIndexBlobVersion,
+        payload: payload,
+        sha256: sha256.convert(payload).toString(),
+      );
+    }
+
     return <FeatureSeriesTableCompanion>[
       column(
         'f0_hz',
@@ -268,14 +284,132 @@ final class DriftSessionRepository implements SessionRepository {
             .toList(),
         List<bool>.filled(frames.length, true),
       ),
-      if (featureSchemaVersion >= _featureSchemaVersion)
+      if (frames.any((frame) => frame.bandPowersDb.isNotEmpty))
         for (var band = 0; band < _bandCount; band++)
           column(
             'band_${band}_db',
             frames.map((frame) => frame.bandPowersDb[band]).toList(),
             List<bool>.filled(frames.length, true),
           ),
+      if (featureSchemaVersion >= _explicitTimelineSchemaVersion)
+        sampleIndexColumn(),
     ];
+  }
+
+  Uint8List _encodeSampleIndices(List<int> sampleIndices) {
+    final output = Uint8List(
+      _sampleIndexHeaderBytes +
+          sampleIndices.length * Uint64List.bytesPerElement,
+    );
+    final data = ByteData.sublistView(output);
+    for (var index = 0; index < _sampleIndexBlobMagic.length; index++) {
+      output[index] = _sampleIndexBlobMagic.codeUnitAt(index);
+    }
+    data
+      ..setUint16(4, _sampleIndexBlobVersion, Endian.little)
+      ..setUint16(6, 0, Endian.little)
+      ..setUint32(8, sampleIndices.length, Endian.little)
+      ..setUint32(
+        12,
+        sampleIndices.length * Uint64List.bytesPerElement,
+        Endian.little,
+      );
+    for (var index = 0; index < sampleIndices.length; index++) {
+      final sampleIndex = sampleIndices[index];
+      if (sampleIndex < 0 || sampleIndex > _maxExactSampleIndex) {
+        throw ArgumentError.value(
+          sampleIndex,
+          'sampleIndices[$index]',
+          'Sample indices must fit the cross-platform exact integer range.',
+        );
+      }
+      data.setUint64(
+        _sampleIndexHeaderBytes + index * Uint64List.bytesPerElement,
+        sampleIndex,
+        Endian.little,
+      );
+    }
+    return output;
+  }
+
+  List<int> _decodeSampleIndices(
+    FeatureSeriesTableData feature,
+    int expectedFrameCount,
+  ) {
+    if (feature.codecVersion != _sampleIndexBlobVersion) {
+      throw FormatException(
+        'Unsupported sample-index BLOB version: ${feature.codecVersion}.',
+      );
+    }
+    if (sha256.convert(feature.payload).toString() != feature.sha256) {
+      throw StateError('Feature BLOB checksum does not match ${feature.kind}.');
+    }
+    final bytes = feature.payload;
+    if (bytes.lengthInBytes < _sampleIndexHeaderBytes) {
+      throw const FormatException(
+        'Sample-index BLOB is shorter than its header.',
+      );
+    }
+    final data = ByteData.sublistView(bytes);
+    final magic = String.fromCharCodes(bytes.sublist(0, 4));
+    final version = data.getUint16(4, Endian.little);
+    final frameCount = data.getUint32(8, Endian.little);
+    final payloadBytes = data.getUint32(12, Endian.little);
+    final expectedPayloadBytes = frameCount * Uint64List.bytesPerElement;
+    if (magic != _sampleIndexBlobMagic ||
+        version != _sampleIndexBlobVersion ||
+        frameCount != expectedFrameCount ||
+        frameCount != feature.frameCount ||
+        payloadBytes != expectedPayloadBytes ||
+        _sampleIndexHeaderBytes + payloadBytes != bytes.lengthInBytes) {
+      throw const FormatException(
+        'Sample-index BLOB header or lengths are inconsistent.',
+      );
+    }
+    final sampleIndices = List<int>.generate(
+      frameCount,
+      (index) => data.getUint64(
+        _sampleIndexHeaderBytes + index * Uint64List.bytesPerElement,
+        Endian.little,
+      ),
+      growable: false,
+    );
+    _validateSampleIndices(sampleIndices);
+    return sampleIndices;
+  }
+
+  List<int> _sampleIndicesFor(
+    List<FeatureSeriesTableData> features,
+    FeatureSeriesMetadataData metadata,
+  ) {
+    if (metadata.featureSchemaVersion < _explicitTimelineSchemaVersion) {
+      return List<int>.generate(
+        metadata.frameCount,
+        (index) =>
+            metadata.startSampleIndex + index * metadata.samplePeriodSamples,
+        growable: false,
+      );
+    }
+    final matches = features.where(
+      (feature) => feature.kind == _sampleIndexColumnKind,
+    );
+    if (matches.length != 1) {
+      throw StateError(
+        'Feature schema v${metadata.featureSchemaVersion} requires exactly '
+        'one $_sampleIndexColumnKind column.',
+      );
+    }
+    final sampleIndices = _decodeSampleIndices(
+      matches.single,
+      metadata.frameCount,
+    );
+    if (sampleIndices.isNotEmpty &&
+        sampleIndices.first != metadata.startSampleIndex) {
+      throw const FormatException(
+        'Sample-index BLOB does not match timeline metadata.',
+      );
+    }
+    return sampleIndices;
   }
 
   DecodedFeatureBlob _decode(FeatureSeriesTableData feature) {
@@ -300,27 +434,51 @@ final class DriftSessionRepository implements SessionRepository {
   _FeatureTimeline _timelineFor(FeatureSeries series) {
     final frames = series.frames;
     if (frames.isEmpty) {
-      return const _FeatureTimeline(0, 1, 'phase1-v1');
+      return const _FeatureTimeline(0, 1, 'phase1-v1', isRegular: true);
     }
+    final sampleIndices = frames
+        .map((frame) => frame.sampleIndex)
+        .toList(growable: false);
+    _validateSampleIndices(sampleIndices);
     final period = frames.length == 1
         ? 1
         : frames[1].sampleIndex - frames.first.sampleIndex;
-    if (period <= 0 ||
+    final isRegular =
+        frames.length < 3 ||
         List<bool>.generate(
-          frames.length - 1,
+          frames.length - 2,
           (offset) =>
-              frames[offset + 1].sampleIndex !=
-              frames.first.sampleIndex + (offset + 1) * period,
-        ).contains(true)) {
-      throw ArgumentError(
-        'Feature frames must have a regular sample timeline.',
-      );
-    }
+              frames[offset + 2].sampleIndex !=
+              frames.first.sampleIndex + (offset + 2) * period,
+        ).every((isIrregular) => !isIrregular);
     final version = frames.first.algorithmVersion;
     if (frames.any((frame) => frame.algorithmVersion != version)) {
       throw ArgumentError('Feature frames must share an algorithm version.');
     }
-    return _FeatureTimeline(frames.first.sampleIndex, period, version);
+    return _FeatureTimeline(
+      frames.first.sampleIndex,
+      period,
+      version,
+      isRegular: isRegular,
+    );
+  }
+
+  void _validateSampleIndices(List<int> sampleIndices) {
+    for (var index = 0; index < sampleIndices.length; index++) {
+      final sampleIndex = sampleIndices[index];
+      if (sampleIndex < 0 || sampleIndex > _maxExactSampleIndex) {
+        throw ArgumentError.value(
+          sampleIndex,
+          'sampleIndices[$index]',
+          'Sample indices must fit the cross-platform exact integer range.',
+        );
+      }
+      if (index > 0 && sampleIndex <= sampleIndices[index - 1]) {
+        throw ArgumentError(
+          'Feature frames must have strictly increasing sample indices.',
+        );
+      }
+    }
   }
 
   void _ensureSupportedFrames(List<AnalysisFrame> frames) {
@@ -338,9 +496,13 @@ final class DriftSessionRepository implements SessionRepository {
     }
   }
 
-  int _schemaVersionFor(List<AnalysisFrame> frames) =>
-      frames.any((frame) => frame.bandPowersDb.isNotEmpty)
-      ? _featureSchemaVersion
+  int _schemaVersionFor(
+    List<AnalysisFrame> frames,
+    _FeatureTimeline timeline,
+  ) => !timeline.isRegular
+      ? _explicitTimelineSchemaVersion
+      : frames.any((frame) => frame.bandPowersDb.isNotEmpty)
+      ? _bandFeatureSchemaVersion
       : 1;
 
   List<double> _bandPowersFor(
@@ -349,7 +511,24 @@ final class DriftSessionRepository implements SessionRepository {
     int frameIndex,
     int frameCount,
   ) {
-    if (schemaVersion < _featureSchemaVersion) return const <double>[];
+    if (schemaVersion < _bandFeatureSchemaVersion) {
+      return const <double>[];
+    }
+    final presentBands = List<bool>.generate(
+      _bandCount,
+      (band) => columns.containsKey('band_${band}_db'),
+    );
+    if (!presentBands.any((present) => present)) {
+      if (schemaVersion == _bandFeatureSchemaVersion) {
+        throw StateError(
+          'Feature schema v2 requires all physical band columns.',
+        );
+      }
+      return const <double>[];
+    }
+    if (presentBands.any((present) => !present)) {
+      throw StateError('Physical band feature columns are incomplete.');
+    }
     return List<double>.generate(
       _bandCount,
       (band) =>
@@ -416,17 +595,25 @@ final class DriftSessionRepository implements SessionRepository {
   }
 }
 
-const _featureSchemaVersion = 2;
+const _bandFeatureSchemaVersion = 2;
+const _explicitTimelineSchemaVersion = 3;
 const _bandCount = 8;
+const _sampleIndexColumnKind = 'sample_index_u64';
+const _sampleIndexBlobMagic = 'VTSI';
+const _sampleIndexBlobVersion = 1;
+const _sampleIndexHeaderBytes = 16;
+const _maxExactSampleIndex = 9007199254740991;
 
 final class _FeatureTimeline {
   const _FeatureTimeline(
     this.startSampleIndex,
     this.samplePeriodSamples,
-    this.algorithmVersion,
-  );
+    this.algorithmVersion, {
+    required this.isRegular,
+  });
 
   final int startSampleIndex;
   final int samplePeriodSamples;
   final String algorithmVersion;
+  final bool isRegular;
 }

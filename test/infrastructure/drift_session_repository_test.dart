@@ -93,6 +93,84 @@ void main() {
   );
 
   test(
+    'Drift repository preserves an explicit sample timeline across gaps',
+    () async {
+      final database = AppDatabase(NativeDatabase.memory());
+      addTearDown(database.close);
+      final repository = DriftSessionRepository(
+        database,
+        recordingStore: InMemoryRecordingStore(),
+      );
+      const sampleIndices = <int>[48000000123, 48000000603, 48000003003];
+      final record = PracticeSessionRecord(
+        id: 'session-discontinuous-timeline',
+        template: const PracticeTemplate(
+          id: 'target-note',
+          version: 3,
+          kind: PracticeKind.sustainedNote,
+          target: PracticeTarget(targetMidiNote: 57),
+          reviewStatus: ContentReviewStatus.reviewed,
+        ),
+        startedAt: DateTime.utc(2026, 8, 27),
+        summary: SessionSummary(
+          validFrameCount: 3,
+          totalFrameCount: 3,
+          droppedSamples: 1920,
+          qualityFlags: const {AnalysisQualityFlag.discontinuity},
+        ),
+        features: FeatureSeries(
+          frameRateHz: 100,
+          frames: List<AnalysisFrame>.generate(
+            sampleIndices.length,
+            (index) => AnalysisFrame(
+              sampleIndex: sampleIndices[index],
+              rmsDbfs: -18,
+              peakDbfs: -4,
+              pitchClarity: 0.92,
+              voiced: true,
+              f0Hz: 220,
+              bandPowersDb: const <double>[
+                -30,
+                -31,
+                -32,
+                -33,
+                -34,
+                -35,
+                -36,
+                -37,
+              ],
+              qualityFlags: index == 2
+                  ? const {AnalysisQualityFlag.discontinuity}
+                  : const {},
+              algorithmVersion: 'p3-stream-v1',
+            ),
+          ),
+        ),
+      );
+
+      await repository.save(record);
+      final metadata = await database.featureMetadataForSession(record.id);
+      final columns = await database.featureColumnsForSession(record.id);
+      final restored = await repository.findById(record.id);
+
+      expect(metadata!.featureSchemaVersion, 3);
+      expect(
+        columns.where((column) => column.kind == 'sample_index_u64'),
+        hasLength(1),
+      );
+      expect(
+        restored!.features.frames.map((frame) => frame.sampleIndex),
+        sampleIndices,
+      );
+      expect(
+        restored.features.frames.last.qualityFlags,
+        contains(AnalysisQualityFlag.discontinuity),
+      );
+      expect(restored.features.frames.last.bandPowersDb, hasLength(8));
+    },
+  );
+
+  test(
     'failed blob deletion leaves a tombstone for startup recovery',
     () async {
       final database = AppDatabase(NativeDatabase.memory());
