@@ -154,6 +154,13 @@ cargo test --manifest-path rust\Cargo.toml
 
 **目标结果：** 将 Windows 已验收的 native Drift + streaming WAV + recovery 组合安全推广到 Android application-support 路径。
 
+#### P4-04 执行记录（2026-08-26，已完成，待集成接受）
+
+- Android capability 的 persistence 已从 fallback 提升为 production；native composition 仅在 Windows/Android production profile 下启用，并由重命名后的共享 lazy host 复用同一个 `DriftSessionRepository`、`NativeRecordingSink`、`NativeRecordingStore` 和 `RecordingRecoveryService`。没有复制实现、修改 schema version/BLOB 编码或触碰 Web/UI/Rust。
+- file-backed v1 fixture 暴露既有迁移问题：v1→v2 使用当前 metadata 表定义时已经包含 v3 列，原 v3 步骤会再次添加同名列。迁移现仅在列实际缺失时补 `feature_schema_version`；目标 schema、版本和 packed BLOB 语义不变。
+- `p4_04_android_native_persistence_test.dart` 在 Windows 和 API 35/x86_64 emulator `127.0.0.1:16384` 均为 4/4：覆盖 application-support 下 WAV append/finalize、save/read/history/delete、adapter close/reopen、file-backed transaction rollback、失败删除 tombstone、orphan partial/startup recovery 和 v1 fixture 升级后写读。
+- release probe 清空的仅是测试包 `com.local.voice_trainer` sandbox；首次启动显示 created sentinel，SDK ADB force-stop 后再次启动显示 restored sentinel。报告固定 `evidenceType=emulator`、`emulator=true`、`realDevice=false`，并检查 Flutter application-authored log 无数据库/录音绝对路径及 app crash signature。该证据不能替代 Android 真机、真实麦克风或 P4-14。
+
 **允许修改：** native persistence composition 的通用化、Android integration、测试和矩阵。
 
 **禁止修改：** schema/BLOB 语义、Web persistence、UI、新训练功能。

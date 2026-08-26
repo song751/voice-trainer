@@ -85,7 +85,11 @@ class AppDatabase extends _$AppDatabase {
       if (from < 2) {
         await migrator.createTable(featureSeriesMetadata);
       }
-      if (from < 3) {
+      if (from < 3 &&
+          !await _columnExists(
+            featureSeriesMetadata.actualTableName,
+            featureSeriesMetadata.featureSchemaVersion.name,
+          )) {
         await migrator.addColumn(
           featureSeriesMetadata,
           featureSeriesMetadata.featureSchemaVersion,
@@ -102,6 +106,11 @@ class AppDatabase extends _$AppDatabase {
       await customStatement('PRAGMA foreign_keys = ON');
     },
   );
+
+  Future<bool> _columnExists(String table, String column) async {
+    final columns = await customSelect('PRAGMA table_info($table)').get();
+    return columns.any((row) => row.read<String>('name') == column);
+  }
 
   Future<void> saveSessionWithFeature({
     required PracticeSessionsCompanion session,

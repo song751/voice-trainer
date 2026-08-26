@@ -46,7 +46,7 @@ void main() {
         production
             .read(defaultPersistenceAdaptersProvider)
             .usesNativePersistence,
-        isFalse,
+        isTrue,
       );
 
       final fakeCapture = FakeAudioCapture();

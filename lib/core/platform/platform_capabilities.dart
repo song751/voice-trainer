@@ -29,12 +29,12 @@ final class PlatformCapabilities {
     supportsLifecycleEvents: false,
   );
 
-  /// P4-03 promotes Android capture and native Rust analysis only. Persistence
-  /// and lifecycle remain explicit fallbacks until their own cards pass.
+  /// P4-04 promotes Android persistence to the shared native Drift/WAV stack.
+  /// Lifecycle remains an explicit fallback until its own card passes.
   static const android = PlatformCapabilities(
     target: PlatformTarget.android,
     capture: PlatformAdapterMode.production,
-    persistence: PlatformAdapterMode.fallback,
+    persistence: PlatformAdapterMode.production,
     analysisWorker: AnalysisWorkerCapability.nativeWorker,
     maximumRecordingDuration: null,
     supportsDeviceSelection: false,

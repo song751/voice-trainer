@@ -38,13 +38,13 @@ final class DefaultPersistenceAdapters {
 
   Future<_NativePersistence?> _nativeOrNull() =>
       _native?.openedOrNull() ?? Future<_NativePersistence?>.value(null);
-  _WindowsPersistence? _native;
+  _NativePersistenceHost? _native;
 }
 
 DefaultPersistenceAdapters createDefaultPersistenceAdapters(
   PlatformCapabilities capabilities,
 ) {
-  if (capabilities.target != PlatformTarget.windows ||
+  if (!_supportsNativePersistence(capabilities.target) ||
       capabilities.persistence != PlatformAdapterMode.production) {
     final store = InMemoryRecordingStore();
     return DefaultPersistenceAdapters._(
@@ -54,7 +54,7 @@ DefaultPersistenceAdapters createDefaultPersistenceAdapters(
       false,
     );
   }
-  final native = _WindowsPersistence();
+  final native = _NativePersistenceHost();
   final adapters = DefaultPersistenceAdapters._(
     _DeferredRecordingStore(native),
     _DeferredRecordingSink(native),
@@ -65,7 +65,10 @@ DefaultPersistenceAdapters createDefaultPersistenceAdapters(
   return adapters;
 }
 
-final class _WindowsPersistence {
+bool _supportsNativePersistence(PlatformTarget target) =>
+    target == PlatformTarget.windows || target == PlatformTarget.android;
+
+final class _NativePersistenceHost {
   Future<_NativePersistence>? _opening;
 
   Future<_NativePersistence> open() => _opening ??= _open();
@@ -117,7 +120,7 @@ final class _NativePersistence {
 
 final class _DeferredRecordingStore implements RecordingStore {
   const _DeferredRecordingStore(this._native);
-  final _WindowsPersistence _native;
+  final _NativePersistenceHost _native;
 
   @override
   Future<void> delete(RecordingLocator locator) async =>
@@ -130,7 +133,7 @@ final class _DeferredRecordingStore implements RecordingStore {
 
 final class _DeferredRecordingSink implements RecordingSink {
   _DeferredRecordingSink(this._native);
-  final _WindowsPersistence _native;
+  final _NativePersistenceHost _native;
   NativeRecordingSink? _sink;
 
   @override
@@ -159,7 +162,7 @@ final class _DeferredRecordingSink implements RecordingSink {
 
 final class _DeferredSessionRepository implements SessionRepository {
   const _DeferredSessionRepository(this._native);
-  final _WindowsPersistence _native;
+  final _NativePersistenceHost _native;
 
   Future<DriftSessionRepository> get _delegate async =>
       (await _native.open()).repository;

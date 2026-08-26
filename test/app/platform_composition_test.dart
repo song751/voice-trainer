@@ -16,13 +16,14 @@ void main() {
     await persistence.dispose();
   });
 
-  test('Android promotes adapter modes with in-memory persistence', () async {
+  test('Android shares the native persistence composition', () async {
     const capabilities = PlatformCapabilities.android;
     expect(capabilities.capture, PlatformAdapterMode.production);
     expect(capabilities.analysisWorker, AnalysisWorkerCapability.nativeWorker);
+    expect(capabilities.persistence, PlatformAdapterMode.production);
 
     final persistence = createDefaultPersistenceAdapters(capabilities);
-    expect(persistence.usesNativePersistence, isFalse);
+    expect(persistence.usesNativePersistence, isTrue);
     await persistence.dispose();
   });
 

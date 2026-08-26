@@ -636,6 +636,14 @@ Phase-boundary 回归：FRB codegen 连续两次 7 个生成文件 SHA-256 不�
 - 同一 emulator 在 `RECORD_AUDIO` 预先 revoke 且设为 user-fixed/user-set 后，permission smoke 返回 denied、capture 未启动、0 analysis frame；测试结束后 integration package 被卸载。另一个 emulator integration 以 fake/synthetic contract 覆盖 unsupported/changed format、worker failure 和 queue drop，不能替代真机证据。
 - `tool/p4_03_android_permission_test.ps1` 在 Flutter 安装 integration package 后轮询包出现，并使用标准 SDK ADB 的 `pm grant/revoke` 与 `appops allow/deny` 自动设置 `RECORD_AUDIO`。这解决了测试包每次重装后权限丢失造成的人工弹窗；正常 allow/deny gate 不使用 root。root 仍只允许用于明确隔离、可恢复的存储故障注入，不能成为产品或录音权限前提。
 
+### P4-04 Android native persistence/recovery（2026-08-26，已完成，待集成接受）
+
+- `PlatformCapabilities.android.persistence` 提升为 production；`default_persistence_native.dart` 将 Windows 专属 lazy host 通用化为 Windows/Android 共享 host。两平台仍只构造同一套 Drift repository、streaming WAV sink/store 与 startup recovery，没有平台复制、schema version/BLOB 语义、新依赖、Web/UI 或 Rust 变化。
+- v1 file-backed fixture 发现并修复旧迁移的重复列缺陷：从 v1 新建当前 metadata 表时已经带 `feature_schema_version`，后续迁移现在先核对列是否存在再补列。目标仍是现有 v4 schema，旧/新 packed feature codecs 未改变。
+- Windows runner 与 API 35/x86_64 MuMu emulator `127.0.0.1:16384` 上，同一 4 项 integration 均通过：WAV append/finalize、session save/read/history/delete、adapter close/reopen、native transaction rollback、tombstone/partial recovery、v1→v4 migration 和迁移后写读。所有 Android 结果均为 emulator evidence。
+- release APK 的 gate-only main 首次写入 application-support 后显示 created sentinel；SDK ADB force-stop/relaunch 后显示 restored sentinel。JSON 明确 `emulator=true`、`realDevice=false`，Flutter application-authored log 没有持久化绝对路径，未发现 app crash signature。脚本只清空测试包自己的 sandbox；不读取录音、设备标识或宿主路径。
+- 验证：Dart format（158 files/0 changed）、Flutter analyze、Flutter unit/widget（90/90，排除既有依赖主工作树路径的 P3-07 disposable-root test）、Rust fmt/Clippy/tests（52）均通过；Android debug integration 4/4、release APK build 和两次启动恢复 gate 通过。该 emulator/文件证据不覆盖真机存储权限、磁盘耗尽、厂商清理策略或真实麦克风。
+
 ### SRD-01 歌曲人声分离基线（2026-08-26，R&D evidence only）
 
 - 隔离范围：新增独立 `tool/song_separation` Cargo package 与开发期 Python oracle；没有修改 Flutter、FRB、production Rust、P4 composition、DSP 阈值或观察规则。手工 `mixture/vocals/accompaniment` fallback 只校验等长 PCM16 WAV、输出 hash，并固定 `generated_by_model=false`。
