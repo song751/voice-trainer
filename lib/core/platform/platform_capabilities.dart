@@ -41,13 +41,13 @@ final class PlatformCapabilities {
     supportsLifecycleEvents: false,
   );
 
-  /// Web has a published 60-second recording limit even while its current
-  /// capture, worker, and persistence adapters remain deterministic fallbacks.
+  /// P4-09 promotes Web capture and the dedicated Rust WASM worker. Web
+  /// persistence and lifecycle remain explicit fallbacks until later cards.
   static const web = PlatformCapabilities(
     target: PlatformTarget.web,
-    capture: PlatformAdapterMode.fallback,
+    capture: PlatformAdapterMode.production,
     persistence: PlatformAdapterMode.fallback,
-    analysisWorker: AnalysisWorkerCapability.fallback,
+    analysisWorker: AnalysisWorkerCapability.dedicatedWebWorker,
     maximumRecordingDuration: Duration(seconds: 60),
     supportsDeviceSelection: false,
     supportsLifecycleEvents: false,

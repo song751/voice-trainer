@@ -94,7 +94,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('Web fallback uses an explicit test-practice action', (
+  testWidgets('Web production composition exposes the normal practice action', (
     tester,
   ) async {
     await pumpAt(
@@ -103,9 +103,9 @@ void main() {
       capabilities: PlatformCapabilities.web,
     );
 
-    expect(find.text('开始测试练习'), findsOneWidget);
-    expect(find.text('开始练习'), findsNothing);
-    expect(find.textContaining('真实麦克风链路尚未通过'), findsOneWidget);
+    expect(find.text('开始练习'), findsOneWidget);
+    expect(find.text('开始测试练习'), findsNothing);
+    expect(find.textContaining('真实麦克风链路尚未通过'), findsNothing);
   });
 
   testWidgets('all five pages remain scrollable at 200 percent text', (

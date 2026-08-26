@@ -6,6 +6,10 @@ class VoiceTrainerAnalysisWorker {
     this._pending = new Map();
     this._worker = new Worker(new URL('analysis_worker.js', document.baseURI));
     this._worker.onmessage = ({ data }) => {
+      if (!data || !Number.isInteger(data.id) || typeof data.ok !== 'boolean') {
+        this._terminate(new Error('Analysis worker returned an invalid envelope.'));
+        return;
+      }
       const pending = this._pending.get(data.id);
       if (!pending) return;
       this._pending.delete(data.id);
@@ -51,7 +55,12 @@ class VoiceTrainerAnalysisWorker {
     const id = this._nextId++;
     return new Promise((resolve, reject) => {
       this._pending.set(id, { resolve, reject });
-      this._worker.postMessage({ id, kind, ...payload }, transfer);
+      try {
+        this._worker.postMessage({ id, kind, ...payload }, transfer);
+      } catch (error) {
+        this._pending.delete(id);
+        reject(error);
+      }
     });
   }
 

@@ -47,10 +47,19 @@ StabilitySummary? _mapWebStability(Object? raw) {
   );
 }
 
-Set<AnalysisQualityFlag> _qualityFlags(int mask) => <AnalysisQualityFlag>{
-  if (mask & 0x01 != 0) AnalysisQualityFlag.clipping,
-  if (mask & 0x02 != 0) AnalysisQualityFlag.inputTooLow,
-  if (mask & 0x04 != 0) AnalysisQualityFlag.droppedSamples,
-  if (mask & 0x08 != 0) AnalysisQualityFlag.discontinuity,
-  if (mask & 0x10 != 0) AnalysisQualityFlag.insufficientValidFrames,
-};
+Set<AnalysisQualityFlag> _qualityFlags(int mask) {
+  if (mask & ~0x1f != 0) {
+    throw ArgumentError.value(
+      mask,
+      'qualityFlags',
+      'Bridge summary contains unknown quality flag bits.',
+    );
+  }
+  return <AnalysisQualityFlag>{
+    if (mask & 0x01 != 0) AnalysisQualityFlag.clipping,
+    if (mask & 0x02 != 0) AnalysisQualityFlag.inputTooLow,
+    if (mask & 0x04 != 0) AnalysisQualityFlag.droppedSamples,
+    if (mask & 0x08 != 0) AnalysisQualityFlag.discontinuity,
+    if (mask & 0x10 != 0) AnalysisQualityFlag.insufficientValidFrames,
+  };
+}

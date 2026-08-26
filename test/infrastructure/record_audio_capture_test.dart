@@ -115,6 +115,37 @@ void main() {
     expect(clients.map((client) => client.disposeCalls), <int>[1, 1]);
   });
 
+  test('record adapter retries the Web default with a 1024 buffer', () async {
+    final clients = <_FakeRecordClient>[
+      _FakeRecordClient(startError: StateError('512 startup failed')),
+      _FakeRecordClient(),
+    ];
+    var nextClient = 0;
+    final adapter = RecordAudioCapture(
+      clientFactory: () => clients[nextClient++],
+      fallbackStreamBufferSamples: 1024,
+    );
+
+    final session = await adapter.start(const CaptureRequest());
+
+    expect(clients.first.config!.streamBufferSize, 512);
+    expect(clients.last.config!.streamBufferSize, 1024);
+    expect(clients.first.disposeCalls, 1);
+    await session.stop();
+    expect(clients.last.disposeCalls, 1);
+  });
+
+  test(
+    'record adapter returns a typed denied permission and disposes query client',
+    () async {
+      final client = _FakeRecordClient(permissionGranted: false);
+      final adapter = RecordAudioCapture(clientFactory: () => client);
+
+      expect(await adapter.requestPermission(), isA<PermissionDenied>());
+      expect(client.disposeCalls, 1);
+    },
+  );
+
   test('streaming WAV writer patches header after PCM append', () async {
     final output = _MemoryOutput();
     final writer = WavStreamWriter(output);
@@ -137,22 +168,30 @@ void main() {
 }
 
 final class _FakeRecordClient implements RecordClient {
-  _FakeRecordClient({this.devices = const <InputDevice>[]});
+  _FakeRecordClient({
+    this.devices = const <InputDevice>[],
+    this.permissionGranted = true,
+    this.startError,
+  });
 
   final _controller = StreamController<Uint8List>.broadcast();
   final List<InputDevice> devices;
+  final bool permissionGranted;
+  final Object? startError;
   RecordConfig? config;
   void Function(RecordConfig)? _onConfigChanged;
   int pauseCalls = 0;
   int resumeCalls = 0;
   int disposeCalls = 0;
   @override
-  Future<bool> hasPermission() async => true;
+  Future<bool> hasPermission() async => permissionGranted;
   @override
   Future<List<InputDevice>> listInputDevices() async => devices;
   @override
   Future<Stream<Uint8List>> startStream(RecordConfig value) async {
     config = value;
+    final error = startError;
+    if (error != null) throw error;
     return _controller.stream;
   }
 

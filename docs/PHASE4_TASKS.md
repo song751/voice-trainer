@@ -213,6 +213,14 @@ cargo test --manifest-path rust\Cargo.toml
 
 **目标结果：** Web 默认从 fake 提升为 `record_web` capture + 显式 dedicated Rust WASM worker，主 UI isolate 不执行 DSP。
 
+#### P4-09 执行记录（2026-08-26，已完成，待集成接受）
+
+- `PlatformCapabilities.web` 仅将 capture 提升为 production，analysis 提升为 dedicated Web Worker；persistence 继续是 in-memory fallback，60 秒上限不变。Web 默认组合复用 `RecordAudioCapture` + `RustAnalysisEngine`，fake capability/provider override 继续可用。
+- `record_web` 首先请求 512-sample stream buffer；启动拒绝该配置时仅重试一次 1024-sample fallback。权限拒绝等已有 typed capture failure 不会被误重试。analysis 始终以 `CaptureSession.effectiveFormat` 初始化，Rust 仍明确拒绝当前不支持的有效格式，未添加隐式重采样或修改 DSP 算法。
+- worker/client 继续使用 dedicated Worker 持有 Rust WASM analyzer，PCM 通过 transferable `ArrayBuffer` 传递。回复 envelope、frame/summary shape 和 quality bit 现在严格验证；unknown operation/DTO、worker crash、pending rejection、replacement worker 与 1024-sample 上限都有自动化。现有 supervisor 测试持续覆盖 restart-once、显式单线程 FRB/WASM fallback 与 oldest-drop backpressure，不要求 `SharedArrayBuffer`/COOP/COEP。
+- Edge headless 本地 release 证据全部标为 synthetic browser：权限 deny 返回 typed `permissionDenied` 且 capture 未启动；48 kHz mono synthetic PCM 直接 worker 得到 94 frames、start-sample checksum `2,098,080`，crash pending 被拒绝且 replacement worker 成功，`crossOriginIsolated=false`。Edge fake audio device 的真实 `record_web` 插件路径采集 94 chunks / 48,128 samples，实际有效格式为 44.1 kHz stereo，因此如实返回 typed `unsupportedFormat`；未将其伪造为 voiced 或完整 end-to-end 成功。
+- artifact validator 同时校验 FRB WASM header/大小、worker/client/index 引用、transfer/crash/unknown-op 合同、Web production composition 与无 `SharedArrayBuffer` 硬依赖。真实浏览器麦克风、后台限频、devicechange 和多浏览器矩阵仍是 P4-15 人工 gate，本卡不宣称通过。
+
 **允许修改：** Web conditional composition、capture/DSP adapters、worker/client、FRB Web生成物、tests。
 
 **禁止修改：** Flutter `--wasm` 成为唯一构建、SharedArrayBuffer硬要求、Rust算法、Web persistence、UI新功能。

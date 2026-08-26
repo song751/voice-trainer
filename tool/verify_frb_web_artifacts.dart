@@ -13,12 +13,24 @@ void main() {
     '$_packageDirectory/snippets/'
     'wasm-bindgen-futures-f2cfeab8864dd175/src/task/worker.js',
   );
+  final workerClient = File('web/analysis_worker_client.js');
+  final workerRuntime = File('web/analysis_worker.js');
+  final webIndex = File('web/index.html');
+  final webComposition = File('lib/app/default_adapters_web.dart');
+  final webWorkerComposition = File(
+    'lib/infrastructure/dsp/platform_analysis_worker_web.dart',
+  );
 
   for (final artifact in [
     packageFile,
     javascriptFile,
     wasmFile,
     workerSnippet,
+    workerClient,
+    workerRuntime,
+    webIndex,
+    webComposition,
+    webWorkerComposition,
   ]) {
     if (!artifact.existsSync()) {
       _fail('Missing FRB Web artifact: ${artifact.path}');
@@ -57,6 +69,45 @@ void main() {
     }
   }
 
+  _requireContracts(workerClient, const [
+    'new Worker(new URL(\'analysis_worker.js\', document.baseURI))',
+    'this._pending = new Map()',
+    'this._worker.onerror',
+    'this._pending.delete(id)',
+    '[pcm.buffer]',
+  ]);
+  _requireContracts(workerRuntime, const [
+    "importScripts('pkg/rust_lib_voice_trainer.js')",
+    "await wasm_bindgen('pkg/rust_lib_voice_trainer_bg.wasm')",
+    'new wasm_bindgen.WorkerRealtimeAnalyzer(data.sampleRate)',
+    "kind === 'pushPcm'",
+    'pcm.length > 1024',
+    'Unknown analysis worker operation',
+  ]);
+  _requireContracts(webComposition, const [
+    'RecordAudioCapture(fallbackStreamBufferSamples: 1024)',
+    'AnalysisWorkerCapability.dedicatedWebWorker',
+    'RustAnalysisEngine()',
+  ]);
+  _requireContracts(webWorkerComposition, const [
+    'WebWorkerAnalysisWorker()',
+    'createFallbackAnalysisWorker()',
+    'FrbAnalysisWorker()',
+  ]);
+  for (final source in [workerClient, workerRuntime]) {
+    if (source.readAsStringSync().contains('SharedArrayBuffer')) {
+      _fail('${source.path} must not require SharedArrayBuffer.');
+    }
+  }
+  final index = webIndex.readAsStringSync();
+  final workerClientOffset = index.indexOf('analysis_worker_client.js');
+  final bootstrapOffset = index.indexOf('flutter_bootstrap.js');
+  if (workerClientOffset < 0 ||
+      bootstrapOffset < 0 ||
+      workerClientOffset > bootstrapOffset) {
+    _fail('Web worker client must load before the Flutter bootstrap.');
+  }
+
   final wasmHeader = wasmFile.openSync();
   late final List<int> header;
   try {
@@ -74,6 +125,15 @@ void main() {
     'Verified FRB Web package: WorkerRealtimeAnalyzer JS binding and '
     '${wasmFile.lengthSync()} byte WASM payload.',
   );
+}
+
+void _requireContracts(File source, List<String> contracts) {
+  final contents = source.readAsStringSync();
+  for (final contract in contracts) {
+    if (!contents.contains(contract)) {
+      _fail('${source.path} is missing required contract: $contract');
+    }
+  }
 }
 
 bool _sameBytes(List<int> actual, List<int> expected) {

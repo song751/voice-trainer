@@ -676,3 +676,10 @@ Phase-boundary 回归：FRB codegen 连续两次 7 个生成文件 SHA-256 不�
 - CVT `metal/density` 的 2026 double-case 只有两名歌手，虽然 SPL、Psub、CQ、harmonic richness 等形成多维差异，仍仅支持保存 CVT-specific perceptual label 与研究假设；不支持从谱质心/2–4 kHz 能量自动识别 metal、twang 或喉部收窄。
 - 新增平台无关 `voice_production_profile.dart`：human label provenance 保存词表版本且没有 algorithm source；measurement 强制 domain/modality 对应，consumer microphone alone 不能构造 vocal-fold contact、kinematics、muscle 或 aerodynamic evidence；comparison scope exact-match pitch/vowel/loudness/style/capture/protocol/algorithm，并在 label-targeted task 中匹配词表版本和目标 label；confidence 取 signal/task/repeatability/label-agreement 的保守最小值。6 项 domain tests 通过。
 - 本切片没有修改 Rust/DSP、Drift/schema、Observation rules、UI 或依赖。它只提供研究与未来产品的数据边界；自动 head/mix/metal classifier 仍需授权分层数据、跨标注者协议、实验室子样本、外部验证和设备 error/suppression analysis 后另立任务卡。
+
+### P4-09 Web capture + Rust worker production composition（2026-08-26，已完成，待集成接受）
+
+- Web profile/default adapter 现在使用 `RecordAudioCapture` + `RustAnalysisEngine`，dedicated Worker 是主路径，已验证的 FRB/WASM 主 isolate 路径仅作 supervisor 的显式 fallback。Web persistence 仍为 in-memory fallback，未新增依赖，未修改 Rust 算法。
+- capture adapter 在 512-sample 配置启动失败时可有界重试 1024，但不吞掉 permission/device 类 typed failure。Web worker 的 request/reply envelope、frame/summary 和 quality mask 严格校验，malformed/unknown DTO 不再被宽松接受。
+- 本地 Edge release 自动化：权限 deny 正确阻止 capture；canonical 48 kHz mono synthetic worker 输入得到 94 个有界 8-band DTO，start-sample checksum `2,098,080`，unknown operation/crash/pending rejection/replacement 均通过，且 `crossOriginIsolated=false`。fake audio device 经过真实 `record_web` 插件路径输出 94 个 512-frame chunk / 48,128 samples，报告的 effective format 为 44.1 kHz stereo，production analyzer 因而返回 typed `unsupportedFormat`。该证据是 synthetic browser capture，不是真人声或真实麦克风通过。
+- P4-15 仍需在 Edge/Chrome/Firefox 上用真实麦克风覆盖 effective format、512/1024 cadence、background、devicechange 和性能门槛；Safari/iOS Web 仍需 Apple runner。

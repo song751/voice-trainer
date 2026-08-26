@@ -126,7 +126,9 @@ void main() {
 
     expect(find.text('Web'), findsOneWidget);
     expect(find.textContaining('最长 60 秒'), findsOneWidget);
-    expect(find.textContaining('当前使用测试适配器'), findsOneWidget);
+    expect(find.textContaining('已接入产品适配器'), findsOneWidget);
+    expect(find.textContaining('独立 Web Worker'), findsOneWidget);
+    expect(find.textContaining('临时内存'), findsOneWidget);
     expect(find.textContaining('默认不上传网络'), findsOneWidget);
     expect(find.textContaining('设置将在后续'), findsNothing);
   });

@@ -24,12 +24,15 @@ void main() {
     expect(capabilities.supportsLifecycleEvents, isFalse);
   });
 
-  test('Web retains its fallback and published recording limit', () {
+  test('Web promotes capture and dedicated worker but not persistence', () {
     const capabilities = PlatformCapabilities.web;
 
-    expect(capabilities.capture, PlatformAdapterMode.fallback);
+    expect(capabilities.capture, PlatformAdapterMode.production);
     expect(capabilities.persistence, PlatformAdapterMode.fallback);
-    expect(capabilities.analysisWorker, AnalysisWorkerCapability.fallback);
+    expect(
+      capabilities.analysisWorker,
+      AnalysisWorkerCapability.dedicatedWebWorker,
+    );
     expect(capabilities.maximumRecordingDuration, const Duration(seconds: 60));
     expect(capabilities.supportsDeviceSelection, isFalse);
     expect(capabilities.supportsLifecycleEvents, isFalse);

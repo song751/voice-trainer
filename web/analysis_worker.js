@@ -22,7 +22,13 @@ function fail(id, error) {
 self.onmessage = async ({ data }) => {
   const { id, kind } = data;
   try {
+    if (!Number.isInteger(id) || id <= 0 || typeof kind !== 'string') {
+      throw new Error('Invalid analysis worker request envelope.');
+    }
     if (kind === 'initialize') {
+      if (!Number.isInteger(data.sampleRate) || data.sampleRate <= 0) {
+        throw new Error('Invalid analysis worker sample rate.');
+      }
       await wasm_bindgen('pkg/rust_lib_voice_trainer_bg.wasm');
       analyzer = new wasm_bindgen.WorkerRealtimeAnalyzer(data.sampleRate);
       reply(id, { initialized: true });
@@ -30,6 +36,18 @@ self.onmessage = async ({ data }) => {
     }
     if (kind === 'pushPcm') {
       if (analyzer === null) throw new Error('Worker analyzer is not initialized.');
+      if (!(data.pcm instanceof ArrayBuffer)) {
+        throw new Error('Worker PCM payload must be an ArrayBuffer.');
+      }
+      if (!Number.isSafeInteger(data.startSample) || data.startSample < 0) {
+        throw new Error('Worker start sample must be a non-negative safe integer.');
+      }
+      if (!Number.isSafeInteger(data.droppedSamplesBefore) || data.droppedSamplesBefore < 0) {
+        throw new Error('Worker dropped sample count must be a non-negative safe integer.');
+      }
+      if (typeof data.discontinuityBefore !== 'boolean') {
+        throw new Error('Worker discontinuity flag must be boolean.');
+      }
       const pcm = new Int16Array(data.pcm);
       if (pcm.length > 1024) throw new Error('Worker batch exceeds 1024 samples.');
       const frames = analyzer.pushPcm16WithMetadata(

@@ -1,14 +1,11 @@
-import 'dart:convert';
 import 'dart:js_interop';
 
 import '../../core/domain/analysis/analysis_config.dart';
 import '../../core/domain/analysis/analysis_engine.dart';
 import '../../core/domain/analysis/analysis_frame.dart';
-import '../../core/domain/analysis/feature_series.dart';
 import '../../core/domain/audio/pcm_chunk.dart';
-import 'analysis_frame_dto_mapper.dart';
 import 'analysis_worker_supervisor.dart';
-import 'segment_summary_dto_mapper.dart';
+import 'web_worker_message_decoder.dart';
 
 @JS('VoiceTrainerAnalysisWorker')
 extension type _WebWorkerClient._(JSObject _) implements JSObject {
@@ -30,7 +27,10 @@ extension type _WebWorkerClient._(JSObject _) implements JSObject {
 /// Dedicated browser Worker client. The JavaScript counterpart transfers a
 /// PCM16 ArrayBuffer and sends back only the compact Phase 2 frame DTO.
 final class WebWorkerAnalysisWorker implements AnalysisWorker {
+  WebWorkerAnalysisWorker([this._decoder = const WebWorkerMessageDecoder()]);
+
   final _WebWorkerClient _client = _WebWorkerClient();
+  final WebWorkerMessageDecoder _decoder;
   final List<AnalysisFrame> _frames = <AnalysisFrame>[];
 
   @override
@@ -51,24 +51,15 @@ final class WebWorkerAnalysisWorker implements AnalysisWorker {
                 )
                 .toDart)
             .toDart;
-    final decoded = jsonDecode(raw) as List<dynamic>;
-    final frames = decoded
-        .cast<Map<String, dynamic>>()
-        .map(_mapFrame)
-        .toList(growable: false);
-    _frames.addAll(frames);
-    return AnalysisBatch(frames);
+    final decodedBatch = _decoder.decodeBatch(raw);
+    _frames.addAll(decodedBatch.frames);
+    return decodedBatch;
   }
 
   @override
   Future<AnalysisFinalization> finish() async {
     final raw = (await _client.finish().toDart).toDart;
-    final summary = jsonDecode(raw) as Map<String, dynamic>;
-    return AnalysisFinalization(
-      featureSeries: FeatureSeries(frameRateHz: 100, frames: _frames),
-      finalFrames: _frames,
-      segmentSummary: mapWebSegmentSummary(summary),
-    );
+    return _decoder.decodeFinalization(raw, _frames);
   }
 
   @override
@@ -90,17 +81,4 @@ final class WebWorkerAnalysisWorker implements AnalysisWorker {
     _client.terminate();
     _frames.clear();
   }
-
-  AnalysisFrame _mapFrame(Map<String, dynamic> frame) => mapAnalysisFrameDto(
-    startSample: (frame['startSample'] as num).toInt(),
-    rmsDbfs: (frame['rmsDbfs'] as num).toDouble(),
-    peakDbfs: (frame['peakDbfs'] as num).toDouble(),
-    pitchClarity: (frame['pitchClarity'] as num).toDouble(),
-    voiced: frame['voiced'] as bool,
-    f0Hz: (frame['pitchHz'] as num?)?.toDouble(),
-    bandPowersDb: (frame['bandPowersDbfs'] as List<dynamic>)
-        .map((value) => (value as num).toDouble())
-        .toList(growable: false),
-    qualityFlags: (frame['qualityFlags'] as num).toInt(),
-  );
 }

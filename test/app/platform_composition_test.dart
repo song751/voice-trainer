@@ -27,19 +27,15 @@ void main() {
     await persistence.dispose();
   });
 
-  test('Web and other native profiles retain adapter fallbacks', () async {
-    for (final capabilities in const [
-      PlatformCapabilities.web,
-      PlatformCapabilities.otherNative,
-    ]) {
-      expect(createDefaultAudioCapture(capabilities), isA<FakeAudioCapture>());
-      expect(
-        createDefaultAnalysisEngine(capabilities),
-        isA<FakeAnalysisEngine>(),
-      );
-      final persistence = createDefaultPersistenceAdapters(capabilities);
-      expect(persistence.usesNativePersistence, isFalse);
-      await persistence.dispose();
-    }
+  test('other native profile retains adapter fallbacks', () async {
+    const capabilities = PlatformCapabilities.otherNative;
+    expect(createDefaultAudioCapture(capabilities), isA<FakeAudioCapture>());
+    expect(
+      createDefaultAnalysisEngine(capabilities),
+      isA<FakeAnalysisEngine>(),
+    );
+    final persistence = createDefaultPersistenceAdapters(capabilities);
+    expect(persistence.usesNativePersistence, isFalse);
+    await persistence.dispose();
   });
 }

@@ -15,11 +15,24 @@ final class RecordAudioCapture implements AudioCapture {
   factory RecordAudioCapture({
     RecordClientFactory? clientFactory,
     RecordCaptureMapper mapper = const RecordCaptureMapper(),
-  }) => RecordAudioCapture._(clientFactory ?? RecordPluginClient.new, mapper);
+    int? fallbackStreamBufferSamples,
+  }) => RecordAudioCapture._(
+    clientFactory ?? RecordPluginClient.new,
+    mapper,
+    fallbackStreamBufferSamples,
+  );
 
-  RecordAudioCapture._(this._clientFactory, this._mapper);
+  RecordAudioCapture._(
+    this._clientFactory,
+    this._mapper,
+    this._fallbackStreamBufferSamples,
+  ) : assert(
+        _fallbackStreamBufferSamples == null ||
+            _fallbackStreamBufferSamples > 0,
+      );
   final RecordClientFactory _clientFactory;
   final RecordCaptureMapper _mapper;
+  final int? _fallbackStreamBufferSamples;
 
   @override
   Future<List<CaptureDevice>> listDevices() async {
@@ -47,6 +60,18 @@ final class RecordAudioCapture implements AudioCapture {
 
   @override
   Future<CaptureSession> start(CaptureRequest request) async {
+    try {
+      return await _startOnce(request);
+    } on CaptureFailure {
+      rethrow;
+    } catch (_) {
+      final fallback = _fallbackStreamBufferSamples;
+      if (fallback == null || request.streamBufferSamples != null) rethrow;
+      return _startOnce(_withStreamBuffer(request, fallback));
+    }
+  }
+
+  Future<CaptureSession> _startOnce(CaptureRequest request) async {
     final client = _clientFactory();
     try {
       final devices = await client.listInputDevices();
@@ -67,6 +92,14 @@ final class RecordAudioCapture implements AudioCapture {
       rethrow;
     }
   }
+
+  CaptureRequest _withStreamBuffer(CaptureRequest request, int samples) =>
+      CaptureRequest(
+        format: request.format,
+        processing: request.processing,
+        streamBufferSamples: samples,
+        deviceId: request.deviceId,
+      );
 }
 
 final class _RecordCaptureSession implements CaptureSession {
