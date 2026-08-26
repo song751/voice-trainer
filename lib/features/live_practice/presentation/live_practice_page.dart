@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../app/app_providers.dart';
 import '../../../app/router/route_names.dart';
 import '../../../core/domain/analysis/analysis_quality_flag.dart';
+import '../../../core/domain/analysis/analysis_engine.dart';
 import '../../../core/domain/analysis/ui_analysis_frame.dart';
 import '../../../core/errors/failure.dart';
 import '../../../core/platform/platform_capabilities.dart';
@@ -20,6 +21,7 @@ class LivePracticePage extends ConsumerWidget {
     final sessionState = ref.watch(livePracticeControllerProvider);
     final completedSession = ref.watch(latestPracticeSessionProvider);
     final uiFrame = ref.watch(liveUiAnalysisFrameProvider).valueOrNull;
+    final workerMetrics = ref.watch(liveWorkerMetricsProvider).valueOrNull;
     final targetMidiNote = ref
         .watch(practiceTemplateProvider)
         .target
@@ -53,6 +55,13 @@ class LivePracticePage extends ConsumerWidget {
                 ),
               ),
             ),
+            if (workerMetrics case final metrics?
+                when metrics.restartCount > 0 ||
+                    metrics.usingFallback ||
+                    metrics.state == AnalysisWorkerState.terminalFailure) ...[
+              const SizedBox(height: 12),
+              _WorkerStatusCard(metrics: metrics),
+            ],
             const SizedBox(height: 12),
             _LiveReadout(frame: uiFrame, targetMidiNote: targetMidiNote),
             if (hasNoData) ...<Widget>[
@@ -153,17 +162,48 @@ class LivePracticePage extends ConsumerWidget {
     Failed() => '练习未完成。',
   };
 
-  String _failureMessage(DomainFailure failure) => switch (failure.code) {
-    FailureCode.permissionDenied => '无法开始：未授予麦克风权限。',
-    FailureCode.captureUnavailable ||
-    FailureCode.captureInterrupted => '无法开始：音频采集发生错误。',
-    FailureCode.analysisUnavailable => '分析服务暂时不可用。',
-    FailureCode.recordingUnavailable ||
-    FailureCode.finalizationFailed ||
-    FailureCode.persistenceFailed => '保存练习结果时发生错误。',
-    FailureCode.invalidTransition => '当前操作不可用。',
-    FailureCode.unexpected => '发生未预期的错误，请重试。',
+  String _failureMessage(DomainFailure failure) => switch (failure) {
+    PermissionDeniedFailure() => '无法开始：未授予麦克风权限。',
+    CaptureFailure(reason: CaptureFailureReason.deviceUnavailable) =>
+      '无法开始：未检测到可用的麦克风输入。',
+    CaptureFailure() => '练习已停止：音频采集发生中断。',
+    AnalysisFailure(reason: AnalysisFailureReason.unsupportedFormat) =>
+      '无法开始：当前麦克风格式不受支持，请更换输入设备或浏览器。',
+    AnalysisFailure(reason: AnalysisFailureReason.formatChanged) =>
+      '练习已停止：麦克风格式在录音中发生变化。',
+    AnalysisFailure() => '分析 worker 暂时不可用，请重试。',
+    RecordingFailure() => '录音数据未能保存，本次练习已停止。',
+    PersistenceFailure(reason: PersistenceFailureReason.quotaExceeded) =>
+      '本地存储空间不足，无法保存练习结果。',
+    PersistenceFailure(reason: PersistenceFailureReason.privateMode) =>
+      '当前隐私模式无法持久保存练习结果。',
+    PersistenceFailure() => '本地练习记录暂时无法保存。',
+    FinalizationFailure() => '结束练习时无法生成完整结果。',
+    InvalidSessionTransition() => '当前操作不可用。',
+    UnexpectedFailure() => '发生未预期的错误，请重试。',
   };
+}
+
+class _WorkerStatusCard extends StatelessWidget {
+  const _WorkerStatusCard({required this.metrics});
+
+  final AnalysisWorkerMetrics metrics;
+
+  @override
+  Widget build(BuildContext context) => Card(
+    key: const Key('worker-status'),
+    child: ListTile(
+      leading: const Icon(Icons.memory_outlined),
+      title: Text(
+        metrics.state == AnalysisWorkerState.terminalFailure
+            ? '分析 worker 已停止'
+            : metrics.usingFallback
+            ? '分析 worker 已切换到兼容模式'
+            : '分析 worker 已恢复',
+      ),
+      subtitle: Text('重启 ${metrics.restartCount} 次；中断前后的稳定性将分开计算。'),
+    ),
+  );
 }
 
 class _LiveReadout extends StatelessWidget {

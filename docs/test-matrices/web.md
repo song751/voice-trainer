@@ -16,6 +16,7 @@
 | P4-10 sample-index limit | Flutter unit + Edge release | 本地通过 | 60 秒按 sample index，跨界 chunk 精确裁剪；暂停 wall-clock 不计入。Edge gate 用 1 秒同构测试参数减少测试数据量。 |
 | P4-11 self-contained deployment/cache | 自动 + Edge headless | 本地通过 | release 固定 `--no-web-resources-cdn --csp`；27 个关键资产/8 个 WASM 的 release hash、统一 header、`no-store`、WASM MIME、CSP、本地 CanvasKit 通过；无 COOP/COEP，`crossOriginIsolated=false`。 |
 | P4-11 lifecycle | Flutter unit + Edge headless synthetic lifecycle | 本地通过 | typed permission/devicechange/hidden/visible/AudioContext/worker events；hidden 和 AudioContext interruption 保存 sample-index checkpoint，恢复后仍需用户显式继续。不是实际后台录音或真实麦克风证据。 |
+| P4-12 UI/错误/无障碍 | Widget profile matrix + Edge self-contained regression | 本地通过（synthetic） | Web profile 覆盖 393×852、深色、200% 文字、五主页面和歌曲导入、typed errors、worker/quality/completed/delete、touch/mouse/keyboard/back 与 bounded semantics；Edge 再验证自包含 release/header/lifecycle。Flutter WebDriver integration 因本机无 4444 driver 未执行，不误记为产品失败。 |
 | Chrome、Firefox、Safari/iOS Web | 手动，真实浏览器与麦克风 | Pending | 同时检查权限、有效采样率、后台 tab、设备路由与部署的 WASM MIME/CSP/缓存 headers。 |
 
 普通 CI 的 fake capture 和 Edge fake audio device 不可用于通过真实麦克风、真人声 cadence、后台限频或麦克风质量项目。

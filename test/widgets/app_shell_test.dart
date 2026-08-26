@@ -107,7 +107,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byKey(const Key('practice-error')), findsOneWidget);
-    expect(find.text('无法开始：音频采集发生错误。'), findsOneWidget);
+    expect(find.text('无法开始：未检测到可用的麦克风输入。'), findsOneWidget);
   });
 
   testWidgets('renders the decimated live pitch, level, quality and controls', (

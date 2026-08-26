@@ -101,6 +101,8 @@ final class PracticeSessionCoordinator {
       StreamController<AnalysisWorkerMetrics>.broadcast(sync: true);
   final StreamController<SessionInterruption> _lifecycleCheckpoints =
       StreamController<SessionInterruption>.broadcast(sync: true);
+  final StreamController<PracticeSessionState> _stateChanges =
+      StreamController<PracticeSessionState>.broadcast(sync: true);
 
   PracticeSessionState _state = const Idle();
   PracticeSessionRequest? _request;
@@ -136,6 +138,8 @@ final class PracticeSessionCoordinator {
 
   Stream<SessionInterruption> get lifecycleCheckpoints =>
       _lifecycleCheckpoints.stream;
+
+  Stream<PracticeSessionState> get stateChanges => _stateChanges.stream;
 
   QueueAccounting get analysisQueueAccounting => QueueAccounting(
     droppedSamples: _droppedSamples,
@@ -209,6 +213,10 @@ final class PracticeSessionCoordinator {
         _state,
         PersistenceFailedEvent(failure),
       );
+    } on RecordingFailure catch (failure) {
+      await _stopCapture();
+      await _abortOpenRecording();
+      _state = _stateMachine.transition(_state, RecordingFailedEvent(failure));
     } catch (_) {
       await _stopCapture();
       await _abortOpenRecording();
@@ -287,6 +295,10 @@ final class PracticeSessionCoordinator {
     await _captureHealth.close();
     await _workerMetrics.close();
     await _lifecycleCheckpoints.close();
+    // Riverpod may pause its StreamProvider subscription while disposing the
+    // provider graph. A broadcast controller's close future waits for paused
+    // listeners, so awaiting it here can deadlock widget/application teardown.
+    unawaited(_stateChanges.close());
   }
 
   /// Applies browser lifecycle signals sequentially to the active session.
@@ -382,6 +394,7 @@ final class PracticeSessionCoordinator {
           CaptureFailure(CaptureFailureReason.streamInterrupted),
         ),
       );
+      _publishStateChange();
       _scheduleFailureCleanup();
     } finally {
       _lifecycleTransitioning = false;
@@ -490,6 +503,9 @@ final class PracticeSessionCoordinator {
         _state,
         PersistenceFailedEvent(failure),
       );
+    } on RecordingFailure catch (failure) {
+      await _discardFailedRecording(recording);
+      _state = _stateMachine.transition(_state, RecordingFailedEvent(failure));
     } catch (_) {
       await _discardFailedRecording(recording);
       _failFinalization(
@@ -614,8 +630,9 @@ final class PracticeSessionCoordinator {
     if (!recordingResult.accepted) {
       _state = _stateMachine.transition(
         _state,
-        const CaptureFailedEvent(CaptureFailure(CaptureFailureReason.unknown)),
+        const RecordingFailedEvent(RecordingFailure()),
       );
+      _publishStateChange();
       _scheduleFailureCleanup();
       return;
     }
@@ -645,6 +662,7 @@ final class PracticeSessionCoordinator {
           CaptureFailure(CaptureFailureReason.streamInterrupted),
         ),
       );
+      _publishStateChange();
       _scheduleFailureCleanup();
     }
   }
@@ -689,6 +707,7 @@ final class PracticeSessionCoordinator {
             AnalysisFailure(AnalysisFailureReason.processing),
           ),
         );
+        _publishStateChange();
         _scheduleFailureCleanup();
       }
     } finally {
@@ -712,8 +731,15 @@ final class PracticeSessionCoordinator {
       while (_recordingQueue.isNotEmpty) {
         await _recordingSink.append(_recordingQueue.removeFirst());
       }
-    } catch (_) {
-      _failRecording();
+    } catch (error) {
+      switch (error) {
+        case PersistenceFailure failure:
+          _failPersistence(failure);
+        case RecordingFailure failure:
+          _failRecording(failure);
+        default:
+          _failRecording(const RecordingFailure());
+      }
     } finally {
       _recordingDraining = false;
       if (_recordingQueue.isNotEmpty && _state is! Failed) {
@@ -744,21 +770,30 @@ final class PracticeSessionCoordinator {
   void _failFinalization(FinalizationFailure failure) {
     if (_state is Finalizing) {
       _state = _stateMachine.transition(_state, FinalizationFailed(failure));
+      _publishStateChange();
     }
   }
 
-  void _failRecording() {
+  void _failRecording(RecordingFailure failure) {
     if (_state is Finalizing) {
-      _failFinalization(
-        const FinalizationFailure(FinalizationFailureReason.recording),
-      );
+      _state = _stateMachine.transition(_state, RecordingFailedEvent(failure));
+      _publishStateChange();
       return;
     }
     if (_state is Running || _state is Paused) {
+      _state = _stateMachine.transition(_state, RecordingFailedEvent(failure));
+      _publishStateChange();
+      _scheduleFailureCleanup();
+    }
+  }
+
+  void _failPersistence(PersistenceFailure failure) {
+    if (_state is Finalizing || _state is Running || _state is Paused) {
       _state = _stateMachine.transition(
         _state,
-        const CaptureFailedEvent(CaptureFailure(CaptureFailureReason.unknown)),
+        PersistenceFailedEvent(failure),
       );
+      _publishStateChange();
       _scheduleFailureCleanup();
     }
   }
@@ -766,7 +801,14 @@ final class PracticeSessionCoordinator {
   void _failAnalysis(AnalysisFailure failure) {
     if (_state is Running || _state is Paused) {
       _state = _stateMachine.transition(_state, AnalysisFailedEvent(failure));
+      _publishStateChange();
       _scheduleFailureCleanup();
+    }
+  }
+
+  void _publishStateChange() {
+    if (!_stateChanges.isClosed) {
+      _stateChanges.add(_state);
     }
   }
 }

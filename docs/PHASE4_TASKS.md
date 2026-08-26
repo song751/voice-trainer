@@ -267,6 +267,15 @@ cargo test --manifest-path rust\Cargo.toml
 
 **目标结果：** 用统一 fixture 矩阵复验 Windows、Android emulator、Web 的五页和所有关键状态，修复平台适配造成的 UI 回归，不增加功能。
 
+#### P4-12 执行记录（2026-08-27，已完成，待集成接受）
+
+- 统一 `P412UiFixture` 用同一组可替换 capture/analysis/recording/repository adapters 运行 Windows、Android、Web profile；五个主页面及歌曲导入页在 393×852、深色、200% 文字下无 Flutter exception/overflow。宽屏 Windows 同时回归 NavigationRail。
+- typed 状态矩阵覆盖 permission denied、no device/input、unsupported format、worker processing failure/restart/fallback、recording append failure、persistence quota failure、low quality、no voiced frames、completed/result/history/confirmed delete。异步录音/持久化失败现在保留 `RecordingFailure`/`PersistenceFailure` 到 application state，页面仅显示可操作的描述性文案，不新增诊断或算法判断。
+- 交互与无障碍覆盖触摸、鼠标、Enter 键、system back、歌曲文件权利确认、runtime unavailable、进度和取消。实时读数仍是单一有界 semantics container，UI 继续只消费 25 Hz decimated frame，不新增逐帧语义播报或 100 Hz 页面订阅。
+- Windows target integration 与 Android 15/x86_64 emulator `127.0.0.1:16384` integration 均通过；使用真实 Flutter 平台引擎但数据 adapters 为 synthetic，不代表真实麦克风。Android 另从产品按钮实际进入 DocumentsUI SAF，再用 Back 取消并返回歌曲页；未选择、打开或读取用户文件。测试后恢复主工作树 APK，源文件与设备安装包 SHA-256 均为 `AA6D02DBCE241EF2FC2338A6772CE62EF1C915033008D3405476CB1611DBF738`。
+- Web 自包含 release 与 Edge headless lifecycle/deployment gate 通过：27 个关键资产、8 个 WASM、release hash/cache/MIME/CSP 和 `crossOriginIsolated=false` 均保持 P4-11 合同。`flutter test -d edge` 不支持 Web integration；`flutter drive -d edge` 已编译测试目标，但因本机没有 4444 WebDriver 服务而未启动测试会话。该工具限制不记为 UI 失败；P4-15 的真实浏览器/麦克风仍 Pending。
+- 实际验证：P4-12 widget matrix 14/14、state-machine + matrix 窄测 22/22、所选完整 Flutter suite 147/147、Windows integration 1/1、Android emulator integration 1/1、Dart format/analyze、Rust fmt/Clippy/tests（52）均通过；Web self-contained build/Edge gate 通过。Flutter suite 仅排除本分支仍含旧硬编码主工作树路径的 `p3_07_fault_gate_test.dart`；主线修复 `231ec32` 合入后应恢复直接全跑，本卡不复制该无关修复。
+
 **必须覆盖：** permission denied、no device/input、unsupported format、worker restart/failure、recording/persistence failure、low quality、no voiced frames、completed/history/delete；触摸/鼠标/键盘、back、200%文字、深色、窄屏。
 
 **验收：** widget/integration矩阵全绿，无页面平台分支、overflow、逐帧语义播报或100Hz重建。接受后解锁 P4-13。

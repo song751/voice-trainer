@@ -476,3 +476,9 @@ Drift 的 `*.g.dart` 可与源文件相邻；Freezed/Riverpod generated 文件�
 - `rust/tests/srd04_model_runtime.rs`、`srd04_file_pipeline.rs`、`srd04_duration_smoke.rs`：显式 Git 外模型/许可样本/输出的 ignored runtime、文件和 30 秒/3 分钟/5 分钟 smoke；普通测试不依赖外部资产。
 - `lib/features/song_reference/`：歌曲/模型导入状态与页面；runtime/model gate 未通过时明确显示 unavailable，不生成或伪造 stem。
 - `test/features/song_reference/` 与 `test/widgets/song_import_page_test.dart`：覆盖取消、空/超限文件、rights gate、runtime unavailable、进度/ready 与隐私文案。
+
+## 10. P4-12 跨平台 UI 回归资产
+
+- `integration_test/support/p4_12_ui_fixture.dart`：Windows、Android、Web 共用的 viewport/capability/adapter fixture；只提供 synthetic 数据，不替代真实设备。
+- `test/widgets/p4_12_cross_platform_ui_matrix_test.dart`：五主页面、歌曲导入、typed error/quality/completed/delete、输入方式、200% 文字、深色、窄屏与有界 semantics 矩阵。
+- `integration_test/p4_12_cross_platform_ui_contract_test.dart`：在实际 Windows/Android Flutter target 上复用同一 fixture；平台引擎是真实的，capture/analysis/persistence 是确定性替换。

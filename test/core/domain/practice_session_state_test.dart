@@ -103,6 +103,42 @@ void main() {
       );
     });
 
+    test('preserves recording and persistence failures from active states', () {
+      final recording = machine.transition(
+        const Running(sessionId: 'recording-failure'),
+        const RecordingFailedEvent(RecordingFailure()),
+      );
+      expect(recording, isA<Failed>());
+      expect((recording as Failed).failure, isA<RecordingFailure>());
+      expect(recording.retryState, PracticeSessionStateKind.ready);
+
+      final persistence = machine.transition(
+        const Paused(sessionId: 'persistence-failure'),
+        const PersistenceFailedEvent(
+          PersistenceFailure(reason: PersistenceFailureReason.quotaExceeded),
+        ),
+      );
+      expect(persistence, isA<Failed>());
+      expect((persistence as Failed).failure, isA<PersistenceFailure>());
+      expect(persistence.retryState, PracticeSessionStateKind.ready);
+    });
+
+    test('recording failure during finalization can retry finalization', () {
+      final state = machine.transition(
+        const Finalizing(sessionId: 'recording-finalize'),
+        const RecordingFailedEvent(RecordingFailure()),
+      );
+
+      expect(state, isA<Failed>());
+      final failed = state as Failed;
+      expect(failed.failure, isA<RecordingFailure>());
+      expect(failed.retryState, PracticeSessionStateKind.finalizing);
+      expect(
+        machine.transition(failed, const RetryRequested()),
+        isA<Finalizing>(),
+      );
+    });
+
     test('does not retry a non-recoverable failure', () {
       const state = Failed(
         sessionId: 'session-5',

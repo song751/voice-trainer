@@ -30,6 +30,14 @@ final liveUiAnalysisFrameProvider = StreamProvider.autoDispose<UiAnalysisFrame>(
   },
 );
 
+final liveWorkerMetricsProvider = StreamProvider.autoDispose((ref) {
+  return ref.watch(practiceSessionCoordinatorProvider).workerMetrics;
+});
+
+final livePracticeStateChangesProvider = StreamProvider.autoDispose((ref) {
+  return ref.watch(practiceSessionCoordinatorProvider).stateChanges;
+});
+
 final class LivePracticeController extends Notifier<PracticeSessionState> {
   // Notifier.build may run again when a watched composition dependency changes
   // (for example a Web/Windows profile override in the same app lifetime).
@@ -53,6 +61,10 @@ final class LivePracticeController extends Notifier<PracticeSessionState> {
       if (event != null) {
         unawaited(_handleBrowserLifecycle(event));
       }
+    });
+    ref.listen(livePracticeStateChangesProvider, (_, next) {
+      final nextState = next.valueOrNull;
+      if (nextState != null) state = nextState;
     });
     return _coordinator.state;
   }

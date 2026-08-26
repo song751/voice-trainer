@@ -184,6 +184,12 @@ final class PersistenceFailedEvent extends PracticeSessionEvent {
   final PersistenceFailure failure;
 }
 
+final class RecordingFailedEvent extends PracticeSessionEvent {
+  const RecordingFailedEvent(this.failure);
+
+  final RecordingFailure failure;
+}
+
 final class FinalizationSucceeded extends PracticeSessionEvent {
   const FinalizationSucceeded();
 }
@@ -243,6 +249,11 @@ final class PracticeSessionStateMachine {
           failure: failure,
           retryState: PracticeSessionStateKind.ready,
         ),
+      (Ready(:final sessionId), RecordingFailedEvent(:final failure)) => Failed(
+        sessionId: sessionId,
+        failure: failure,
+        retryState: PracticeSessionStateKind.ready,
+      ),
       (Running(:final sessionId), PauseRequested(:final interruption)) =>
         Paused(sessionId: sessionId, interruption: interruption),
       (
@@ -283,6 +294,24 @@ final class PracticeSessionStateMachine {
         failure: failure,
         retryState: PracticeSessionStateKind.ready,
       ),
+      (Running(:final sessionId), RecordingFailedEvent(:final failure)) ||
+      (
+        Paused(:final sessionId),
+        RecordingFailedEvent(:final failure),
+      ) => Failed(
+        sessionId: sessionId,
+        failure: failure,
+        retryState: PracticeSessionStateKind.ready,
+      ),
+      (Running(:final sessionId), PersistenceFailedEvent(:final failure)) ||
+      (
+        Paused(:final sessionId),
+        PersistenceFailedEvent(:final failure),
+      ) => Failed(
+        sessionId: sessionId,
+        failure: failure,
+        retryState: PracticeSessionStateKind.ready,
+      ),
       (Finalizing(:final sessionId), FinalizationSucceeded()) => Completed(
         sessionId: sessionId,
       ),
@@ -293,6 +322,12 @@ final class PracticeSessionStateMachine {
           retryState: PracticeSessionStateKind.finalizing,
         ),
       (Finalizing(:final sessionId), PersistenceFailedEvent(:final failure)) =>
+        Failed(
+          sessionId: sessionId,
+          failure: failure,
+          retryState: PracticeSessionStateKind.finalizing,
+        ),
+      (Finalizing(:final sessionId), RecordingFailedEvent(:final failure)) =>
         Failed(
           sessionId: sessionId,
           failure: failure,

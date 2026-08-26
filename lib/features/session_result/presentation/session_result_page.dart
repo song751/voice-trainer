@@ -251,6 +251,7 @@ class _RecommendationCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Card(
+    key: Key('result-recommendation-${recommendation.exerciseId}'),
     child: Padding(
       padding: const EdgeInsets.all(16),
       child: Column(
