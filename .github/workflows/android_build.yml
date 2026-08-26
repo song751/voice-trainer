@@ -39,7 +39,10 @@ jobs:
       - name: Restore dependencies
         run: flutter pub get --enforce-lockfile
       - name: Build release APK
-        run: flutter build apk --release --no-pub
+        # Flutter 3.44.7 must refresh its release-mode plugin registrant here.
+        # With --no-pub it can retain the dev-only integration_test registrant
+        # while Gradle correctly excludes that plugin from the release classpath.
+        run: flutter build apk --release
       - name: Audit release notices
         run: dart run tool/p4_13_release_audit.dart
       - name: Upload release APK and notices

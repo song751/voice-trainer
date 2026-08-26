@@ -30,6 +30,11 @@ jobs:
       - name: Run P4-12 cross-platform route integration on Windows
         run: flutter test -d windows integration_test/p4_12_cross_platform_ui_contract_test.dart
       - name: Run reference comparison integration on Windows
+        env:
+          # Hosted Windows runners do not guarantee an audio output endpoint.
+          # Extraction/comparison must still pass; only the typed playbackFailed
+          # result may satisfy the playback branch in that constrained runner.
+          VOICE_TRAINER_CI_ALLOW_NO_AUDIO_OUTPUT: '1'
         run: flutter test -d windows integration_test/reference_comparison_windows_test.dart
       - name: Add release notices
         shell: pwsh

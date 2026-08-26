@@ -140,6 +140,7 @@ void _auditWorkflows(Directory root, List<String> failures) {
     '.github/workflows/windows_build.yml': <String>[
       'p4_12_cross_platform_ui_contract_test.dart',
       'reference_comparison_windows_test.dart',
+      'VOICE_TRAINER_CI_ALLOW_NO_AUDIO_OUTPUT',
       'THIRD_PARTY_NOTICES.md',
     ],
     '.github/workflows/dart_rust_checks.yml': <String>[
@@ -167,6 +168,13 @@ void _auditWorkflows(Directory root, List<String> failures) {
           '${entry.key} action is not pinned to a full SHA: $reference',
         );
       }
+    }
+    if (entry.key == '.github/workflows/android_build.yml' &&
+        contents.contains('flutter build apk --release --no-pub')) {
+      failures.add(
+        '${entry.key} must refresh the Flutter 3.44.7 release registrant; '
+        'do not use --no-pub',
+      );
     }
     if (contents.contains('subosito/flutter-action@') &&
         !RegExp(r'cache:\s*false').hasMatch(contents)) {

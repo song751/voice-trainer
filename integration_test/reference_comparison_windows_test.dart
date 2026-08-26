@@ -145,12 +145,21 @@ void main() {
 
     final preview = NativeAudioPreview();
     addTearDown(preview.dispose);
-    await preview.playFile(
-      source: lease,
-      range: const PhraseRange(startSeconds: 0.1, endSeconds: 0.25),
-    );
-    await tester.pump(const Duration(milliseconds: 200));
-    await preview.stop();
+    try {
+      await preview.playFile(
+        source: lease,
+        range: const PhraseRange(startSeconds: 0.1, endSeconds: 0.25),
+      );
+      await tester.pump(const Duration(milliseconds: 200));
+      await preview.stop();
+    } on AudioPreviewFailure catch (failure) {
+      expect(
+        Platform.environment['VOICE_TRAINER_CI_ALLOW_NO_AUDIO_OUTPUT'],
+        '1',
+        reason: 'Only the explicitly constrained hosted runner may lack audio.',
+      );
+      expect(failure.reason, AudioPreviewFailureReason.playbackFailed);
+    }
   });
 }
 
