@@ -82,8 +82,7 @@ String resolveFlutterExecutable({
   final candidates = <String>[
     if (env['FLUTTER_ROOT'] case final flutterRoot?)
       _flutterExecutableUnderRoot(flutterRoot),
-    if (_flutterExecutableBesideDartSdk(dartExecutable) case final candidate?)
-      candidate,
+    ?_flutterExecutableBesideDartSdk(dartExecutable),
   ];
   for (final candidate in candidates) {
     if (exists(candidate)) return candidate;
