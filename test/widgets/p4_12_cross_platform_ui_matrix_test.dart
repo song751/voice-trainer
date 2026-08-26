@@ -91,11 +91,26 @@ void main() {
           songFilePickerProvider.overrideWithValue(
             const _SongPicker(_SongSource()),
           ),
+          songSeparatorProvider.overrideWithValue(
+            const UnavailableSongSeparator(),
+          ),
+          songModelManagerProvider.overrideWithValue(
+            const UnavailableSongSeparator(),
+          ),
         ],
       );
-      expect(find.byKey(const Key('select-song-file')), findsOneWidget);
-      expect(find.textContaining('不会上传云端'), findsOneWidget);
       expect(tester.takeException(), isNull, reason: profile.name);
+      expect(find.textContaining('不会上传云端'), findsOneWidget);
+      await tester.scrollUntilVisible(
+        find.byKey(const Key('select-song-file')),
+        200,
+        scrollable: find.byType(Scrollable).first,
+      );
+      expect(
+        find.byKey(const Key('select-song-file')),
+        findsOneWidget,
+        reason: profile.name,
+      );
     }
   });
 
@@ -109,6 +124,12 @@ void main() {
         extraOverrides: <Override>[
           songFilePickerProvider.overrideWithValue(
             const _SongPicker(_SongSource()),
+          ),
+          songSeparatorProvider.overrideWithValue(
+            const UnavailableSongSeparator(),
+          ),
+          songModelManagerProvider.overrideWithValue(
+            const UnavailableSongSeparator(),
           ),
         ],
       );
@@ -132,6 +153,7 @@ void main() {
             const _SongPicker(_SongSource()),
           ),
           songSeparatorProvider.overrideWithValue(separator),
+          songModelManagerProvider.overrideWithValue(separator),
         ],
       );
       await tester.tap(find.byKey(const Key('select-song-file')));
@@ -538,13 +560,22 @@ final class _SongSource implements SongFileSource {
   Stream<List<int>> openRead() => Stream<List<int>>.value(Uint8List(4096));
 }
 
-final class _ControlledSongSeparator implements SongSeparator {
+final class _ControlledSongSeparator
+    implements SongSeparator, SongModelManager {
   final _result = Completer<SeparatedSongReference>();
   void Function(double progress)? _onProgress;
   bool cancelled = false;
 
   @override
   bool get automaticSeparationAvailable => true;
+
+  @override
+  Future<SongModelStatus> installModel(SongFileSource source) async =>
+      const SongModelStatus(availability: SongModelAvailability.ready);
+
+  @override
+  Future<SongModelStatus> probe() async =>
+      const SongModelStatus(availability: SongModelAvailability.ready);
 
   void reportProgress(double progress) => _onProgress?.call(progress);
 

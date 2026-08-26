@@ -49,6 +49,24 @@ void main() {
       ),
       r'C:\flutter\flutter\bin\flutter.bat',
     );
+
+    expect(
+      resolveFlutterExecutable(
+        resolvedDartExecutable: '/opt/flutter/bin/cache/dart-sdk/bin/dart',
+        environment: const {},
+        fileExists: (path) => path == '/opt/flutter/bin/flutter',
+      ),
+      '/opt/flutter/bin/flutter',
+    );
+
+    expect(
+      resolveFlutterExecutable(
+        resolvedDartExecutable: '/unrelated/dart',
+        environment: const {'FLUTTER_ROOT': '/opt/flutter'},
+        fileExists: (path) => path == '/opt/flutter/bin/flutter',
+      ),
+      '/opt/flutter/bin/flutter',
+    );
   });
 
   test('accepts only an explicit host and valid TCP endpoint', () {

@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
-const _defaultEndpoint = '127.0.0.1:7555';
+const _defaultEndpoint = '127.0.0.1:16384';
 
 Future<void> main(List<String> arguments) async {
   try {
@@ -81,8 +81,9 @@ String resolveFlutterExecutable({
   final dartExecutable = resolvedDartExecutable ?? Platform.resolvedExecutable;
   final candidates = <String>[
     if (env['FLUTTER_ROOT'] case final flutterRoot?)
-      '${flutterRoot.replaceAll('/', '\\').replaceAll(RegExp(r'\\+$'), '')}\\bin\\flutter.bat',
-    '${File(dartExecutable).parent.parent.parent.parent.path}\\flutter.bat',
+      _flutterExecutableUnderRoot(flutterRoot),
+    if (_flutterExecutableBesideDartSdk(dartExecutable) case final candidate?)
+      candidate,
   ];
   for (final candidate in candidates) {
     if (exists(candidate)) return candidate;
@@ -91,6 +92,37 @@ String resolveFlutterExecutable({
     'Flutter executable was not found. Set FLUTTER_ROOT or run the preflight '
     'from a Flutter SDK installation.',
   );
+}
+
+String _flutterExecutableUnderRoot(String root) {
+  final windowsStyle =
+      RegExp(r'^[A-Za-z]:[\\/]').hasMatch(root) || root.contains('\\');
+  final separator = windowsStyle ? '\\' : '/';
+  final normalized = root
+      .replaceAll(RegExp(r'[\\/]+'), separator)
+      .replaceAll(RegExp('${RegExp.escape(separator)}+\$'), '');
+  final launcher = windowsStyle ? 'flutter.bat' : 'flutter';
+  return '$normalized${separator}bin$separator$launcher';
+}
+
+String? _flutterExecutableBesideDartSdk(String dartExecutable) {
+  final windowsStyle =
+      RegExp(r'^[A-Za-z]:[\\/]').hasMatch(dartExecutable) ||
+      dartExecutable.contains('\\');
+  final separator = windowsStyle ? '\\' : '/';
+  final normalized = dartExecutable.replaceAll(RegExp(r'[\\/]+'), separator);
+  final parts = normalized.split(separator);
+  if (parts.length < 5) return null;
+  final tail = parts.sublist(parts.length - 4);
+  if (tail[0].toLowerCase() != 'cache' ||
+      tail[1].toLowerCase() != 'dart-sdk' ||
+      tail[2].toLowerCase() != 'bin' ||
+      !RegExp(r'^dart(?:\.exe)?$', caseSensitive: false).hasMatch(tail[3])) {
+    return null;
+  }
+  final flutterBin = parts.sublist(0, parts.length - 4).join(separator);
+  final launcher = windowsStyle ? 'flutter.bat' : 'flutter';
+  return '$flutterBin$separator$launcher';
 }
 
 /// Validates the endpoint before it is passed to ADB, making the connection
@@ -340,6 +372,6 @@ void _usage() {
   stderr.writeln('Usage:');
   stderr.writeln(
     '  dart run tool/p4_00_android_preflight.dart '
-    '[--endpoint 127.0.0.1:7555] [--adb-path <SDK\\platform-tools\\adb.exe>]',
+    '[--endpoint 127.0.0.1:16384] [--adb-path <SDK\\platform-tools\\adb.exe>]',
   );
 }
