@@ -54,6 +54,13 @@ class HomePage extends ConsumerWidget {
               icon: const Icon(Icons.history),
               label: const Text('查看历史记录'),
             ),
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              key: const Key('open-song-import'),
+              onPressed: () => context.go(RoutePaths.songImport),
+              icon: const Icon(Icons.library_music_outlined),
+              label: const Text('导入歌曲并准备原唱对比'),
+            ),
             const SizedBox(height: 28),
             Text('最近结果', style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 8),

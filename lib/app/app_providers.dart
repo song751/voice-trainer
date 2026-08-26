@@ -10,11 +10,13 @@ import '../core/domain/persistence/recording_store.dart';
 import '../core/domain/persistence/session_repository.dart';
 import '../core/domain/practice/practice_target.dart';
 import '../core/domain/practice/practice_template.dart';
+import '../core/domain/reference/song_reference.dart';
 import '../core/errors/app_exception.dart';
 import '../core/logging/app_logger.dart';
 import '../core/platform/platform_capabilities.dart';
 import '../features/live_practice/application/practice_session_coordinator.dart';
 import '../features/session_result/application/deterministic_observation_engine.dart';
+import '../infrastructure/audio_import/file_selector_song_picker.dart';
 import 'default_adapters.dart';
 import 'default_persistence.dart';
 import 'platform_capabilities.dart';
@@ -66,6 +68,17 @@ final appLoggerProvider = Provider<AppLogger>((ref) => AppLogger());
 
 final observationEngineProvider = Provider<ObservationEngine>(
   (ref) => const DeterministicObservationEngine(),
+);
+
+final songFilePickerProvider = Provider<SongFilePicker>(
+  (ref) => const FileSelectorSongPicker(),
+);
+
+/// Replaced by a platform model runtime only after its weights, operators,
+/// numerical parity and license gates pass. The fallback reports a typed
+/// unavailable result and never fabricates stems.
+final songSeparatorProvider = Provider<SongSeparator>(
+  (ref) => const UnavailableSongSeparator(),
 );
 
 final practiceTemplateProvider = Provider<PracticeTemplate>(

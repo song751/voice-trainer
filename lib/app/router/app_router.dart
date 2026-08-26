@@ -6,6 +6,7 @@ import '../../features/home/presentation/home_page.dart';
 import '../../features/live_practice/presentation/live_practice_page.dart';
 import '../../features/session_result/presentation/session_result_page.dart';
 import '../../features/settings/presentation/settings_page.dart';
+import '../../features/song_reference/presentation/song_import_page.dart';
 import '../shell/adaptive_app_shell.dart';
 import 'route_names.dart';
 
@@ -38,6 +39,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: RoutePaths.settings,
             builder: (context, state) => const SettingsPage(),
+          ),
+          GoRoute(
+            path: RoutePaths.songImport,
+            builder: (context, state) => const SongImportPage(),
           ),
         ],
       ),

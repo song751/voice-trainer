@@ -643,6 +643,7 @@ Phase-boundary 回归：FRB codegen 连续两次 7 个生成文件 SHA-256 不�
 - 实际 oracle：Windows CPU、Python 3.13.5、PyTorch `2.11.0+cu128`、Open-Unmix `1.3.0` 对确定性 1 秒、44.1 kHz stereo PCM16 合成输入完成 vocals-only + residual 推理。输入/输出均为 `44,100` frames；warm-run inference `0.021163 s`，进程 peak working set `640,258,048` bytes。vocals 输出 `176,444` bytes / SHA-256 `a6e3ad02db7f07711634f13a810ecaae9507b895f94b4aeb9a04871a614e8488`；accompaniment 输出 `176,444` bytes / SHA-256 `aaa056efd168651f21886fa25491f048c756636d7f15deb5767b1a9d8dd37017`。这是合成 contract smoke，不是分离质量证据。
 - 导出实际结果：同一脚本以 `--export-onnx` 进入 core export stage，但隔离环境未安装开发期 `onnx`，返回 typed `export_dependency_missing`；没有创建伪 ONNX 文件。tract/ONNX Runtime 尚未加入或验证，不能据此进入 production。
 - 自动化：Rust harness 4 项测试覆盖 deterministic fixture、rights gate、取消和 stem mismatch；Clippy `-D warnings` 通过。未覆盖 30 秒/3 分钟/5 分钟性能、真实许可歌曲质量、ONNX 数值一致性、Windows production/Android/Web runtime；这些仍是 ADR 0002 的下一 gate。
+- 产品文件入口采用 Flutter 官方维护的 `file_selector 1.1.0`（BSD-3-Clause），支持 Android SDK 21+、Web 与 Windows 10+ 的单文件选择。它只负责用户主动选择本地音频，不读取媒体库、不抓取流媒体、不上传云端；取消选择是正常 typed outcome。平台插件失效时 fallback 为手工重试/功能不可用提示，移除成本局限于 `SongFilePicker` infrastructure adapter 与 pubspec，不进入 domain、分离器或对比算法。
 
 ### 歌唱反馈与课程证据地图（2026-08-26，R&D draft）
 

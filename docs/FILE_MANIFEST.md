@@ -453,3 +453,10 @@ Drift 的 `*.g.dart` 可与源文件相邻；Freezed/Riverpod generated 文件�
 - `tool/song_separation/Cargo.lock` 必须提交以固定 benchmark harness；`target/`、模型、用户音频、分离输出、虚拟环境和报告不得提交。
 - `docs/SINGING_PEDAGOGY_EVIDENCE_MAP.md`：声学指标到 Observation/练习的证据地图、课程骨架、安全语言和不可推断事项；在人工专业复核前保持 R&D draft。
 - `docs/adr/0003-singing-feedback-evidence-boundary.md`：固定 suppression-first、内容审核与非诊断边界；不自行解锁产品实现。
+
+## 9. 歌曲参考产品合同（已开始）
+
+- `lib/core/domain/reference/song_reference.dart`：文件来源、权利确认、分离进度/取消、typed failure 与输出元数据合同；不依赖 Flutter plugin、路径或模型 runtime。
+- `lib/infrastructure/audio_import/file_selector_song_picker.dart`：用户主动选择本地音频的跨平台 adapter；只向 domain 暴露脱敏显示名、长度与 byte stream。
+- `lib/features/song_reference/`：歌曲导入状态与页面；模型 runtime 未通过时明确显示 unavailable，不生成或伪造 stem。
+- `test/features/song_reference/` 与 `test/widgets/song_import_page_test.dart`：覆盖取消、空/超限文件、rights gate、runtime unavailable、进度/ready 与隐私文案。
