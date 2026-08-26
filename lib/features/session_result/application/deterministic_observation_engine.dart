@@ -64,15 +64,37 @@ final class DeterministicObservationEngine implements ObservationEngine {
             confidence: 1,
             qualityFlags: summary.qualityFlags,
             basis: EvidenceBasis.absoluteThreshold,
-            recommendationIds: const <String>['improve-recording-input'],
+            recommendationIds: const <String>['REC-QUALITY-01'],
             suppressedReasonKey: 'quality_or_valid_frames_insufficient',
           ),
         ],
-        recommendations: const <Recommendation>[
+        recommendations: <Recommendation>[
           Recommendation(
-            exerciseId: 'improve-recording-input',
+            exerciseId: 'REC-QUALITY-01',
+            contentVersion: 1,
+            reviewStatus: ContentReviewStatus.draft,
             reasonKey: 'improve_recording_input',
             priority: 0,
+            confidence: 1,
+            scope: ObservationScope.session,
+            evidenceGrade: RecommendationEvidenceGrade.guideline,
+            evidence: <Evidence>[
+              Evidence(
+                metric: 'valid_frame_count',
+                value: summary.validFrameCount.toDouble(),
+                basis: EvidenceBasis.absoluteThreshold,
+              ),
+              Evidence(
+                metric: 'valid_frame_ratio',
+                value: summary.validFrameRatio,
+                basis: EvidenceBasis.absoluteThreshold,
+              ),
+            ],
+            qualityFlags: summary.qualityFlags,
+            sourceIds: const <String>['ASHA_MEASURE_2018'],
+            limitations: const <String>[
+              'consumer_microphone_not_clinical_measurement',
+            ],
           ),
         ],
       );
@@ -106,7 +128,7 @@ final class DeterministicObservationEngine implements ObservationEngine {
         basis: EvidenceBasis.absoluteThreshold,
         recommendationIds: isConsistentlyOnTarget
             ? const <String>[]
-            : const <String>['repeat-target-note'],
+            : const <String>['PITCH-MATCH-01'],
       ),
     ];
 
@@ -124,7 +146,7 @@ final class DeterministicObservationEngine implements ObservationEngine {
           thresholdMetric: 'target_tolerance_cents',
           threshold: template.target.toleranceCents,
           confidence: confidence,
-          recommendationIds: const <String>['repeat-target-note'],
+          recommendationIds: const <String>['PITCH-MATCH-01'],
         ),
       );
     }
@@ -214,12 +236,35 @@ final class DeterministicObservationEngine implements ObservationEngine {
     return ObservationResult(
       observations: observations,
       recommendations: isConsistentlyOnTarget
-          ? const <Recommendation>[]
-          : const <Recommendation>[
+          ? <Recommendation>[]
+          : <Recommendation>[
               Recommendation(
-                exerciseId: 'repeat-target-note',
+                exerciseId: 'PITCH-MATCH-01',
+                contentVersion: 1,
+                reviewStatus: ContentReviewStatus.draft,
                 reasonKey: 'repeat_target_note',
                 priority: 0,
+                confidence: confidence,
+                scope: ObservationScope.session,
+                evidenceGrade: RecommendationEvidenceGrade.controlledTrial,
+                evidence: <Evidence>[
+                  Evidence(
+                    metric: 'target_hit_rate',
+                    value: hitRate,
+                    basis: EvidenceBasis.absoluteThreshold,
+                  ),
+                  Evidence(
+                    metric: 'target_tolerance_cents',
+                    value: template.target.toleranceCents,
+                    basis: EvidenceBasis.absoluteThreshold,
+                  ),
+                ],
+                qualityFlags: summary.qualityFlags,
+                sourceIds: const <String>['BERGLIN_2022'],
+                limitations: const <String>[
+                  'short_training_trial',
+                  'individual_response_varies',
+                ],
               ),
             ],
     );

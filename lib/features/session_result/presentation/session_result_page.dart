@@ -8,6 +8,7 @@ import '../../../core/domain/observation/evidence.dart';
 import '../../../core/domain/observation/observation.dart';
 import '../../../core/domain/observation/recommendation.dart';
 import '../../../core/domain/persistence/session_repository.dart';
+import '../../../core/domain/practice/practice_template.dart';
 import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/responsive_page_body.dart';
 import '../../live_practice/application/live_practice_controller.dart';
@@ -258,7 +259,26 @@ class _RecommendationCard extends StatelessWidget {
           Text(_recommendationLabel(recommendation.exerciseId)),
           const SizedBox(height: 8),
           Text('练习 ID：${recommendation.exerciseId}'),
+          Text('内容版本：v${recommendation.contentVersion}'),
+          Text('审核状态：${_reviewStatusLabel(recommendation.reviewStatus)}'),
+          Text('证据等级：${_evidenceGradeLabel(recommendation.evidenceGrade)}'),
+          Text(
+            '建议置信度：${(recommendation.confidence * 100).toStringAsFixed(0)}%',
+          ),
+          Text('适用范围：${_scopeLabel(recommendation.scope)}'),
           Text('建议依据：${recommendation.reasonKey}'),
+          Text('来源：${recommendation.sourceIds.join(', ')}'),
+          if (recommendation.limitations.isNotEmpty)
+            Text('限制：${recommendation.limitations.join(', ')}'),
+          const SizedBox(height: 8),
+          ..._recommendationSteps(
+            recommendation.exerciseId,
+          ).map((step) => Text('• $step')),
+          if (recommendation.reviewStatus !=
+              ContentReviewStatus.approved) ...<Widget>[
+            const SizedBox(height: 8),
+            const Text('此内容尚未标记为专家审核通过。'),
+          ],
         ],
       ),
     ),
@@ -283,10 +303,41 @@ String _observationLabel(Observation observation) =>
     };
 
 String _recommendationLabel(String exerciseId) => switch (exerciseId) {
-  'improve-recording-input' => '靠近麦克风、避免削波，并在安静环境中保持稳定发声后重试。',
-  'repeat-target-note' => '以舒适音量重复目标音，留意音高是否落在目标范围内。',
+  'REC-QUALITY-01' => '先改善录音条件，再重新测量。',
+  'PITCH-MATCH-01' => '舒适音区单音模唱与隐藏反馈复测。',
   _ => '请根据本次练习结果调整下一次练习。',
 };
+
+List<String> _recommendationSteps(String exerciseId) => switch (exerciseId) {
+  'REC-QUALITY-01' => const <String>[
+    '保持固定麦距并避开伴奏外放。',
+    '输入过低时靠近麦克风；削波时降低音量或稍微远离。',
+    '重录后只在质量门槛通过时查看技巧观察。',
+  ],
+  'PITCH-MATCH-01' => const <String>[
+    '选择舒适音区，以舒适音量模唱一个目标音。',
+    '先看轨迹完成短组练习，每轮只关注音高偏差。',
+    '组末隐藏轨迹再唱一次，用于检查是否能独立复现。',
+    '出现疼痛、明显不适或呼吸困难时立即停止。',
+  ],
+  _ => const <String>[],
+};
+
+String _reviewStatusLabel(ContentReviewStatus status) => switch (status) {
+  ContentReviewStatus.draft => '草案 / 未审核',
+  ContentReviewStatus.reviewed => '已复核',
+  ContentReviewStatus.approved => '已批准',
+};
+
+String _evidenceGradeLabel(RecommendationEvidenceGrade grade) =>
+    switch (grade) {
+      RecommendationEvidenceGrade.guideline => 'G（指南/测量协议）',
+      RecommendationEvidenceGrade.systematicReview => 'SR（系统/范围综述）',
+      RecommendationEvidenceGrade.controlledTrial => 'CT（随机/对照研究）',
+      RecommendationEvidenceGrade.measurementStudy => 'P（测量研究）',
+      RecommendationEvidenceGrade.pedagogyConsensus => 'PED（正规教学共识）',
+      RecommendationEvidenceGrade.unvalidated => 'U（尚未验证）',
+    };
 
 String _scopeLabel(ObservationScope scope) => switch (scope) {
   ObservationScope.frame => '单帧',

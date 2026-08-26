@@ -624,7 +624,7 @@ Phase-boundary 回归：FRB codegen 连续两次 7 个生成文件 SHA-256 不�
 ### 反馈产品化并行切片（2026-08-26）
 
 - `SessionSummary` 新增可空的 `targetDeviationMedianCents`。它由有效 voiced frame 相对练习目标的 signed cents deviation 中位数计算，并随既有 `summaryJson` 向后兼容持久化；旧记录缺少该字段时保持 `null`，不需要 schema migration。
-- 在质量 gate 通过后，确定性规则现在可生成以下描述性 Observation：目标音整体偏高/偏低、pitch MAD 较大、pitch slope 上升/下降、level MAD 较大、level slope 上升/下降、稳定音形成延迟。每条都包含测量值、对应技术门槛、confidence、scope 和 quality flags；目标相关建议继续只引用既有 `repeat-target-note` exercise ID。
+- 在质量 gate 通过后，确定性规则现在可生成以下描述性 Observation：目标音整体偏高/偏低、pitch MAD 较大、pitch slope 上升/下降、level MAD 较大、level slope 上升/下降、稳定音形成延迟。每条都包含测量值、对应技术门槛、confidence、scope 和 quality flags；目标相关建议引用版本化的 `PITCH-MATCH-01` 内容 ID。
 - 当前 v1 门槛为 pitch MAD `15 cents`、pitch slope `8 cents/s`、level MAD `2 dB`、level slope `1 dB/s`、onset delay `24,000 samples`（当前生产输入仅接受 48 kHz，即 0.5 s）。这些是可解释的产品起点，不是临床或生理阈值；没有输出提喉、挤压、漏气、闭合不足、疲劳风险等结论。真实人声分层验证前，UI 必须把它们表述为“测得变化”，不能表述为技术诊断。
 - 窄测试覆盖 signed median 对离群值的稳健性、全部新增 rule、低质量 suppression 以及 summary round-trip；完整 `flutter test` 为 80/80，format/analyze 通过。
 
@@ -650,3 +650,4 @@ Phase-boundary 回归：FRB codegen 连续两次 7 个生成文件 SHA-256 不�
 - 当前最适合先验证的教学路径是舒适音区 pitch matching、3–4 音 pattern 和实时视觉反馈；成人随机训练有正向但短期、个体差异明显的证据。SOVT 有临床 RCT、业余合唱歌手 RCT 和范围综述支持作为候选，但不足以由单一指标自动触发为治疗。
 - timing、level、range、spectrum 与 reference A/B 练习仍标为 `U/PED`。所有内容默认 unreviewed；需声乐教师与 SLP/嗓音医学联合复核后才可进入 production catalog。
 - 安全边界采用 AAO-HNSF dysphonia 指南：应用不从音频诊断症状；疼痛/严重警示症状停止并转介，持续声音异常 4 周未改善应提示喉科/耳鼻喉评估，临床 voice therapy 前需要诊断性喉镜检查。
+- `Recommendation` 产品合同现已携带 content version/review status、confidence、scope、quality flags、数值 evidence、证据等级/source IDs 和 limitations。质量失败只生成 `REC-QUALITY-01`；音准未达目标时生成 `PITCH-MATCH-01`，结果页展示练习步骤、研究等级和“尚未专家审核”状态，并包含疼痛/明显不适/呼吸困难时停止的安全提示。其他低证据课程尚未自动触发。

@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:voice_trainer/core/domain/analysis/analysis_frame.dart';
 import 'package:voice_trainer/core/domain/analysis/analysis_quality_flag.dart';
 import 'package:voice_trainer/core/domain/analysis/session_summary.dart';
+import 'package:voice_trainer/core/domain/observation/recommendation.dart';
 import 'package:voice_trainer/core/domain/practice/practice_target.dart';
 import 'package:voice_trainer/core/domain/practice/practice_template.dart';
 import 'package:voice_trainer/features/session_result/application/deterministic_observation_engine.dart';
@@ -91,10 +92,16 @@ void main() {
 
       expect(result.observations.single.labelKey, 'recording_quality_limited');
       expect(result.observations.single.suppressedReasonKey, isNotNull);
+      expect(result.recommendations.single.exerciseId, 'REC-QUALITY-01');
+      final recommendation = result.recommendations.single;
+      expect(recommendation.reviewStatus, ContentReviewStatus.draft);
       expect(
-        result.recommendations.single.exerciseId,
-        'improve-recording-input',
+        recommendation.evidenceGrade,
+        RecommendationEvidenceGrade.guideline,
       );
+      expect(recommendation.qualityFlags, {AnalysisQualityFlag.inputTooLow});
+      expect(recommendation.sourceIds, isNotEmpty);
+      expect(recommendation.limitations, isNotEmpty);
     },
   );
 
@@ -118,6 +125,13 @@ void main() {
       first.recommendations.single.exerciseId,
       second.recommendations.single.exerciseId,
     );
+    expect(first.recommendations.single.exerciseId, 'PITCH-MATCH-01');
+    expect(
+      first.recommendations.single.evidenceGrade,
+      RecommendationEvidenceGrade.controlledTrial,
+    );
+    expect(first.recommendations.single.evidence, hasLength(2));
+    expect(first.recommendations.single.sourceIds, ['BERGLIN_2022']);
   });
 
   test('quality-passing summaries yield descriptive measurement rules', () {

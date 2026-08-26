@@ -82,7 +82,10 @@ void main() {
     expect(find.textContaining('证据：目标命中率'), findsOneWidget);
     await tester.drag(find.byType(ListView).first, const Offset(0, -500));
     await tester.pumpAndSettle();
-    expect(find.textContaining('练习 ID：repeat-target-note'), findsOneWidget);
+    expect(find.textContaining('练习 ID：PITCH-MATCH-01'), findsOneWidget);
+    expect(find.textContaining('证据等级：CT'), findsOneWidget);
+    expect(find.text('此内容尚未标记为专家审核通过。'), findsOneWidget);
+    expect(find.textContaining('隐藏轨迹'), findsOneWidget);
   });
 
   testWidgets('history opens details and deletes only after confirmation', (
