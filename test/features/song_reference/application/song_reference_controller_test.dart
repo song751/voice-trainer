@@ -59,6 +59,9 @@ void main() {
         songFilePickerProvider.overrideWithValue(
           const _FakePicker(_FakeSource('song.wav', 1024)),
         ),
+        songSeparatorProvider.overrideWithValue(
+          const UnavailableSongSeparator(),
+        ),
       ],
     );
     addTearDown(container.dispose);
@@ -90,6 +93,7 @@ void main() {
     );
     addTearDown(container.dispose);
     final controller = container.read(songReferenceControllerProvider.notifier);
+    await controller.refreshModelStatus();
     await controller.selectSong();
     controller.setRightsAcknowledged(true);
     await controller.separate();
@@ -99,6 +103,11 @@ void main() {
     expect(state.progress, 1);
     expect(state.reference?.generatedByModel, isTrue);
     expect(state.reference?.artifactWarning, isTrue);
+    expect(
+      state.modelStatus?.availability,
+      SongModelAvailability.ready,
+      reason: 'selecting a song must preserve the completed runtime probe',
+    );
   });
 }
 
@@ -124,12 +133,22 @@ final class _FakeSource implements SongFileSource {
   Stream<List<int>> openRead() => Stream<List<int>>.value(Uint8List(0));
 }
 
-final class _FakeSeparator implements SongSeparator {
+final class _FakeSeparator implements SongSeparator, SongModelManager {
   @override
   bool get automaticSeparationAvailable => true;
 
   @override
   Future<void> cancel() async {}
+
+  @override
+  Future<SongModelStatus> installModel(SongFileSource source) async =>
+      const SongModelStatus(availability: SongModelAvailability.ready);
+
+  @override
+  Future<SongModelStatus> probe() async => const SongModelStatus(
+    availability: SongModelAvailability.ready,
+    modelId: 'fake-test-model',
+  );
 
   @override
   Future<SeparatedSongReference> separate({

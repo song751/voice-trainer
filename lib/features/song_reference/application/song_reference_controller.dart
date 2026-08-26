@@ -3,7 +3,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../app/app_providers.dart';
 import '../../../core/domain/reference/song_reference.dart';
 
-enum SongReferenceStatus { idle, selected, separating, ready, failed }
+enum SongReferenceStatus {
+  idle,
+  selected,
+  installingModel,
+  separating,
+  ready,
+  failed,
+}
 
 final class SongReferenceState {
   const SongReferenceState({
@@ -14,6 +21,7 @@ final class SongReferenceState {
     this.progress = 0,
     this.reference,
     this.failureReason,
+    this.modelStatus,
   });
 
   final SongReferenceStatus status;
@@ -23,6 +31,7 @@ final class SongReferenceState {
   final double progress;
   final SeparatedSongReference? reference;
   final SongSeparationFailureReason? failureReason;
+  final SongModelStatus? modelStatus;
 
   SongReferenceState copyWith({
     SongReferenceStatus? status,
@@ -34,6 +43,7 @@ final class SongReferenceState {
     SongSeparationFailureReason? failureReason,
     bool clearFailure = false,
     bool clearReference = false,
+    SongModelStatus? modelStatus,
   }) => SongReferenceState(
     status: status ?? this.status,
     displayName: displayName ?? this.displayName,
@@ -42,6 +52,7 @@ final class SongReferenceState {
     progress: progress ?? this.progress,
     reference: clearReference ? null : reference ?? this.reference,
     failureReason: clearFailure ? null : failureReason ?? this.failureReason,
+    modelStatus: modelStatus ?? this.modelStatus,
   );
 }
 
@@ -55,9 +66,55 @@ final class SongReferenceController extends Notifier<SongReferenceState> {
 
   SongFilePicker get _picker => ref.read(songFilePickerProvider);
   SongSeparator get _separator => ref.read(songSeparatorProvider);
+  SongModelManager get _modelManager => ref.read(songModelManagerProvider);
 
   @override
   SongReferenceState build() => const SongReferenceState();
+
+  Future<void> refreshModelStatus() async {
+    try {
+      final status = await _modelManager.probe();
+      state = state.copyWith(modelStatus: status);
+    } catch (_) {
+      state = state.copyWith(
+        modelStatus: const SongModelStatus(
+          availability: SongModelAvailability.unavailable,
+        ),
+      );
+    }
+  }
+
+  Future<void> installModel() async {
+    final source = await ref.read(songModelFilePickerProvider).pickModel();
+    if (source == null) return;
+    state = state.copyWith(
+      status: SongReferenceStatus.installingModel,
+      clearFailure: true,
+    );
+    try {
+      final status = await _modelManager.installModel(source);
+      state = state.copyWith(
+        status: _source == null
+            ? SongReferenceStatus.idle
+            : SongReferenceStatus.selected,
+        modelStatus: status,
+        failureReason: status.availability == SongModelAvailability.ready
+            ? null
+            : SongSeparationFailureReason.runtimeUnavailable,
+        clearFailure: status.availability == SongModelAvailability.ready,
+      );
+    } on SongSeparationFailure catch (failure) {
+      state = state.copyWith(
+        status: SongReferenceStatus.failed,
+        failureReason: failure.reason,
+      );
+    } catch (_) {
+      state = state.copyWith(
+        status: SongReferenceStatus.failed,
+        failureReason: SongSeparationFailureReason.processingFailed,
+      );
+    }
+  }
 
   Future<void> selectSong() async {
     final source = await _picker.pickSong();
@@ -70,6 +127,7 @@ final class SongReferenceController extends Notifier<SongReferenceState> {
         displayName: source.displayName,
         sizeBytes: length,
         failureReason: SongSeparationFailureReason.emptyFile,
+        modelStatus: state.modelStatus,
       );
       return;
     }
@@ -79,6 +137,7 @@ final class SongReferenceController extends Notifier<SongReferenceState> {
         displayName: source.displayName,
         sizeBytes: length,
         failureReason: SongSeparationFailureReason.fileTooLarge,
+        modelStatus: state.modelStatus,
       );
       return;
     }
@@ -86,6 +145,7 @@ final class SongReferenceController extends Notifier<SongReferenceState> {
       status: SongReferenceStatus.selected,
       displayName: source.displayName,
       sizeBytes: length,
+      modelStatus: state.modelStatus,
     );
   }
 

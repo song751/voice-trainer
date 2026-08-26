@@ -13,15 +13,48 @@ enum SongSeparationFailureReason {
   emptyFile,
   fileTooLarge,
   unsupportedFormat,
+  modelNotInstalled,
+  modelIntegrityFailed,
   runtimeUnavailable,
+  backendIncompatible,
+  decodeFailed,
+  resourceLimitExceeded,
+  outputFailed,
   cancelled,
   processingFailed,
 }
 
 final class SongSeparationFailure implements Exception {
-  const SongSeparationFailure(this.reason);
+  const SongSeparationFailure(this.reason, {this.detail});
 
   final SongSeparationFailureReason reason;
+  final String? detail;
+}
+
+enum SongModelAvailability { ready, notInstalled, unavailable }
+
+final class SongModelStatus {
+  const SongModelStatus({
+    required this.availability,
+    this.modelId,
+    this.detail,
+  });
+
+  final SongModelAvailability availability;
+  final String? modelId;
+  final String? detail;
+}
+
+final class SongStemReference {
+  const SongStemReference({
+    required this.locator,
+    required this.sha256,
+    required this.byteLength,
+  });
+
+  final String locator;
+  final String sha256;
+  final int byteLength;
 }
 
 final class SeparatedSongReference {
@@ -33,6 +66,12 @@ final class SeparatedSongReference {
     required this.channels,
     required this.durationSamples,
     required this.artifactWarning,
+    this.algorithmVersion = 'unknown',
+    this.sourceSampleRate,
+    this.sourceChannels,
+    this.chunkCount = 0,
+    this.vocals,
+    this.accompaniment,
   });
 
   final String displayName;
@@ -42,6 +81,18 @@ final class SeparatedSongReference {
   final int channels;
   final int durationSamples;
   final bool artifactWarning;
+  final String algorithmVersion;
+  final int? sourceSampleRate;
+  final int? sourceChannels;
+  final int chunkCount;
+  final SongStemReference? vocals;
+  final SongStemReference? accompaniment;
+}
+
+abstract interface class SongModelManager {
+  Future<SongModelStatus> probe();
+
+  Future<SongModelStatus> installModel(SongFileSource source);
 }
 
 abstract interface class SongSeparator {
@@ -56,7 +107,8 @@ abstract interface class SongSeparator {
   Future<void> cancel();
 }
 
-final class UnavailableSongSeparator implements SongSeparator {
+final class UnavailableSongSeparator
+    implements SongSeparator, SongModelManager {
   const UnavailableSongSeparator();
 
   @override
@@ -64,6 +116,14 @@ final class UnavailableSongSeparator implements SongSeparator {
 
   @override
   Future<void> cancel() async {}
+
+  @override
+  Future<SongModelStatus> installModel(SongFileSource source) async =>
+      const SongModelStatus(availability: SongModelAvailability.unavailable);
+
+  @override
+  Future<SongModelStatus> probe() async =>
+      const SongModelStatus(availability: SongModelAvailability.unavailable);
 
   @override
   Future<SeparatedSongReference> separate({

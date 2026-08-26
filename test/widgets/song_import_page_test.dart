@@ -25,6 +25,9 @@ void main() {
           songFilePickerProvider.overrideWithValue(
             const _FakePicker(_FakeSource()),
           ),
+          songSeparatorProvider.overrideWithValue(
+            const UnavailableSongSeparator(),
+          ),
         ],
         child: const VoiceTrainerApp(),
       ),

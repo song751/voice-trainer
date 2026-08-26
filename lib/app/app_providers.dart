@@ -18,6 +18,8 @@ import '../core/platform/application_lifecycle.dart';
 import '../features/live_practice/application/practice_session_coordinator.dart';
 import '../features/session_result/application/deterministic_observation_engine.dart';
 import '../infrastructure/audio_import/file_selector_song_picker.dart';
+import '../infrastructure/audio_import/file_selector_song_model_picker.dart';
+import '../infrastructure/song_separation/default_song_separator.dart';
 import 'default_adapters.dart';
 import 'default_lifecycle.dart';
 import 'default_persistence.dart';
@@ -90,12 +92,22 @@ final songFilePickerProvider = Provider<SongFilePicker>(
   (ref) => const FileSelectorSongPicker(),
 );
 
+final songModelFilePickerProvider = Provider<FileSelectorSongModelPicker>(
+  (ref) => const FileSelectorSongModelPicker(),
+);
+
 /// Replaced by a platform model runtime only after its weights, operators,
 /// numerical parity and license gates pass. The fallback reports a typed
 /// unavailable result and never fabricates stems.
 final songSeparatorProvider = Provider<SongSeparator>(
-  (ref) => const UnavailableSongSeparator(),
+  (ref) => createDefaultSongSeparator(ref.watch(platformCapabilitiesProvider)),
 );
+
+final songModelManagerProvider = Provider<SongModelManager>((ref) {
+  final separator = ref.watch(songSeparatorProvider);
+  if (separator is SongModelManager) return separator as SongModelManager;
+  return const UnavailableSongSeparator();
+});
 
 final practiceTemplateProvider = Provider<PracticeTemplate>(
   (ref) => const PracticeTemplate(
