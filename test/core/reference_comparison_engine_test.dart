@@ -143,15 +143,130 @@ void main() {
     );
     expect(report.metrics, isNull);
   });
+
+  test('onset delta is relative to each selected phrase window', () {
+    final referenceFrames = _frames(
+      frameCount: 500,
+      voicedStart: 110,
+      voicedEnd: 310,
+      pitchOffsetCents: 0,
+      levelOffsetDb: 0,
+      clarity: 0.9,
+    );
+    final userFrames = _frames(
+      frameCount: 500,
+      voicedStart: 220,
+      voicedEnd: 420,
+      pitchOffsetCents: 0,
+      levelOffsetDb: 0,
+      clarity: 0.9,
+    );
+
+    final report = engine.compare(
+      reference: _reference(durationSamples: 44100 * 5),
+      referenceFeatures: ReferenceAnalysisSeries(
+        sampleRate: 44100,
+        frameRateHz: 100,
+        algorithmVersion: 'reference-test-v1',
+        frames: referenceFrames,
+      ),
+      session: _session(userFrames),
+      referenceRange: const PhraseRange(startSeconds: 1, endSeconds: 4),
+      userRange: const PhraseRange(startSeconds: 2, endSeconds: 5),
+      review: const ReferenceComparisonReview(
+        artifactsAcceptable: true,
+        monophonicLeadConfirmed: true,
+      ),
+    );
+
+    expect(report.suppressed, isFalse);
+    expect(report.alignment!.referenceOnsetSeconds, closeTo(1.1, 1e-9));
+    expect(report.alignment!.userOnsetSeconds, closeTo(2.2, 1e-9));
+    expect(report.alignment!.userOnsetDeltaSeconds, closeTo(0.1, 1e-9));
+  });
+
+  test('mutual coverage uses unique symmetric frame occupancy', () {
+    const conservativeEngine = ReferenceComparisonEngine(
+      minimumMutualCoverage: 0.75,
+    );
+    final referenceFrames = _frames(
+      frameCount: 450,
+      voicedStart: 0,
+      voicedEnd: 150,
+      pitchOffsetCents: 0,
+      levelOffsetDb: 0,
+      clarity: 0.9,
+    );
+    final userFrames = _frames(
+      frameCount: 450,
+      voicedStart: 0,
+      voicedEnd: 300,
+      pitchOffsetCents: 0,
+      levelOffsetDb: 0,
+      clarity: 0.9,
+    );
+
+    final report = conservativeEngine.compare(
+      reference: _reference(),
+      referenceFeatures: ReferenceAnalysisSeries(
+        sampleRate: 44100,
+        frameRateHz: 100,
+        algorithmVersion: 'reference-test-v1',
+        frames: referenceFrames,
+      ),
+      session: _session(userFrames),
+      referenceRange: const PhraseRange(startSeconds: 0, endSeconds: 1.49),
+      userRange: const PhraseRange(startSeconds: 0, endSeconds: 2.99),
+      review: const ReferenceComparisonReview(
+        artifactsAcceptable: true,
+        monophonicLeadConfirmed: true,
+      ),
+    );
+
+    expect(report.suppressed, isTrue);
+    expect(
+      report.qualityFlags,
+      contains(
+        ReferenceComparisonQualityFlag.mutuallyVoicedCoverageInsufficient,
+      ),
+    );
+    final coverage = report.observations.single.evidence.singleWhere(
+      (evidence) => evidence.metric == 'mutually_voiced_coverage',
+    );
+    expect(coverage.value, closeTo(0.5, 0.01));
+    expect(coverage.value, inInclusiveRange(0.0, 1.0));
+
+    final reversed = conservativeEngine.compare(
+      reference: _reference(),
+      referenceFeatures: ReferenceAnalysisSeries(
+        sampleRate: 44100,
+        frameRateHz: 100,
+        algorithmVersion: 'reference-test-v1',
+        frames: userFrames,
+      ),
+      session: _session(referenceFrames),
+      referenceRange: const PhraseRange(startSeconds: 0, endSeconds: 2.99),
+      userRange: const PhraseRange(startSeconds: 0, endSeconds: 1.49),
+      review: const ReferenceComparisonReview(
+        artifactsAcceptable: true,
+        monophonicLeadConfirmed: true,
+      ),
+    );
+    final reversedCoverage = reversed.observations.single.evidence.singleWhere(
+      (evidence) => evidence.metric == 'mutually_voiced_coverage',
+    );
+    expect(reversedCoverage.value, closeTo(coverage.value, 1e-9));
+  });
 }
 
 List<AnalysisFrame> _frames({
+  int frameCount = 300,
   required int voicedStart,
   required int voicedEnd,
   required double pitchOffsetCents,
   required double levelOffsetDb,
   required double clarity,
-}) => List<AnalysisFrame>.generate(300, (index) {
+}) => List<AnalysisFrame>.generate(frameCount, (index) {
   final voiced = index >= voicedStart && index < voicedEnd;
   final phase = voiced ? (index - voicedStart) / (voicedEnd - voicedStart) : 0;
   return AnalysisFrame(
@@ -169,21 +284,22 @@ List<AnalysisFrame> _frames({
   );
 });
 
-SeparatedSongReference _reference() => const SeparatedSongReference(
-  displayName: 'licensed-song.wav',
-  generatedByModel: true,
-  modelId: 'umxhq-vocals',
-  algorithmVersion: 'srd04-umxhq-waveform-v1',
-  sampleRate: 44100,
-  channels: 2,
-  durationSamples: 44100 * 3,
-  artifactWarning: true,
-  vocals: SongStemReference(
-    locator: r'C:\test\vocals.wav',
-    sha256: 'abc',
-    byteLength: 100,
-  ),
-);
+SeparatedSongReference _reference({int durationSamples = 44100 * 3}) =>
+    SeparatedSongReference(
+      displayName: 'licensed-song.wav',
+      generatedByModel: true,
+      modelId: 'umxhq-vocals',
+      algorithmVersion: 'srd04-umxhq-waveform-v1',
+      sampleRate: 44100,
+      channels: 2,
+      durationSamples: durationSamples,
+      artifactWarning: true,
+      vocals: SongStemReference(
+        locator: r'C:\test\vocals.wav',
+        sha256: 'abc',
+        byteLength: 100,
+      ),
+    );
 
 PracticeSessionRecord _session(List<AnalysisFrame> frames) =>
     PracticeSessionRecord(

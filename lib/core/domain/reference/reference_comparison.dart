@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import '../analysis/analysis_frame.dart';
 import '../analysis/analysis_quality_flag.dart';
 import '../observation/evidence.dart';
@@ -343,8 +345,11 @@ final class ReferenceComparisonEngine {
       userOnset,
       tempoScale,
     );
-    final mutualCoverage =
-        matches.length / referenceWindow.length.clamp(1, 1 << 30);
+    final mutualCoverage = _mutualCoverage(
+      matches.length,
+      referenceWindow.length,
+      userWindow.length,
+    );
     if (matches.length < minimumMatchedFrames ||
         mutualCoverage < minimumMutualCoverage) {
       flags.add(
@@ -425,7 +430,9 @@ final class ReferenceComparisonEngine {
     final alignment = ReferenceComparisonAlignment(
       referenceOnsetSeconds: referenceOnset,
       userOnsetSeconds: userOnset,
-      userOnsetDeltaSeconds: userOnset - referenceOnset,
+      userOnsetDeltaSeconds:
+          (userOnset - userRange.startSeconds) -
+          (referenceOnset - referenceRange.startSeconds),
       tempoScale: tempoScale,
       originalKeyDifferenceCents: keyDifference,
       transpositionSemitones: transpositionSemitones,
@@ -616,6 +623,12 @@ final class ReferenceComparisonEngine {
   double _coverage(List<_TimedFrame> voiced, List<_TimedFrame> all) =>
       voiced.length / all.length.clamp(1, 1 << 30);
 
+  double _mutualCoverage(int matches, int referenceFrames, int userFrames) {
+    final referenceFraction = matches / referenceFrames.clamp(1, 1 << 30);
+    final userFraction = matches / userFrames.clamp(1, 1 << 30);
+    return math.min(referenceFraction, userFraction).clamp(0.0, 1.0);
+  }
+
   List<_FrameMatch> _match(
     List<_TimedFrame> reference,
     List<_TimedFrame> user,
@@ -624,20 +637,28 @@ final class ReferenceComparisonEngine {
     double tempoScale,
   ) {
     final matches = <_FrameMatch>[];
-    var referenceIndex = 0;
+    var nextReferenceIndex = 0;
     for (final userFrame in user) {
       final targetReferenceTime =
           referenceOnset + (userFrame.timeSeconds - userOnset) / tempoScale;
-      while (referenceIndex + 1 < reference.length &&
-          (reference[referenceIndex + 1].timeSeconds - targetReferenceTime)
-                  .abs() <
-              (reference[referenceIndex].timeSeconds - targetReferenceTime)
-                  .abs()) {
-        referenceIndex++;
+      while (nextReferenceIndex < reference.length &&
+          reference[nextReferenceIndex].timeSeconds <
+              targetReferenceTime - 0.025) {
+        nextReferenceIndex++;
       }
-      if ((reference[referenceIndex].timeSeconds - targetReferenceTime).abs() <=
+      if (nextReferenceIndex >= reference.length) break;
+      var matchedIndex = nextReferenceIndex;
+      if (matchedIndex + 1 < reference.length &&
+          (reference[matchedIndex + 1].timeSeconds - targetReferenceTime)
+                  .abs() <
+              (reference[matchedIndex].timeSeconds - targetReferenceTime)
+                  .abs()) {
+        matchedIndex++;
+      }
+      if ((reference[matchedIndex].timeSeconds - targetReferenceTime).abs() <=
           0.025) {
-        matches.add(_FrameMatch(reference[referenceIndex], userFrame));
+        matches.add(_FrameMatch(reference[matchedIndex], userFrame));
+        nextReferenceIndex = matchedIndex + 1;
       }
     }
     return matches;

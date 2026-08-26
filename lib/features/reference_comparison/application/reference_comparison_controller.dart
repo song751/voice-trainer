@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/app_providers.dart';
@@ -90,14 +92,30 @@ final referenceComparisonControllerProvider =
 
 final class ReferenceComparisonController
     extends AutoDisposeNotifier<ReferenceComparisonState> {
-  ReferenceFeatureExtractor get _extractor =>
-      ref.read(referenceFeatureExtractorProvider);
-  AudioPreview get _preview => ref.read(audioPreviewProvider);
+  late ReferenceFeatureExtractor _extractor;
+  late AudioPreview _preview;
+  var _operationEpoch = 0;
+  var _previewGeneration = 0;
+  var _disposed = false;
+  Future<void> _previewSerial = Future<void>.value();
 
   @override
-  ReferenceComparisonState build() => const ReferenceComparisonState();
+  ReferenceComparisonState build() {
+    _extractor = ref.read(referenceFeatureExtractorProvider);
+    _preview = ref.read(audioPreviewProvider);
+    _disposed = false;
+    ref.onDispose(() {
+      _disposed = true;
+      _operationEpoch++;
+      _previewGeneration++;
+      unawaited(_extractor.cancel().catchError((_) {}));
+      unawaited(_enqueuePreview(_preview.stop).catchError((_) {}));
+    });
+    return const ReferenceComparisonState();
+  }
 
   Future<void> loadSessions() async {
+    final epoch = ++_operationEpoch;
     state = state.copyWith(
       status: ReferenceComparisonStatus.loading,
       clearFailure: true,
@@ -118,6 +136,7 @@ final class ReferenceComparisonController
       final userDuration = selected == null
           ? 8.0
           : selected.features.frames.length / selected.features.frameRateHz;
+      if (!_isCurrent(epoch)) return;
       state = state.copyWith(
         status: ReferenceComparisonStatus.ready,
         sessions: sessions,
@@ -126,6 +145,7 @@ final class ReferenceComparisonController
         userRange: _initialRange(userDuration),
       );
     } catch (_) {
+      if (!_isCurrent(epoch)) return;
       state = state.copyWith(status: ReferenceComparisonStatus.failed);
     }
   }
@@ -173,6 +193,13 @@ final class ReferenceComparisonController
       state = state.copyWith(status: ReferenceComparisonStatus.failed);
       return;
     }
+    final epoch = ++_operationEpoch;
+    final referenceRange = state.referenceRange;
+    final userRange = state.userRange;
+    final review = ReferenceComparisonReview(
+      artifactsAcceptable: state.artifactsAcceptable,
+      monophonicLeadConfirmed: state.monophonicLeadConfirmed,
+    );
     state = state.copyWith(
       status: ReferenceComparisonStatus.analyzing,
       progress: 0,
@@ -183,35 +210,37 @@ final class ReferenceComparisonController
       final referenceFeatures = await _extractor.analyze(
         vocals: vocals,
         onProgress: (progress) {
-          if (state.status == ReferenceComparisonStatus.analyzing) {
+          if (_isCurrent(epoch) &&
+              state.status == ReferenceComparisonStatus.analyzing) {
             state = state.copyWith(progress: progress);
           }
         },
       );
+      if (!_isCurrent(epoch)) return;
       final report = ref
           .read(referenceComparisonEngineProvider)
           .compare(
             reference: reference,
             referenceFeatures: referenceFeatures,
             session: session,
-            referenceRange: state.referenceRange,
-            userRange: state.userRange,
-            review: ReferenceComparisonReview(
-              artifactsAcceptable: state.artifactsAcceptable,
-              monophonicLeadConfirmed: state.monophonicLeadConfirmed,
-            ),
+            referenceRange: referenceRange,
+            userRange: userRange,
+            review: review,
           );
+      if (!_isCurrent(epoch)) return;
       state = state.copyWith(
         status: ReferenceComparisonStatus.completed,
         progress: 1,
         report: report,
       );
     } on ReferenceAnalysisFailure catch (failure) {
+      if (!_isCurrent(epoch)) return;
       state = state.copyWith(
         status: ReferenceComparisonStatus.failed,
         failure: failure.reason,
       );
     } catch (_) {
+      if (!_isCurrent(epoch)) return;
       state = state.copyWith(
         status: ReferenceComparisonStatus.failed,
         failure: ReferenceAnalysisFailureReason.processingFailed,
@@ -240,20 +269,48 @@ final class ReferenceComparisonController
     await _play(locator!.value, state.userRange);
   }
 
-  Future<void> stopPreview() => _preview.stop();
+  Future<void> stopPreview() {
+    final generation = ++_previewGeneration;
+    return _enqueuePreview(() async {
+      if (!_isPreviewCurrent(generation)) return;
+      await _preview.stop();
+    });
+  }
 
   Future<void> _play(String path, PhraseRange range) async {
-    state = state.copyWith(clearPreviewFailure: true);
-    try {
-      await _preview.playFile(path: path, range: range);
-    } on AudioPreviewFailure catch (failure) {
-      state = state.copyWith(previewFailure: failure.reason);
-    } catch (_) {
-      state = state.copyWith(
-        previewFailure: AudioPreviewFailureReason.playbackFailed,
-      );
-    }
+    final generation = ++_previewGeneration;
+    if (!_disposed) state = state.copyWith(clearPreviewFailure: true);
+    await _enqueuePreview(() async {
+      if (!_isPreviewCurrent(generation)) return;
+      try {
+        await _preview.stop();
+        if (!_isPreviewCurrent(generation)) return;
+        await _preview.playFile(path: path, range: range);
+        if (!_isPreviewCurrent(generation)) await _preview.stop();
+      } on AudioPreviewFailure catch (failure) {
+        if (_isPreviewCurrent(generation)) {
+          state = state.copyWith(previewFailure: failure.reason);
+        }
+      } catch (_) {
+        if (_isPreviewCurrent(generation)) {
+          state = state.copyWith(
+            previewFailure: AudioPreviewFailureReason.playbackFailed,
+          );
+        }
+      }
+    });
   }
+
+  Future<void> _enqueuePreview(Future<void> Function() operation) {
+    final queued = _previewSerial.then((_) => operation());
+    _previewSerial = queued.catchError((_) {});
+    return queued;
+  }
+
+  bool _isCurrent(int epoch) => !_disposed && epoch == _operationEpoch;
+
+  bool _isPreviewCurrent(int generation) =>
+      !_disposed && generation == _previewGeneration;
 
   PhraseRange _initialRange(double durationSeconds) => PhraseRange(
     startSeconds: 0,

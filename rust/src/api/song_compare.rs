@@ -183,8 +183,7 @@ where
         let window = &downsampled[start..start + WINDOW];
         let mean_square = window.iter().map(|sample| sample * sample).sum::<f32>() / WINDOW as f32;
         let rms_dbfs = 20.0 * mean_square.sqrt().max(1.0e-6).log10();
-        let clipping =
-            window.iter().filter(|sample| sample.abs() >= 0.999).count() * 1_000 >= WINDOW;
+        let clipping = raw_stereo_window_clips(&decoded.waveform.samples, start, WINDOW);
         let estimate = estimator.estimate(window, config);
         let periodicity = estimate.map_or(0.0, |value| value.clarity);
         let voiced = rms_dbfs >= -55.0 && periodicity >= 0.60;
@@ -210,6 +209,34 @@ where
 }
 
 #[cfg(not(target_family = "wasm"))]
+fn raw_stereo_window_clips(
+    interleaved_stereo: &[f32],
+    downsampled_start: usize,
+    downsampled_window: usize,
+) -> bool {
+    const ORIGINAL_FRAMES_PER_DOWNSAMPLED_SAMPLE: usize = 3;
+    const CHANNELS: usize = 2;
+    let start = downsampled_start
+        .saturating_mul(ORIGINAL_FRAMES_PER_DOWNSAMPLED_SAMPLE)
+        .saturating_mul(CHANNELS);
+    let end = downsampled_start
+        .saturating_add(downsampled_window)
+        .saturating_mul(ORIGINAL_FRAMES_PER_DOWNSAMPLED_SAMPLE)
+        .saturating_mul(CHANNELS)
+        .min(interleaved_stereo.len());
+    interleaved_stereo.get(start..end).is_some_and(|samples| {
+        if samples.is_empty() {
+            return false;
+        }
+        let clipped = samples
+            .iter()
+            .filter(|sample| sample.abs() >= 0.999)
+            .count();
+        clipped.saturating_mul(1_000) >= samples.len()
+    })
+}
+
+#[cfg(not(target_family = "wasm"))]
 fn failure_reason(reason: crate::song::SeparationFailureReason) -> &'static str {
     use crate::song::SeparationFailureReason;
     match reason {
@@ -227,6 +254,7 @@ fn failure_reason(reason: crate::song::SeparationFailureReason) -> &'static str 
 
 #[cfg(all(test, not(target_family = "wasm")))]
 mod tests {
+    use super::raw_stereo_window_clips;
     use crate::song::StereoWaveform;
 
     #[test]
@@ -249,5 +277,25 @@ mod tests {
         assert!(estimate.clarity > 0.95);
         let waveform = StereoWaveform::new(44_100, vec![0.0, 0.0]).expect("valid");
         assert_eq!(waveform.frame_count(), 1);
+    }
+
+    #[test]
+    fn clipping_is_detected_before_channel_and_downsampling_averages() {
+        let mut stereo = vec![0.0; 1_024 * 3 * 2];
+        for frame in stereo.chunks_exact_mut(2).take(8) {
+            frame[0] = 1.0;
+            frame[1] = -1.0;
+        }
+        assert!(raw_stereo_window_clips(&stereo, 0, 1_024));
+
+        stereo.fill(0.0);
+        for sample in stereo.iter_mut().take(7) {
+            *sample = -1.0;
+        }
+        assert!(raw_stereo_window_clips(&stereo, 0, 1_024));
+        stereo.fill(0.0);
+        stereo[317] = -1.0;
+        assert!(!raw_stereo_window_clips(&stereo, 0, 1_024));
+        assert!(!raw_stereo_window_clips(&stereo, 1_024, 1_024));
     }
 }
