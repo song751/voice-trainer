@@ -620,3 +620,10 @@ Phase-boundary 回归：FRB codegen 连续两次 7 个生成文件 SHA-256 不�
 - release 证据由“APK 内存在 `.so` + 进程存活”加强为真实调用：`tool/p4_02_android_release_main.dart` 执行同一 deterministic production analyzer probe，只有完整合同满足才显示 `P4_02_RELEASE_BRIDGE_OK frames=94 samples=2098080`。release APK 在 `127.0.0.1:16384` 两次 force-stop/relaunch 后均读到该 sentinel，且 app PID/包名相关日志没有 `UnsatisfiedLinkError`、`FATAL EXCEPTION` 或 `Fatal signal`。
 - MuMu 的 `uiautomator dump` 在成功写出 hierarchy 后会以 139 退出并使 crash buffer 记录 `Cmdline: uiautomator`。脚本因此以可读取的 sentinel XML 为实际 UI contract，并把 crash 检查限制到本次 app PID/包名；不会把工具自身崩溃误报为应用崩溃，也不会接受历史/其他 app 的 last-300 日志。
 - 仓库所有者于 2026-08-26 授权在文件边界清楚、证据等级不变的条件下并行推进后续 UI、Android production 和歌曲对比设计。P4-02 因此以本次全 gate 复验作为分支基线，不再等待单独的逐卡口头确认；真实设备、真实麦克风和版权/模型依赖仍分别保留硬 gate。
+
+### 反馈产品化并行切片（2026-08-26）
+
+- `SessionSummary` 新增可空的 `targetDeviationMedianCents`。它由有效 voiced frame 相对练习目标的 signed cents deviation 中位数计算，并随既有 `summaryJson` 向后兼容持久化；旧记录缺少该字段时保持 `null`，不需要 schema migration。
+- 在质量 gate 通过后，确定性规则现在可生成以下描述性 Observation：目标音整体偏高/偏低、pitch MAD 较大、pitch slope 上升/下降、level MAD 较大、level slope 上升/下降、稳定音形成延迟。每条都包含测量值、对应技术门槛、confidence、scope 和 quality flags；目标相关建议继续只引用既有 `repeat-target-note` exercise ID。
+- 当前 v1 门槛为 pitch MAD `15 cents`、pitch slope `8 cents/s`、level MAD `2 dB`、level slope `1 dB/s`、onset delay `24,000 samples`（当前生产输入仅接受 48 kHz，即 0.5 s）。这些是可解释的产品起点，不是临床或生理阈值；没有输出提喉、挤压、漏气、闭合不足、疲劳风险等结论。真实人声分层验证前，UI 必须把它们表述为“测得变化”，不能表述为技术诊断。
+- 窄测试覆盖 signed median 对离群值的稳健性、全部新增 rule、低质量 suppression 以及 summary round-trip；完整 `flutter test` 为 80/80，format/analyze 通过。

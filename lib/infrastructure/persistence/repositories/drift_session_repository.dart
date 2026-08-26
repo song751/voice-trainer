@@ -356,6 +356,7 @@ final class DriftSessionRepository implements SessionRepository {
   String _encodeSummary(SessionSummary summary) => jsonEncode(<String, Object?>{
     'droppedSamples': summary.droppedSamples,
     'targetHitRate': summary.targetHitRate,
+    'targetDeviationMedianCents': summary.targetDeviationMedianCents,
     'pitchStability': _encodeStability(summary.pitchStability),
     'levelStability': _encodeStability(summary.levelStability),
     'onsetDelaySamples': summary.onsetDelaySamples,
@@ -382,6 +383,8 @@ final class DriftSessionRepository implements SessionRepository {
       totalFrameCount: session.totalFrameCount,
       droppedSamples: (data['droppedSamples'] as num?)?.toInt() ?? 0,
       targetHitRate: (data['targetHitRate'] as num?)?.toDouble(),
+      targetDeviationMedianCents: (data['targetDeviationMedianCents'] as num?)
+          ?.toDouble(),
       pitchStability: _decodeStability(data['pitchStability']),
       levelStability: _decodeStability(data['levelStability']),
       onsetDelaySamples: (data['onsetDelaySamples'] as num?)?.toInt(),

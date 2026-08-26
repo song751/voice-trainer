@@ -15,16 +15,20 @@ SessionSummary withTargetHitRate({
 }) {
   final validFrames = frames.where(_isValidForTarget).toList(growable: false);
   final targetCents = target.targetMidiNote * 100.0;
-  final hitCount = validFrames.where((frame) {
-    final cents = frame.pitchCents ?? _centsFor(frame.f0Hz);
-    return cents != null &&
-        (cents - targetCents).abs() <= target.toleranceCents;
-  }).length;
+  final deviations = validFrames
+      .map((frame) => frame.pitchCents ?? _centsFor(frame.f0Hz))
+      .whereType<double>()
+      .map((cents) => cents - targetCents)
+      .toList(growable: false);
+  final hitCount = deviations
+      .where((deviation) => deviation.abs() <= target.toleranceCents)
+      .length;
   return SessionSummary(
     validFrameCount: segmentSummary.validFrameCount,
     totalFrameCount: segmentSummary.totalFrameCount,
     droppedSamples: segmentSummary.droppedSamples,
-    targetHitRate: validFrames.isEmpty ? null : hitCount / validFrames.length,
+    targetHitRate: deviations.isEmpty ? null : hitCount / deviations.length,
+    targetDeviationMedianCents: deviations.isEmpty ? null : _median(deviations),
     pitchStability: segmentSummary.pitchStability,
     levelStability: segmentSummary.levelStability,
     onsetDelaySamples: segmentSummary.onsetDelaySamples,
@@ -43,3 +47,11 @@ bool _isValidForTarget(AnalysisFrame frame) =>
 double? _centsFor(double? f0Hz) => f0Hz == null || f0Hz <= 0
     ? null
     : 6900 + 1200 * (math.log(f0Hz / 440) / math.ln2);
+
+double _median(List<double> values) {
+  final sorted = values.toList(growable: false)..sort();
+  final midpoint = sorted.length ~/ 2;
+  return sorted.length.isOdd
+      ? sorted[midpoint]
+      : (sorted[midpoint - 1] + sorted[midpoint]) / 2;
+}

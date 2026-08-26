@@ -7,6 +7,7 @@ final class SessionSummary {
     required Set<AnalysisQualityFlag> qualityFlags,
     this.droppedSamples = 0,
     this.targetHitRate,
+    this.targetDeviationMedianCents,
     this.pitchStability,
     this.levelStability,
     this.onsetDelaySamples,
@@ -22,6 +23,7 @@ final class SessionSummary {
   final int totalFrameCount;
   final int droppedSamples;
   final double? targetHitRate;
+  final double? targetDeviationMedianCents;
   final StabilitySummary? pitchStability;
   final StabilitySummary? levelStability;
   final int? onsetDelaySamples;

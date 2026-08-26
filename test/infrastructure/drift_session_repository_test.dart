@@ -215,6 +215,7 @@ void main() {
           totalFrameCount: 1,
           droppedSamples: 480,
           targetHitRate: .75,
+          targetDeviationMedianCents: -12.5,
           pitchStability: const StabilitySummary(
             median: 0,
             medianAbsoluteDeviation: 12.5,
@@ -255,6 +256,7 @@ void main() {
       expect((await repository.listRecent()).single.id, record.id);
       final restoredSummary = (await repository.findById(record.id))!.summary;
       expect(restoredSummary.targetHitRate, .75);
+      expect(restoredSummary.targetDeviationMedianCents, -12.5);
       expect(restoredSummary.droppedSamples, 480);
       expect(restoredSummary.pitchStability!.medianAbsoluteDeviation, 12.5);
       expect(
