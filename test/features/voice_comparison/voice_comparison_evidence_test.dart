@@ -152,13 +152,15 @@ PracticeSessionRecord _record(
     totalFrameCount: 100,
     qualityFlags: flags,
     pitchStability: StabilitySummary(
-      median: pitch,
+      // Stability summaries are detrended residual statistics, not absolute
+      // pitch/level medians. Comparison must read the packed feature frames.
+      median: 0,
       medianAbsoluteDeviation: 5,
       slopePerSecond: 0,
       frameCount: 90,
     ),
     levelStability: StabilitySummary(
-      median: level,
+      median: 0,
       medianAbsoluteDeviation: 1,
       slopePerSecond: 0,
       frameCount: 90,

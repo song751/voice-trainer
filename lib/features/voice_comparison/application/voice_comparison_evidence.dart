@@ -156,11 +156,22 @@ double? _difference(
   return _median(bValues) - _median(aValues);
 }
 
-double? _pitchMedian(PracticeSessionRecord record) =>
-    record.summary.pitchStability?.median;
+double? _pitchMedian(PracticeSessionRecord record) {
+  final values = record.features.frames
+      .where(_validFrame)
+      .map((frame) => frame.pitchCents)
+      .whereType<double>()
+      .toList(growable: false);
+  return values.isEmpty ? null : _median(values);
+}
 
-double? _levelMedian(PracticeSessionRecord record) =>
-    record.summary.levelStability?.median;
+double? _levelMedian(PracticeSessionRecord record) {
+  final values = record.features.frames
+      .where((frame) => frame.qualityFlags.isEmpty)
+      .map((frame) => frame.rmsDbfs)
+      .toList(growable: false);
+  return values.isEmpty ? null : _median(values);
+}
 
 double? _onsetSamples(PracticeSessionRecord record) =>
     record.summary.onsetDelaySamples?.toDouble();
