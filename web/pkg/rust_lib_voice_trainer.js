@@ -515,7 +515,7 @@ let wasm_bindgen = (function(exports) {
                 return ret;
             }, arguments); },
             __wbindgen_cast_0000000000000001: function(arg0, arg1) {
-                // Cast intrinsic for `Closure(Closure { dtor_idx: 232, function: Function { arguments: [NamedExternref("Event")], shim_idx: 233, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
+                // Cast intrinsic for `Closure(Closure { dtor_idx: 233, function: Function { arguments: [NamedExternref("Event")], shim_idx: 234, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
                 const ret = makeMutClosure(arg0, arg1, wasm.wasm_bindgen_a62da35390889e41___closure__destroy___dyn_core_e1842794e77f10a0___ops__function__FnMut__web_sys_14fd0f663984ef7___features__gen_Event__Event____Output_______, wasm_bindgen_a62da35390889e41___convert__closures_____invoke___web_sys_14fd0f663984ef7___features__gen_Event__Event______true_);
                 return ret;
             },

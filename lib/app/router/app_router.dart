@@ -8,6 +8,7 @@ import '../../features/session_result/presentation/session_result_page.dart';
 import '../../features/settings/presentation/settings_page.dart';
 import '../../features/song_reference/presentation/song_import_page.dart';
 import '../../features/voice_comparison/presentation/voice_comparison_page.dart';
+import '../../features/reference_comparison/presentation/reference_comparison_page.dart';
 import '../shell/adaptive_app_shell.dart';
 import 'route_names.dart';
 
@@ -48,6 +49,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: RoutePaths.voiceComparison,
             builder: (context, state) => const VoiceComparisonPage(),
+          ),
+          GoRoute(
+            path: RoutePaths.referenceComparison,
+            builder: (context, state) => const ReferenceComparisonPage(),
           ),
         ],
       ),

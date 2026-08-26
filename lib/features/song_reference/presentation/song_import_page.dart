@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
+import '../../../app/router/route_names.dart';
 import '../../../core/domain/reference/song_reference.dart';
 import '../../../core/widgets/responsive_page_body.dart';
 import '../application/song_reference_controller.dart';
@@ -124,6 +126,13 @@ class _SongImportPageState extends ConsumerState<SongImportPage> {
                     '模型 ${state.reference!.modelId}；分离结果可能含伴奏串音或混响，比较时会降低相应置信度。',
                   ),
                 ),
+              ),
+              const SizedBox(height: 8),
+              FilledButton.icon(
+                key: const Key('open-reference-comparison'),
+                onPressed: () => context.go(RoutePaths.referenceComparison),
+                icon: const Icon(Icons.compare_arrows),
+                label: const Text('与我的练唱做 A/B 对比'),
               ),
             ],
             const SizedBox(height: 20),

@@ -12,6 +12,7 @@ import '../core/domain/persistence/voice_comparison_plan_store.dart';
 import '../core/domain/practice/practice_target.dart';
 import '../core/domain/practice/practice_template.dart';
 import '../core/domain/reference/song_reference.dart';
+import '../core/domain/reference/reference_comparison.dart';
 import '../core/errors/app_exception.dart';
 import '../core/logging/app_logger.dart';
 import '../core/platform/platform_capabilities.dart';
@@ -22,6 +23,7 @@ import '../features/session_result/application/deterministic_observation_engine.
 import '../infrastructure/audio_import/file_selector_song_picker.dart';
 import '../infrastructure/audio_import/file_selector_song_model_picker.dart';
 import '../infrastructure/song_separation/default_song_separator.dart';
+import '../infrastructure/reference_comparison/default_reference_comparison.dart';
 import 'default_adapters.dart';
 import 'default_lifecycle.dart';
 import 'default_persistence.dart';
@@ -115,6 +117,20 @@ final songModelManagerProvider = Provider<SongModelManager>((ref) {
   if (separator is SongModelManager) return separator as SongModelManager;
   return const UnavailableSongSeparator();
 });
+
+final referenceFeatureExtractorProvider = Provider<ReferenceFeatureExtractor>(
+  (ref) => createDefaultReferenceFeatureExtractor(),
+);
+
+final audioPreviewProvider = Provider<AudioPreview>((ref) {
+  final preview = createDefaultAudioPreview();
+  ref.onDispose(() => unawaited(preview.dispose()));
+  return preview;
+});
+
+final referenceComparisonEngineProvider = Provider<ReferenceComparisonEngine>(
+  (ref) => const ReferenceComparisonEngine(),
+);
 
 final practiceTemplateProvider = Provider<PracticeTemplate>((ref) {
   final comparison = ref.watch(activeVoiceComparisonTakeProvider);

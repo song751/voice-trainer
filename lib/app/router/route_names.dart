@@ -6,4 +6,5 @@ abstract final class RoutePaths {
   static const settings = '/settings';
   static const songImport = '/songs/import';
   static const voiceComparison = '/practice/voice-comparison';
+  static const referenceComparison = '/songs/compare';
 }

@@ -39,7 +39,7 @@ flutter_rust_bridge::frb_generated_boilerplate!(
     default_rust_auto_opaque = RustAutoOpaqueMoi,
 );
 pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_VERSION: &str = "2.12.0";
-pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = 930316058;
+pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = 1254621049;
 
 // Section: executor
 
@@ -439,6 +439,44 @@ fn wire__crate__api__song__probe_song_separation_runtime_impl(
         },
     )
 }
+fn wire__crate__api__song_compare__start_reference_analysis_impl(
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) -> flutter_rust_bridge::for_generated::WireSyncRust2DartSse {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_sync::<flutter_rust_bridge::for_generated::SseCodec, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "start_reference_analysis",
+            port: None,
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Sync,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_request = <crate::api::song_compare::ReferenceAnalysisRequestDto>::sse_decode(
+                &mut deserializer,
+            );
+            let api_sink = <StreamSink<
+                crate::api::song_compare::ReferenceAnalysisEventDto,
+                flutter_rust_bridge::for_generated::SseCodec,
+            >>::sse_decode(&mut deserializer);
+            deserializer.end();
+            transform_result_sse::<_, ()>((move || {
+                let output_ok = Result::<_, ()>::Ok({
+                    crate::api::song_compare::start_reference_analysis(api_request, api_sink);
+                })?;
+                Ok(output_ok)
+            })())
+        },
+    )
+}
 fn wire__crate__api__song__start_song_separation_impl(
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
     rust_vec_len_: i32,
@@ -515,6 +553,19 @@ impl SseDecode
 
 impl SseDecode
     for StreamSink<
+        crate::api::song_compare::ReferenceAnalysisEventDto,
+        flutter_rust_bridge::for_generated::SseCodec,
+    >
+{
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut inner = <String>::sse_decode(deserializer);
+        return StreamSink::deserialize(inner);
+    }
+}
+
+impl SseDecode
+    for StreamSink<
         crate::api::song::SongRuntimeStatusDto,
         flutter_rust_bridge::for_generated::SseCodec,
     >
@@ -585,6 +636,13 @@ impl SseDecode for f32 {
     }
 }
 
+impl SseDecode for f64 {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        deserializer.cursor.read_f64::<NativeEndian>().unwrap()
+    }
+}
+
 impl SseDecode for i16 {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -642,6 +700,20 @@ impl SseDecode for Vec<u8> {
     }
 }
 
+impl SseDecode for Vec<crate::api::song_compare::ReferenceFeatureFrameDto> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut len_ = <i32>::sse_decode(deserializer);
+        let mut ans_ = Vec::with_capacity(len_ as usize);
+        for idx_ in 0..len_ {
+            ans_.push(
+                <crate::api::song_compare::ReferenceFeatureFrameDto>::sse_decode(deserializer),
+            );
+        }
+        return ans_;
+    }
+}
+
 impl SseDecode for Option<String> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -658,6 +730,43 @@ impl SseDecode for Option<f32> {
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
         if (<bool>::sse_decode(deserializer)) {
             return Some(<f32>::sse_decode(deserializer));
+        } else {
+            return None;
+        }
+    }
+}
+
+impl SseDecode for Option<f64> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        if (<bool>::sse_decode(deserializer)) {
+            return Some(<f64>::sse_decode(deserializer));
+        } else {
+            return None;
+        }
+    }
+}
+
+impl SseDecode for Option<crate::api::song_compare::ReferenceAnalysisFailureDto> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        if (<bool>::sse_decode(deserializer)) {
+            return Some(
+                <crate::api::song_compare::ReferenceAnalysisFailureDto>::sse_decode(deserializer),
+            );
+        } else {
+            return None;
+        }
+    }
+}
+
+impl SseDecode for Option<crate::api::song_compare::ReferenceAnalysisReportDto> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        if (<bool>::sse_decode(deserializer)) {
+            return Some(
+                <crate::api::song_compare::ReferenceAnalysisReportDto>::sse_decode(deserializer),
+            );
         } else {
             return None;
         }
@@ -724,6 +833,91 @@ impl SseDecode for Option<u64> {
         } else {
             return None;
         }
+    }
+}
+
+impl SseDecode for crate::api::song_compare::ReferenceAnalysisEventDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_kind = <String>::sse_decode(deserializer);
+        let mut var_progress = <Option<f64>>::sse_decode(deserializer);
+        let mut var_report =
+            <Option<crate::api::song_compare::ReferenceAnalysisReportDto>>::sse_decode(
+                deserializer,
+            );
+        let mut var_failure =
+            <Option<crate::api::song_compare::ReferenceAnalysisFailureDto>>::sse_decode(
+                deserializer,
+            );
+        return crate::api::song_compare::ReferenceAnalysisEventDto {
+            kind: var_kind,
+            progress: var_progress,
+            report: var_report,
+            failure: var_failure,
+        };
+    }
+}
+
+impl SseDecode for crate::api::song_compare::ReferenceAnalysisFailureDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_reason = <String>::sse_decode(deserializer);
+        let mut var_detail = <String>::sse_decode(deserializer);
+        return crate::api::song_compare::ReferenceAnalysisFailureDto {
+            reason: var_reason,
+            detail: var_detail,
+        };
+    }
+}
+
+impl SseDecode for crate::api::song_compare::ReferenceAnalysisReportDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_sampleRate = <u32>::sse_decode(deserializer);
+        let mut var_frameRateHz = <u32>::sse_decode(deserializer);
+        let mut var_algorithmVersion = <String>::sse_decode(deserializer);
+        let mut var_frames =
+            <Vec<crate::api::song_compare::ReferenceFeatureFrameDto>>::sse_decode(deserializer);
+        return crate::api::song_compare::ReferenceAnalysisReportDto {
+            sample_rate: var_sampleRate,
+            frame_rate_hz: var_frameRateHz,
+            algorithm_version: var_algorithmVersion,
+            frames: var_frames,
+        };
+    }
+}
+
+impl SseDecode for crate::api::song_compare::ReferenceAnalysisRequestDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_vocalsPath = <String>::sse_decode(deserializer);
+        let mut var_maximumDecodedFrames = <u64>::sse_decode(deserializer);
+        let mut var_cancelMarker = <String>::sse_decode(deserializer);
+        return crate::api::song_compare::ReferenceAnalysisRequestDto {
+            vocals_path: var_vocalsPath,
+            maximum_decoded_frames: var_maximumDecodedFrames,
+            cancel_marker: var_cancelMarker,
+        };
+    }
+}
+
+impl SseDecode for crate::api::song_compare::ReferenceFeatureFrameDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_sampleIndex = <u64>::sse_decode(deserializer);
+        let mut var_pitchCents = <Option<f64>>::sse_decode(deserializer);
+        let mut var_rmsDbfs = <f64>::sse_decode(deserializer);
+        let mut var_periodicity = <f64>::sse_decode(deserializer);
+        let mut var_voiced = <bool>::sse_decode(deserializer);
+        let mut var_clipping = <bool>::sse_decode(deserializer);
+        return crate::api::song_compare::ReferenceFeatureFrameDto {
+            sample_index: var_sampleIndex,
+            pitch_cents: var_pitchCents,
+            rms_dbfs: var_rmsDbfs,
+            periodicity: var_periodicity,
+            voiced: var_voiced,
+            clipping: var_clipping,
+        };
     }
 }
 
@@ -990,7 +1184,12 @@ fn pde_ffi_dispatcher_sync_impl(
         9 => {
             wire__crate__api__song__probe_song_separation_runtime_impl(ptr, rust_vec_len, data_len)
         }
-        10 => wire__crate__api__song__start_song_separation_impl(ptr, rust_vec_len, data_len),
+        10 => wire__crate__api__song_compare__start_reference_analysis_impl(
+            ptr,
+            rust_vec_len,
+            data_len,
+        ),
+        11 => wire__crate__api__song__start_song_separation_impl(ptr, rust_vec_len, data_len),
         _ => unreachable!(),
     }
 }
@@ -1036,6 +1235,120 @@ impl flutter_rust_bridge::IntoIntoDart<crate::api::realtime::AnalysisFrameDto>
     for crate::api::realtime::AnalysisFrameDto
 {
     fn into_into_dart(self) -> crate::api::realtime::AnalysisFrameDto {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::api::song_compare::ReferenceAnalysisEventDto {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.kind.into_into_dart().into_dart(),
+            self.progress.into_into_dart().into_dart(),
+            self.report.into_into_dart().into_dart(),
+            self.failure.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::api::song_compare::ReferenceAnalysisEventDto
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::api::song_compare::ReferenceAnalysisEventDto>
+    for crate::api::song_compare::ReferenceAnalysisEventDto
+{
+    fn into_into_dart(self) -> crate::api::song_compare::ReferenceAnalysisEventDto {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::api::song_compare::ReferenceAnalysisFailureDto {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.reason.into_into_dart().into_dart(),
+            self.detail.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::api::song_compare::ReferenceAnalysisFailureDto
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::api::song_compare::ReferenceAnalysisFailureDto>
+    for crate::api::song_compare::ReferenceAnalysisFailureDto
+{
+    fn into_into_dart(self) -> crate::api::song_compare::ReferenceAnalysisFailureDto {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::api::song_compare::ReferenceAnalysisReportDto {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.sample_rate.into_into_dart().into_dart(),
+            self.frame_rate_hz.into_into_dart().into_dart(),
+            self.algorithm_version.into_into_dart().into_dart(),
+            self.frames.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::api::song_compare::ReferenceAnalysisReportDto
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::api::song_compare::ReferenceAnalysisReportDto>
+    for crate::api::song_compare::ReferenceAnalysisReportDto
+{
+    fn into_into_dart(self) -> crate::api::song_compare::ReferenceAnalysisReportDto {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::api::song_compare::ReferenceAnalysisRequestDto {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.vocals_path.into_into_dart().into_dart(),
+            self.maximum_decoded_frames.into_into_dart().into_dart(),
+            self.cancel_marker.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::api::song_compare::ReferenceAnalysisRequestDto
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::api::song_compare::ReferenceAnalysisRequestDto>
+    for crate::api::song_compare::ReferenceAnalysisRequestDto
+{
+    fn into_into_dart(self) -> crate::api::song_compare::ReferenceAnalysisRequestDto {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::api::song_compare::ReferenceFeatureFrameDto {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.sample_index.into_into_dart().into_dart(),
+            self.pitch_cents.into_into_dart().into_dart(),
+            self.rms_dbfs.into_into_dart().into_dart(),
+            self.periodicity.into_into_dart().into_dart(),
+            self.voiced.into_into_dart().into_dart(),
+            self.clipping.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::api::song_compare::ReferenceFeatureFrameDto
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::api::song_compare::ReferenceFeatureFrameDto>
+    for crate::api::song_compare::ReferenceFeatureFrameDto
+{
+    fn into_into_dart(self) -> crate::api::song_compare::ReferenceFeatureFrameDto {
         self
     }
 }
@@ -1285,6 +1598,18 @@ impl SseEncode
 
 impl SseEncode
     for StreamSink<
+        crate::api::song_compare::ReferenceAnalysisEventDto,
+        flutter_rust_bridge::for_generated::SseCodec,
+    >
+{
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        unimplemented!("")
+    }
+}
+
+impl SseEncode
+    for StreamSink<
         crate::api::song::SongRuntimeStatusDto,
         flutter_rust_bridge::for_generated::SseCodec,
     >
@@ -1342,6 +1667,13 @@ impl SseEncode for f32 {
     }
 }
 
+impl SseEncode for f64 {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        serializer.cursor.write_f64::<NativeEndian>(self).unwrap();
+    }
+}
+
 impl SseEncode for i16 {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -1389,6 +1721,16 @@ impl SseEncode for Vec<u8> {
     }
 }
 
+impl SseEncode for Vec<crate::api::song_compare::ReferenceFeatureFrameDto> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(self.len() as _, serializer);
+        for item in self {
+            <crate::api::song_compare::ReferenceFeatureFrameDto>::sse_encode(item, serializer);
+        }
+    }
+}
+
 impl SseEncode for Option<String> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -1405,6 +1747,36 @@ impl SseEncode for Option<f32> {
         <bool>::sse_encode(self.is_some(), serializer);
         if let Some(value) = self {
             <f32>::sse_encode(value, serializer);
+        }
+    }
+}
+
+impl SseEncode for Option<f64> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <bool>::sse_encode(self.is_some(), serializer);
+        if let Some(value) = self {
+            <f64>::sse_encode(value, serializer);
+        }
+    }
+}
+
+impl SseEncode for Option<crate::api::song_compare::ReferenceAnalysisFailureDto> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <bool>::sse_encode(self.is_some(), serializer);
+        if let Some(value) = self {
+            <crate::api::song_compare::ReferenceAnalysisFailureDto>::sse_encode(value, serializer);
+        }
+    }
+}
+
+impl SseEncode for Option<crate::api::song_compare::ReferenceAnalysisReportDto> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <bool>::sse_encode(self.is_some(), serializer);
+        if let Some(value) = self {
+            <crate::api::song_compare::ReferenceAnalysisReportDto>::sse_encode(value, serializer);
         }
     }
 }
@@ -1456,6 +1828,64 @@ impl SseEncode for Option<u64> {
         if let Some(value) = self {
             <u64>::sse_encode(value, serializer);
         }
+    }
+}
+
+impl SseEncode for crate::api::song_compare::ReferenceAnalysisEventDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <String>::sse_encode(self.kind, serializer);
+        <Option<f64>>::sse_encode(self.progress, serializer);
+        <Option<crate::api::song_compare::ReferenceAnalysisReportDto>>::sse_encode(
+            self.report,
+            serializer,
+        );
+        <Option<crate::api::song_compare::ReferenceAnalysisFailureDto>>::sse_encode(
+            self.failure,
+            serializer,
+        );
+    }
+}
+
+impl SseEncode for crate::api::song_compare::ReferenceAnalysisFailureDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <String>::sse_encode(self.reason, serializer);
+        <String>::sse_encode(self.detail, serializer);
+    }
+}
+
+impl SseEncode for crate::api::song_compare::ReferenceAnalysisReportDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <u32>::sse_encode(self.sample_rate, serializer);
+        <u32>::sse_encode(self.frame_rate_hz, serializer);
+        <String>::sse_encode(self.algorithm_version, serializer);
+        <Vec<crate::api::song_compare::ReferenceFeatureFrameDto>>::sse_encode(
+            self.frames,
+            serializer,
+        );
+    }
+}
+
+impl SseEncode for crate::api::song_compare::ReferenceAnalysisRequestDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <String>::sse_encode(self.vocals_path, serializer);
+        <u64>::sse_encode(self.maximum_decoded_frames, serializer);
+        <String>::sse_encode(self.cancel_marker, serializer);
+    }
+}
+
+impl SseEncode for crate::api::song_compare::ReferenceFeatureFrameDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <u64>::sse_encode(self.sample_index, serializer);
+        <Option<f64>>::sse_encode(self.pitch_cents, serializer);
+        <f64>::sse_encode(self.rms_dbfs, serializer);
+        <f64>::sse_encode(self.periodicity, serializer);
+        <bool>::sse_encode(self.voiced, serializer);
+        <bool>::sse_encode(self.clipping, serializer);
     }
 }
 

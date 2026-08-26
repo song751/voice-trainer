@@ -6,6 +6,7 @@
 import 'api/realtime.dart';
 import 'api/simple.dart';
 import 'api/song.dart';
+import 'api/song_compare.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:ffi' as ffi;
@@ -46,6 +47,10 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  RustStreamSink<ReferenceAnalysisEventDto>
+  dco_decode_StreamSink_reference_analysis_event_dto_Sse(dynamic raw);
+
+  @protected
   RustStreamSink<SongRuntimeStatusDto>
   dco_decode_StreamSink_song_runtime_status_dto_Sse(dynamic raw);
 
@@ -64,6 +69,21 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   double dco_decode_box_autoadd_f_32(dynamic raw);
+
+  @protected
+  double dco_decode_box_autoadd_f_64(dynamic raw);
+
+  @protected
+  ReferenceAnalysisFailureDto
+  dco_decode_box_autoadd_reference_analysis_failure_dto(dynamic raw);
+
+  @protected
+  ReferenceAnalysisReportDto
+  dco_decode_box_autoadd_reference_analysis_report_dto(dynamic raw);
+
+  @protected
+  ReferenceAnalysisRequestDto
+  dco_decode_box_autoadd_reference_analysis_request_dto(dynamic raw);
 
   @protected
   RobustStabilityDto dco_decode_box_autoadd_robust_stability_dto(dynamic raw);
@@ -95,6 +115,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   double dco_decode_f_32(dynamic raw);
 
   @protected
+  double dco_decode_f_64(dynamic raw);
+
+  @protected
   int dco_decode_i_16(dynamic raw);
 
   @protected
@@ -113,10 +136,26 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   Uint8List dco_decode_list_prim_u_8_strict(dynamic raw);
 
   @protected
+  List<ReferenceFeatureFrameDto> dco_decode_list_reference_feature_frame_dto(
+    dynamic raw,
+  );
+
+  @protected
   String? dco_decode_opt_String(dynamic raw);
 
   @protected
   double? dco_decode_opt_box_autoadd_f_32(dynamic raw);
+
+  @protected
+  double? dco_decode_opt_box_autoadd_f_64(dynamic raw);
+
+  @protected
+  ReferenceAnalysisFailureDto?
+  dco_decode_opt_box_autoadd_reference_analysis_failure_dto(dynamic raw);
+
+  @protected
+  ReferenceAnalysisReportDto?
+  dco_decode_opt_box_autoadd_reference_analysis_report_dto(dynamic raw);
 
   @protected
   RobustStabilityDto? dco_decode_opt_box_autoadd_robust_stability_dto(
@@ -137,6 +176,29 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   BigInt? dco_decode_opt_box_autoadd_u_64(dynamic raw);
+
+  @protected
+  ReferenceAnalysisEventDto dco_decode_reference_analysis_event_dto(
+    dynamic raw,
+  );
+
+  @protected
+  ReferenceAnalysisFailureDto dco_decode_reference_analysis_failure_dto(
+    dynamic raw,
+  );
+
+  @protected
+  ReferenceAnalysisReportDto dco_decode_reference_analysis_report_dto(
+    dynamic raw,
+  );
+
+  @protected
+  ReferenceAnalysisRequestDto dco_decode_reference_analysis_request_dto(
+    dynamic raw,
+  );
+
+  @protected
+  ReferenceFeatureFrameDto dco_decode_reference_feature_frame_dto(dynamic raw);
 
   @protected
   RobustStabilityDto dco_decode_robust_stability_dto(dynamic raw);
@@ -207,6 +269,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  RustStreamSink<ReferenceAnalysisEventDto>
+  sse_decode_StreamSink_reference_analysis_event_dto_Sse(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   RustStreamSink<SongRuntimeStatusDto>
   sse_decode_StreamSink_song_runtime_status_dto_Sse(
     SseDeserializer deserializer,
@@ -229,6 +297,27 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   double sse_decode_box_autoadd_f_32(SseDeserializer deserializer);
+
+  @protected
+  double sse_decode_box_autoadd_f_64(SseDeserializer deserializer);
+
+  @protected
+  ReferenceAnalysisFailureDto
+  sse_decode_box_autoadd_reference_analysis_failure_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  ReferenceAnalysisReportDto
+  sse_decode_box_autoadd_reference_analysis_report_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  ReferenceAnalysisRequestDto
+  sse_decode_box_autoadd_reference_analysis_request_dto(
+    SseDeserializer deserializer,
+  );
 
   @protected
   RobustStabilityDto sse_decode_box_autoadd_robust_stability_dto(
@@ -262,6 +351,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   double sse_decode_f_32(SseDeserializer deserializer);
 
   @protected
+  double sse_decode_f_64(SseDeserializer deserializer);
+
+  @protected
   int sse_decode_i_16(SseDeserializer deserializer);
 
   @protected
@@ -282,10 +374,30 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   Uint8List sse_decode_list_prim_u_8_strict(SseDeserializer deserializer);
 
   @protected
+  List<ReferenceFeatureFrameDto> sse_decode_list_reference_feature_frame_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   String? sse_decode_opt_String(SseDeserializer deserializer);
 
   @protected
   double? sse_decode_opt_box_autoadd_f_32(SseDeserializer deserializer);
+
+  @protected
+  double? sse_decode_opt_box_autoadd_f_64(SseDeserializer deserializer);
+
+  @protected
+  ReferenceAnalysisFailureDto?
+  sse_decode_opt_box_autoadd_reference_analysis_failure_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  ReferenceAnalysisReportDto?
+  sse_decode_opt_box_autoadd_reference_analysis_report_dto(
+    SseDeserializer deserializer,
+  );
 
   @protected
   RobustStabilityDto? sse_decode_opt_box_autoadd_robust_stability_dto(
@@ -312,6 +424,31 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   BigInt? sse_decode_opt_box_autoadd_u_64(SseDeserializer deserializer);
+
+  @protected
+  ReferenceAnalysisEventDto sse_decode_reference_analysis_event_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  ReferenceAnalysisFailureDto sse_decode_reference_analysis_failure_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  ReferenceAnalysisReportDto sse_decode_reference_analysis_report_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  ReferenceAnalysisRequestDto sse_decode_reference_analysis_request_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  ReferenceFeatureFrameDto sse_decode_reference_feature_frame_dto(
+    SseDeserializer deserializer,
+  );
 
   @protected
   RobustStabilityDto sse_decode_robust_stability_dto(
@@ -407,6 +544,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_StreamSink_reference_analysis_event_dto_Sse(
+    RustStreamSink<ReferenceAnalysisEventDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_StreamSink_song_runtime_status_dto_Sse(
     RustStreamSink<SongRuntimeStatusDto> self,
     SseSerializer serializer,
@@ -432,6 +575,27 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_box_autoadd_f_32(double self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_box_autoadd_f_64(double self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_box_autoadd_reference_analysis_failure_dto(
+    ReferenceAnalysisFailureDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_reference_analysis_report_dto(
+    ReferenceAnalysisReportDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_reference_analysis_request_dto(
+    ReferenceAnalysisRequestDto self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_box_autoadd_robust_stability_dto(
@@ -470,6 +634,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_f_32(double self, SseSerializer serializer);
 
   @protected
+  void sse_encode_f_64(double self, SseSerializer serializer);
+
+  @protected
   void sse_encode_i_16(int self, SseSerializer serializer);
 
   @protected
@@ -503,10 +670,31 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_list_reference_feature_frame_dto(
+    List<ReferenceFeatureFrameDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_opt_String(String? self, SseSerializer serializer);
 
   @protected
   void sse_encode_opt_box_autoadd_f_32(double? self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_opt_box_autoadd_f_64(double? self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_opt_box_autoadd_reference_analysis_failure_dto(
+    ReferenceAnalysisFailureDto? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_opt_box_autoadd_reference_analysis_report_dto(
+    ReferenceAnalysisReportDto? self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_opt_box_autoadd_robust_stability_dto(
@@ -534,6 +722,36 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_opt_box_autoadd_u_64(BigInt? self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_reference_analysis_event_dto(
+    ReferenceAnalysisEventDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_reference_analysis_failure_dto(
+    ReferenceAnalysisFailureDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_reference_analysis_report_dto(
+    ReferenceAnalysisReportDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_reference_analysis_request_dto(
+    ReferenceAnalysisRequestDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_reference_feature_frame_dto(
+    ReferenceFeatureFrameDto self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_robust_stability_dto(

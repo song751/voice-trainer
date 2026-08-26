@@ -6,6 +6,7 @@
 import 'api/realtime.dart';
 import 'api/simple.dart';
 import 'api/song.dart';
+import 'api/song_compare.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'frb_generated.dart';
@@ -68,7 +69,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.12.0';
 
   @override
-  int get rustContentHash => 930316058;
+  int get rustContentHash => 1254621049;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -116,6 +117,10 @@ abstract class RustLibApi extends BaseApi {
   Stream<SongRuntimeStatusDto> crateApiSongProbeSongSeparationRuntime({
     required String modelPath,
     required String expectedModelSha256,
+  });
+
+  Stream<ReferenceAnalysisEventDto> crateApiSongCompareStartReferenceAnalysis({
+    required ReferenceAnalysisRequestDto request,
   });
 
   Stream<SongSeparationEventDto> crateApiSongStartSongSeparation({
@@ -429,6 +434,43 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
+  Stream<ReferenceAnalysisEventDto> crateApiSongCompareStartReferenceAnalysis({
+    required ReferenceAnalysisRequestDto request,
+  }) {
+    final sink = RustStreamSink<ReferenceAnalysisEventDto>();
+    handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_box_autoadd_reference_analysis_request_dto(
+            request,
+            serializer,
+          );
+          sse_encode_StreamSink_reference_analysis_event_dto_Sse(
+            sink,
+            serializer,
+          );
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 10)!;
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_unit,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiSongCompareStartReferenceAnalysisConstMeta,
+        argValues: [request, sink],
+        apiImpl: this,
+      ),
+    );
+    return sink.stream;
+  }
+
+  TaskConstMeta get kCrateApiSongCompareStartReferenceAnalysisConstMeta =>
+      const TaskConstMeta(
+        debugName: "start_reference_analysis",
+        argNames: ["request", "sink"],
+      );
+
+  @override
   Stream<SongSeparationEventDto> crateApiSongStartSongSeparation({
     required SongSeparationRequestDto request,
   }) {
@@ -442,7 +484,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             serializer,
           );
           sse_encode_StreamSink_song_separation_event_dto_Sse(sink, serializer);
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 10)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 11)!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_unit,
@@ -504,6 +546,13 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  RustStreamSink<ReferenceAnalysisEventDto>
+  dco_decode_StreamSink_reference_analysis_event_dto_Sse(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    throw UnimplementedError();
+  }
+
+  @protected
   RustStreamSink<SongRuntimeStatusDto>
   dco_decode_StreamSink_song_runtime_status_dto_Sse(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
@@ -551,6 +600,33 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   double dco_decode_box_autoadd_f_32(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw as double;
+  }
+
+  @protected
+  double dco_decode_box_autoadd_f_64(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw as double;
+  }
+
+  @protected
+  ReferenceAnalysisFailureDto
+  dco_decode_box_autoadd_reference_analysis_failure_dto(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return dco_decode_reference_analysis_failure_dto(raw);
+  }
+
+  @protected
+  ReferenceAnalysisReportDto
+  dco_decode_box_autoadd_reference_analysis_report_dto(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return dco_decode_reference_analysis_report_dto(raw);
+  }
+
+  @protected
+  ReferenceAnalysisRequestDto
+  dco_decode_box_autoadd_reference_analysis_request_dto(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return dco_decode_reference_analysis_request_dto(raw);
   }
 
   @protected
@@ -604,6 +680,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  double dco_decode_f_64(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw as double;
+  }
+
+  @protected
   int dco_decode_i_16(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw as int;
@@ -640,6 +722,16 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  List<ReferenceFeatureFrameDto> dco_decode_list_reference_feature_frame_dto(
+    dynamic raw,
+  ) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return (raw as List<dynamic>)
+        .map(dco_decode_reference_feature_frame_dto)
+        .toList();
+  }
+
+  @protected
   String? dco_decode_opt_String(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw == null ? null : dco_decode_String(raw);
@@ -649,6 +741,30 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   double? dco_decode_opt_box_autoadd_f_32(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw == null ? null : dco_decode_box_autoadd_f_32(raw);
+  }
+
+  @protected
+  double? dco_decode_opt_box_autoadd_f_64(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw == null ? null : dco_decode_box_autoadd_f_64(raw);
+  }
+
+  @protected
+  ReferenceAnalysisFailureDto?
+  dco_decode_opt_box_autoadd_reference_analysis_failure_dto(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw == null
+        ? null
+        : dco_decode_box_autoadd_reference_analysis_failure_dto(raw);
+  }
+
+  @protected
+  ReferenceAnalysisReportDto?
+  dco_decode_opt_box_autoadd_reference_analysis_report_dto(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw == null
+        ? null
+        : dco_decode_box_autoadd_reference_analysis_report_dto(raw);
   }
 
   @protected
@@ -692,6 +808,85 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   BigInt? dco_decode_opt_box_autoadd_u_64(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw == null ? null : dco_decode_box_autoadd_u_64(raw);
+  }
+
+  @protected
+  ReferenceAnalysisEventDto dco_decode_reference_analysis_event_dto(
+    dynamic raw,
+  ) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 4)
+      throw Exception('unexpected arr length: expect 4 but see ${arr.length}');
+    return ReferenceAnalysisEventDto(
+      kind: dco_decode_String(arr[0]),
+      progress: dco_decode_opt_box_autoadd_f_64(arr[1]),
+      report: dco_decode_opt_box_autoadd_reference_analysis_report_dto(arr[2]),
+      failure: dco_decode_opt_box_autoadd_reference_analysis_failure_dto(
+        arr[3],
+      ),
+    );
+  }
+
+  @protected
+  ReferenceAnalysisFailureDto dco_decode_reference_analysis_failure_dto(
+    dynamic raw,
+  ) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 2)
+      throw Exception('unexpected arr length: expect 2 but see ${arr.length}');
+    return ReferenceAnalysisFailureDto(
+      reason: dco_decode_String(arr[0]),
+      detail: dco_decode_String(arr[1]),
+    );
+  }
+
+  @protected
+  ReferenceAnalysisReportDto dco_decode_reference_analysis_report_dto(
+    dynamic raw,
+  ) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 4)
+      throw Exception('unexpected arr length: expect 4 but see ${arr.length}');
+    return ReferenceAnalysisReportDto(
+      sampleRate: dco_decode_u_32(arr[0]),
+      frameRateHz: dco_decode_u_32(arr[1]),
+      algorithmVersion: dco_decode_String(arr[2]),
+      frames: dco_decode_list_reference_feature_frame_dto(arr[3]),
+    );
+  }
+
+  @protected
+  ReferenceAnalysisRequestDto dco_decode_reference_analysis_request_dto(
+    dynamic raw,
+  ) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 3)
+      throw Exception('unexpected arr length: expect 3 but see ${arr.length}');
+    return ReferenceAnalysisRequestDto(
+      vocalsPath: dco_decode_String(arr[0]),
+      maximumDecodedFrames: dco_decode_u_64(arr[1]),
+      cancelMarker: dco_decode_String(arr[2]),
+    );
+  }
+
+  @protected
+  ReferenceFeatureFrameDto dco_decode_reference_feature_frame_dto(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 6)
+      throw Exception('unexpected arr length: expect 6 but see ${arr.length}');
+    return ReferenceFeatureFrameDto(
+      sampleIndex: dco_decode_u_64(arr[0]),
+      pitchCents: dco_decode_opt_box_autoadd_f_64(arr[1]),
+      rmsDbfs: dco_decode_f_64(arr[2]),
+      periodicity: dco_decode_f_64(arr[3]),
+      voiced: dco_decode_bool(arr[4]),
+      clipping: dco_decode_bool(arr[5]),
+    );
   }
 
   @protected
@@ -913,6 +1108,15 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  RustStreamSink<ReferenceAnalysisEventDto>
+  sse_decode_StreamSink_reference_analysis_event_dto_Sse(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    throw UnimplementedError('Unreachable ()');
+  }
+
+  @protected
   RustStreamSink<SongRuntimeStatusDto>
   sse_decode_StreamSink_song_runtime_status_dto_Sse(
     SseDeserializer deserializer,
@@ -973,6 +1177,39 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  double sse_decode_box_autoadd_f_64(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return (sse_decode_f_64(deserializer));
+  }
+
+  @protected
+  ReferenceAnalysisFailureDto
+  sse_decode_box_autoadd_reference_analysis_failure_dto(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return (sse_decode_reference_analysis_failure_dto(deserializer));
+  }
+
+  @protected
+  ReferenceAnalysisReportDto
+  sse_decode_box_autoadd_reference_analysis_report_dto(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return (sse_decode_reference_analysis_report_dto(deserializer));
+  }
+
+  @protected
+  ReferenceAnalysisRequestDto
+  sse_decode_box_autoadd_reference_analysis_request_dto(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return (sse_decode_reference_analysis_request_dto(deserializer));
+  }
+
+  @protected
   RobustStabilityDto sse_decode_box_autoadd_robust_stability_dto(
     SseDeserializer deserializer,
   ) {
@@ -1025,6 +1262,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  double sse_decode_f_64(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return deserializer.buffer.getFloat64();
+  }
+
+  @protected
   int sse_decode_i_16(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     return deserializer.buffer.getInt16();
@@ -1073,6 +1316,20 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  List<ReferenceFeatureFrameDto> sse_decode_list_reference_feature_frame_dto(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    var len_ = sse_decode_i_32(deserializer);
+    var ans_ = <ReferenceFeatureFrameDto>[];
+    for (var idx_ = 0; idx_ < len_; ++idx_) {
+      ans_.add(sse_decode_reference_feature_frame_dto(deserializer));
+    }
+    return ans_;
+  }
+
+  @protected
   String? sse_decode_opt_String(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
 
@@ -1089,6 +1346,49 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
     if (sse_decode_bool(deserializer)) {
       return (sse_decode_box_autoadd_f_32(deserializer));
+    } else {
+      return null;
+    }
+  }
+
+  @protected
+  double? sse_decode_opt_box_autoadd_f_64(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    if (sse_decode_bool(deserializer)) {
+      return (sse_decode_box_autoadd_f_64(deserializer));
+    } else {
+      return null;
+    }
+  }
+
+  @protected
+  ReferenceAnalysisFailureDto?
+  sse_decode_opt_box_autoadd_reference_analysis_failure_dto(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    if (sse_decode_bool(deserializer)) {
+      return (sse_decode_box_autoadd_reference_analysis_failure_dto(
+        deserializer,
+      ));
+    } else {
+      return null;
+    }
+  }
+
+  @protected
+  ReferenceAnalysisReportDto?
+  sse_decode_opt_box_autoadd_reference_analysis_report_dto(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    if (sse_decode_bool(deserializer)) {
+      return (sse_decode_box_autoadd_reference_analysis_report_dto(
+        deserializer,
+      ));
     } else {
       return null;
     }
@@ -1160,6 +1460,90 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     } else {
       return null;
     }
+  }
+
+  @protected
+  ReferenceAnalysisEventDto sse_decode_reference_analysis_event_dto(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_kind = sse_decode_String(deserializer);
+    var var_progress = sse_decode_opt_box_autoadd_f_64(deserializer);
+    var var_report = sse_decode_opt_box_autoadd_reference_analysis_report_dto(
+      deserializer,
+    );
+    var var_failure = sse_decode_opt_box_autoadd_reference_analysis_failure_dto(
+      deserializer,
+    );
+    return ReferenceAnalysisEventDto(
+      kind: var_kind,
+      progress: var_progress,
+      report: var_report,
+      failure: var_failure,
+    );
+  }
+
+  @protected
+  ReferenceAnalysisFailureDto sse_decode_reference_analysis_failure_dto(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_reason = sse_decode_String(deserializer);
+    var var_detail = sse_decode_String(deserializer);
+    return ReferenceAnalysisFailureDto(reason: var_reason, detail: var_detail);
+  }
+
+  @protected
+  ReferenceAnalysisReportDto sse_decode_reference_analysis_report_dto(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_sampleRate = sse_decode_u_32(deserializer);
+    var var_frameRateHz = sse_decode_u_32(deserializer);
+    var var_algorithmVersion = sse_decode_String(deserializer);
+    var var_frames = sse_decode_list_reference_feature_frame_dto(deserializer);
+    return ReferenceAnalysisReportDto(
+      sampleRate: var_sampleRate,
+      frameRateHz: var_frameRateHz,
+      algorithmVersion: var_algorithmVersion,
+      frames: var_frames,
+    );
+  }
+
+  @protected
+  ReferenceAnalysisRequestDto sse_decode_reference_analysis_request_dto(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_vocalsPath = sse_decode_String(deserializer);
+    var var_maximumDecodedFrames = sse_decode_u_64(deserializer);
+    var var_cancelMarker = sse_decode_String(deserializer);
+    return ReferenceAnalysisRequestDto(
+      vocalsPath: var_vocalsPath,
+      maximumDecodedFrames: var_maximumDecodedFrames,
+      cancelMarker: var_cancelMarker,
+    );
+  }
+
+  @protected
+  ReferenceFeatureFrameDto sse_decode_reference_feature_frame_dto(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_sampleIndex = sse_decode_u_64(deserializer);
+    var var_pitchCents = sse_decode_opt_box_autoadd_f_64(deserializer);
+    var var_rmsDbfs = sse_decode_f_64(deserializer);
+    var var_periodicity = sse_decode_f_64(deserializer);
+    var var_voiced = sse_decode_bool(deserializer);
+    var var_clipping = sse_decode_bool(deserializer);
+    return ReferenceFeatureFrameDto(
+      sampleIndex: var_sampleIndex,
+      pitchCents: var_pitchCents,
+      rmsDbfs: var_rmsDbfs,
+      periodicity: var_periodicity,
+      voiced: var_voiced,
+      clipping: var_clipping,
+    );
   }
 
   @protected
@@ -1437,6 +1821,23 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_StreamSink_reference_analysis_event_dto_Sse(
+    RustStreamSink<ReferenceAnalysisEventDto> self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_String(
+      self.setupAndSerialize(
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_reference_analysis_event_dto,
+          decodeErrorData: sse_decode_AnyhowException,
+        ),
+      ),
+      serializer,
+    );
+  }
+
+  @protected
   void sse_encode_StreamSink_song_runtime_status_dto_Sse(
     RustStreamSink<SongRuntimeStatusDto> self,
     SseSerializer serializer,
@@ -1505,6 +1906,39 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_box_autoadd_f_64(double self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_f_64(self, serializer);
+  }
+
+  @protected
+  void sse_encode_box_autoadd_reference_analysis_failure_dto(
+    ReferenceAnalysisFailureDto self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_reference_analysis_failure_dto(self, serializer);
+  }
+
+  @protected
+  void sse_encode_box_autoadd_reference_analysis_report_dto(
+    ReferenceAnalysisReportDto self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_reference_analysis_report_dto(self, serializer);
+  }
+
+  @protected
+  void sse_encode_box_autoadd_reference_analysis_request_dto(
+    ReferenceAnalysisRequestDto self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_reference_analysis_request_dto(self, serializer);
+  }
+
+  @protected
   void sse_encode_box_autoadd_robust_stability_dto(
     RobustStabilityDto self,
     SseSerializer serializer,
@@ -1559,6 +1993,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   void sse_encode_f_32(double self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     serializer.buffer.putFloat32(self);
+  }
+
+  @protected
+  void sse_encode_f_64(double self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    serializer.buffer.putFloat64(self);
   }
 
   @protected
@@ -1622,6 +2062,18 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_list_reference_feature_frame_dto(
+    List<ReferenceFeatureFrameDto> self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    for (final item in self) {
+      sse_encode_reference_feature_frame_dto(item, serializer);
+    }
+  }
+
+  @protected
   void sse_encode_opt_String(String? self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
 
@@ -1638,6 +2090,42 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_bool(self != null, serializer);
     if (self != null) {
       sse_encode_box_autoadd_f_32(self, serializer);
+    }
+  }
+
+  @protected
+  void sse_encode_opt_box_autoadd_f_64(double? self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    sse_encode_bool(self != null, serializer);
+    if (self != null) {
+      sse_encode_box_autoadd_f_64(self, serializer);
+    }
+  }
+
+  @protected
+  void sse_encode_opt_box_autoadd_reference_analysis_failure_dto(
+    ReferenceAnalysisFailureDto? self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    sse_encode_bool(self != null, serializer);
+    if (self != null) {
+      sse_encode_box_autoadd_reference_analysis_failure_dto(self, serializer);
+    }
+  }
+
+  @protected
+  void sse_encode_opt_box_autoadd_reference_analysis_report_dto(
+    ReferenceAnalysisReportDto? self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    sse_encode_bool(self != null, serializer);
+    if (self != null) {
+      sse_encode_box_autoadd_reference_analysis_report_dto(self, serializer);
     }
   }
 
@@ -1701,6 +2189,71 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     if (self != null) {
       sse_encode_box_autoadd_u_64(self, serializer);
     }
+  }
+
+  @protected
+  void sse_encode_reference_analysis_event_dto(
+    ReferenceAnalysisEventDto self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_String(self.kind, serializer);
+    sse_encode_opt_box_autoadd_f_64(self.progress, serializer);
+    sse_encode_opt_box_autoadd_reference_analysis_report_dto(
+      self.report,
+      serializer,
+    );
+    sse_encode_opt_box_autoadd_reference_analysis_failure_dto(
+      self.failure,
+      serializer,
+    );
+  }
+
+  @protected
+  void sse_encode_reference_analysis_failure_dto(
+    ReferenceAnalysisFailureDto self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_String(self.reason, serializer);
+    sse_encode_String(self.detail, serializer);
+  }
+
+  @protected
+  void sse_encode_reference_analysis_report_dto(
+    ReferenceAnalysisReportDto self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_u_32(self.sampleRate, serializer);
+    sse_encode_u_32(self.frameRateHz, serializer);
+    sse_encode_String(self.algorithmVersion, serializer);
+    sse_encode_list_reference_feature_frame_dto(self.frames, serializer);
+  }
+
+  @protected
+  void sse_encode_reference_analysis_request_dto(
+    ReferenceAnalysisRequestDto self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_String(self.vocalsPath, serializer);
+    sse_encode_u_64(self.maximumDecodedFrames, serializer);
+    sse_encode_String(self.cancelMarker, serializer);
+  }
+
+  @protected
+  void sse_encode_reference_feature_frame_dto(
+    ReferenceFeatureFrameDto self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_u_64(self.sampleIndex, serializer);
+    sse_encode_opt_box_autoadd_f_64(self.pitchCents, serializer);
+    sse_encode_f_64(self.rmsDbfs, serializer);
+    sse_encode_f_64(self.periodicity, serializer);
+    sse_encode_bool(self.voiced, serializer);
+    sse_encode_bool(self.clipping, serializer);
   }
 
   @protected
