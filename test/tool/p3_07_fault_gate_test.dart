@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import '../../tool/p3_07_fault_gate.dart';
 
@@ -13,7 +15,7 @@ void main() {
     expect(() => validateDiscardableRecordingRoot(r'E:\'), throwsArgumentError);
     expect(
       () => validateDiscardableRecordingRoot(
-        r'D:\project\voice-trainer\recordings',
+        '${Directory.current.absolute.path}${Platform.pathSeparator}recordings',
       ),
       throwsArgumentError,
     );
