@@ -293,13 +293,15 @@ cargo test --manifest-path rust\Cargo.toml
 
 **目标结果：** 在不声称真实设备通过的情况下，封存 Windows回归、Android emulator和Web自动化实现基线，为人工Gate提供稳定commit。
 
-#### P4-13 执行记录（2026-08-27，本地候选已通过，验收 Pending）
+#### P4-13 执行记录（2026-08-27，本地/模拟器候选已通过，hosted CI Pending）
 
 - 四个 workflow 直接引用均固定完整 commit SHA，并保留审核过的 tag/version。Node 20 action 迁移到 Node 24 的 checkout v5、setup-java v5、upload-artifact v6 与 setup-android v4；Flutter action固定 v2.23.0，Rust action固定其生成的1.97.1 commit。
 - Android CI构建release APK；Web固定`nightly-2026-08-02`并执行FRB、canonical `--no-web-resources-cdn --csp`、prepare及deployment validator；Windows增加P4-12与reference actual-target integration；checks增加song-separation crate三门禁与release/license audit。
 - `THIRD_PARTY_NOTICES.md`记录主要Rust crate、tract、Symphonia MPL-2.0精确源码获取和两套vendored Android package；三平台artifact附带NOTICE及vendor license/provenance。preflight从两份locked Cargo graph检查许可，并验证workflow release标记与直接action SHA。
-- 本地通过Dart format/analyze、Flutter 205 tests、Rust及song-tool fmt/Clippy/tests、FRB codegen、Windows release与三条integration、固定nightly self-contained Web release及28关键资产/8 WASM validator。Android universal release APK为126,789,570 bytes（SHA-256 `e43fc7fa129a7693b322257d0799d71407a9134fa19209aacf6dc10360a1ab5e`）；模型权重不在包内。本卡未连接emulator。
-- hosted CI、同一候选最终600秒emulator bundle与合入后零blocker/high审计尚未完成，所以P4-13仍Pending。P3-07D、P4-14、P4-15及P4-16 Closure均未完成。
+- 候选 `c89ce5d` 本地通过Dart format/analyze、Flutter 226项完整测试并新增Web harness 2/2窄测、Rust及song-tool fmt/Clippy/tests、release/license audit、Drift/FRB codegen零漂移。Windows release与fake 6/6、P4-12 target 1/1、reference extraction/comparison/playback 1/1均通过。
+- Web固定nightly bridge与self-contained canonical release通过：28关键资产、8 WASM、CSP/MIME/cache/release hash和Edge lifecycle；P4-09 permission/worker/crash replacement/fake-media typed format gate及P4-10 OPFS/IndexedDB reload/delete gate重跑通过。Edge 151额外`edge://`页面导致的CDP随机附着与失败后server子进程残留已修复并有contract test。
+- Android正式universal release APK为127,134,834 bytes（SHA-256 `1b99fc3f3deb07cf8ed096edabfc8d4ef4bc5d16e50926fe3ceedfa7532b987f`），模型权重不在包内；merged release manifest实测禁用backup/device-transfer。仅`127.0.0.1:16384`的最终release gate bundle绑定`c89ce5d`：600.000秒/28,800,000 samples，analysis/recording drop均0、discontinuity 2、worker restart 0，pipeline/UI build/UI raster P95=`67.644/0.875/1.353 ms`，21点PSS=`84.729–106.975 MiB`，validator通过且root未使用。
+- 两轮只读审计发现并关闭 verified-audio pathname竞态、长文件双驻留/无上限、gap媒体时间轴、Android backup以及stem孤儿/无删除生命周期；合入后复审无blocker/high。hosted CI尚未完成，所以P4-13仍Pending。P3-07D、P4-14、P4-15及P4-16 Closure均未完成；本段所有browser/emulator结果均非真实麦克风证据。
 
 **必须验收：** 标准Dart/Rust gates、FRB生成/worker artifact、Windows release、Android release APK、Web release、Android emulator bundle和hosted CI全绿；架构/隐私只读审计无未解决blocker/high。更新状态时必须同时列出P3-07D、Android真机、真实浏览器麦克风仍Pending。
 

@@ -2,7 +2,7 @@
 
 这是一个面向 Windows、Android、Web，并逐步覆盖 macOS、iOS、Linux 的本地优先练声应用规划仓库。
 
-当前状态：**P4-00 至 P4-12 已形成可复验实现；P4-13 的 release workflow、许可 NOTICE 和本地 preflight 已实现并通过本机门禁，仍等待同一候选提交的 hosted CI、最终 emulator bundle 与只读审计接受**。Android 默认使用 `record` + native Rust worker + native Drift/WAV persistence；Web 默认使用 `record_web` + dedicated single-thread Rust WASM worker、Drift shared IndexedDB 与 OPFS recording store，并有自包含 CSP deployment gate。歌曲分离在 Windows/Android native 使用 Git 外固定哈希模型与 typed capability probe，Web 明确 unavailable。`P3-07D`、P4-14 Android 真机、P4-15 真实浏览器/麦克风及最终 Closure 仍 Pending，任何 build、模拟器、root、fake 或 synthetic 结果都不能替代。
+当前状态：**P4-00 至 P4-12 已形成可复验实现；P4-13 的 release workflow、许可 NOTICE、同一候选的 Windows/Web/Android release、竖屏 emulator 600 秒 bundle 与零 high 审计均已通过，当前只等待 hosted CI 接受**。Android 默认使用 `record` + native Rust worker + native Drift/WAV persistence；Web 默认使用 `record_web` + dedicated single-thread Rust WASM worker、Drift shared IndexedDB 与 OPFS recording store，并有自包含 CSP deployment gate。歌曲分离在 Windows/Android native 使用 Git 外固定哈希模型与 typed capability probe，Web 明确 unavailable。`P3-07D`、P4-14 Android 真机、P4-15 真实浏览器/麦克风及最终 Closure 仍 Pending，任何 build、模拟器、root、fake 或 synthetic 结果都不能替代。
 
 首页现提供“导入歌曲并准备原唱对比”入口。模型权重不进入 Git 或 release artifact；Windows/Android 只有在用户提供固定哈希模型且本机 probe 成功时才开放 native runtime，Web 保持 typed unavailable。开发期质量工具位于 `tool/song_separation/`，不会用伪 stem 冒充分离成功。
 
@@ -38,4 +38,4 @@
 
 ## 下一步
 
-先在同一候选提交完成 P4-13 hosted CI、最终 emulator bundle 与零 blocker/high 只读审计；这只封存远程实现基线。随后 P4-14 Android 真机、P4-15 真实浏览器/麦克风仍需人工设备，P3-07D 也仍须仓库所有者在 Windows 工作站旁执行。
+先完成 P4-13 候选的 hosted CI 接受；本地 release、最终 emulator bundle 与零 blocker/high 审计已经完成。这只封存远程实现基线。随后 P4-14 Android 真机、P4-15 真实浏览器/麦克风仍需人工设备，P3-07D 也仍须仓库所有者在 Windows 工作站旁执行。
