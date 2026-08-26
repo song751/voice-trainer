@@ -25,14 +25,25 @@ final class DriftVoiceComparisonPlanStore implements VoiceComparisonPlanStore {
   }
 
   @override
-  Future<void> savePlan(VoiceComparisonPlan plan) => database
-      .into(database.savedVoiceComparisonPlans)
-      .insertOnConflictUpdate(
-        SavedVoiceComparisonPlansCompanion.insert(
-          id: plan.id,
-          schemaVersion: plan.schemaVersion,
-          payloadJson: codec.encodePlan(plan),
-          updatedAt: plan.updatedAt,
-        ),
-      );
+  Future<void> savePlan(VoiceComparisonPlan plan) async {
+    final existing = await database.voiceComparisonPlanById(plan.id);
+    if (existing != null) {
+      final savedPlan = codec.decodePlan(existing.payloadJson);
+      if (existing.schemaVersion != plan.schemaVersion ||
+          !savedPlan.hasSameSnapshotAs(plan)) {
+        throw VoiceComparisonPlanConflict(plan.id);
+      }
+      return;
+    }
+    await database
+        .into(database.savedVoiceComparisonPlans)
+        .insert(
+          SavedVoiceComparisonPlansCompanion.insert(
+            id: plan.id,
+            schemaVersion: plan.schemaVersion,
+            payloadJson: codec.encodePlan(plan),
+            updatedAt: plan.updatedAt,
+          ),
+        );
+  }
 }

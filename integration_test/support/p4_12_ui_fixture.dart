@@ -9,11 +9,13 @@ import 'package:voice_trainer/core/domain/audio/audio_capture.dart';
 import 'package:voice_trainer/core/domain/persistence/recording_sink.dart';
 import 'package:voice_trainer/core/domain/persistence/recording_store.dart';
 import 'package:voice_trainer/core/domain/persistence/session_repository.dart';
+import 'package:voice_trainer/core/domain/persistence/voice_comparison_plan_store.dart';
 import 'package:voice_trainer/core/platform/platform_capabilities.dart';
 import 'package:voice_trainer/infrastructure/audio/fake_audio_capture.dart';
 import 'package:voice_trainer/infrastructure/dsp/fake_analysis_engine.dart';
 import 'package:voice_trainer/infrastructure/persistence/in_memory_recording_store.dart';
 import 'package:voice_trainer/infrastructure/persistence/in_memory_session_repository.dart';
+import 'package:voice_trainer/infrastructure/persistence/in_memory_voice_comparison_plan_store.dart';
 
 final class P412UiProfile {
   const P412UiProfile({
@@ -69,6 +71,7 @@ final class P412UiFixture {
     RecordingStore? recordingStore,
     RecordingSink? recordingSink,
     SessionRepository? repository,
+    VoiceComparisonPlanStore? voiceComparisonPlanStore,
     List<Override> extraOverrides = const <Override>[],
   }) async {
     // Dispose the previous route tree between matrix cases so scroll offsets,
@@ -105,6 +108,9 @@ final class P412UiFixture {
                       )),
           ),
           sessionRepositoryProvider.overrideWithValue(sessionRepository),
+          voiceComparisonPlanStoreProvider.overrideWithValue(
+            voiceComparisonPlanStore ?? InMemoryVoiceComparisonPlanStore(),
+          ),
           sessionIdGeneratorProvider.overrideWithValue(
             () => 'p4-12-fixture-session',
           ),

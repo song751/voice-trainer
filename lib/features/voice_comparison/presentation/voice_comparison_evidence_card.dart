@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/domain/analysis/analysis_quality_flag.dart';
 import '../../../core/domain/analysis/voice_comparison.dart';
 import '../../../core/domain/analysis/voice_production_profile.dart';
 import '../application/voice_comparison_controller.dart';
@@ -54,7 +55,17 @@ class _EvidenceBody extends StatelessWidget {
           '词表：${plan.labelA.vocabularyId} ${plan.labelA.vocabularyVersion} · '
           '${labelSourceLabel(plan.labelA.source)}',
         ),
-        Text('样本：A ${evidence.takeCountA} 次 · B ${evidence.takeCountB} 次'),
+        Text('合格样本：A ${evidence.takeCountA} 次 · B ${evidence.takeCountB} 次'),
+        if (evidence.rejectedTakeCount > 0)
+          Semantics(
+            liveRegion: true,
+            child: Text(
+              '已排除 ${evidence.rejectedTakeCount} 个质量不合格样本：'
+              '${evidence.qualityFlags.isEmpty ? '有效帧不足' : evidence.qualityFlags.map(_qualityFlagLabel).join('、')}。'
+              '这些样本不会永久污染对比结果，可返回本页重新选择 A 或 B 录制。',
+              key: const Key('voice-comparison-rejected-takes'),
+            ),
+          ),
         const SizedBox(height: 8),
         const Text('这里只比较人工意图标签下的消费麦克风声学输出；不会自动识别声区、混声、假声或金属性。'),
         const Text('未测量声带闭合、喉位、肌肉活动或发声机制，也不判断哪一种更正确。'),
@@ -109,6 +120,15 @@ class _EvidenceBody extends StatelessWidget {
   }
 
   String _percent(double value) => '${(value * 100).toStringAsFixed(0)}%';
+
+  String _qualityFlagLabel(AnalysisQualityFlag flag) => switch (flag) {
+    AnalysisQualityFlag.clipping => '削波',
+    AnalysisQualityFlag.inputTooLow => '输入电平过低',
+    AnalysisQualityFlag.discontinuity => '音频不连续',
+    AnalysisQualityFlag.droppedSamples => '采样丢失',
+    AnalysisQualityFlag.processingAdjusted => '处理参数被调整',
+    AnalysisQualityFlag.insufficientValidFrames => '有效帧不足',
+  };
 }
 
 String voiceIntentLabel(String key) => switch (key) {

@@ -9,10 +9,12 @@ import 'package:voice_trainer/core/domain/analysis/session_summary.dart';
 import 'package:voice_trainer/core/domain/analysis/voice_comparison.dart';
 import 'package:voice_trainer/core/domain/analysis/voice_production_profile.dart';
 import 'package:voice_trainer/core/domain/persistence/session_repository.dart';
+import 'package:voice_trainer/core/domain/persistence/voice_comparison_plan_store.dart';
 import 'package:voice_trainer/core/domain/practice/practice_target.dart';
 import 'package:voice_trainer/core/domain/practice/practice_template.dart';
 import 'package:voice_trainer/infrastructure/persistence/database/app_database.dart';
 import 'package:voice_trainer/infrastructure/persistence/in_memory_recording_store.dart';
+import 'package:voice_trainer/infrastructure/persistence/in_memory_voice_comparison_plan_store.dart';
 import 'package:voice_trainer/infrastructure/persistence/repositories/drift_session_repository.dart';
 import 'package:voice_trainer/infrastructure/persistence/repositories/drift_voice_comparison_plan_store.dart';
 
@@ -55,6 +57,49 @@ void main() {
     expect((await repository.findById(record.id))!.voiceComparison, isNull);
   });
 
+  test(
+    'Drift plan store is idempotent but rejects a conflicting snapshot',
+    () async {
+      final database = AppDatabase(NativeDatabase.memory());
+      addTearDown(database.close);
+      final store = DriftVoiceComparisonPlanStore(database);
+      final original = _plan();
+
+      await store.savePlan(original);
+      await store.savePlan(original);
+      await expectLater(
+        store.savePlan(_plan(labelB: VoiceIntentKey.falsetto)),
+        throwsA(isA<VoiceComparisonPlanConflict>()),
+      );
+
+      expect(
+        (await store.loadLatestPlan())!.labelB.labelKey,
+        VoiceIntentKey.headVoice.name,
+      );
+    },
+  );
+
+  test(
+    'in-memory plan store preserves the original conflicting snapshot',
+    () async {
+      final store = InMemoryVoiceComparisonPlanStore();
+      final original = _plan();
+
+      await store.savePlan(original);
+      await store.savePlan(_plan(id: 'plan-2'));
+      await expectLater(
+        store.savePlan(_plan(labelB: VoiceIntentKey.strongMix)),
+        throwsA(isA<VoiceComparisonPlanConflict>()),
+      );
+
+      expect(
+        (await store.loadLatestPlan())!.labelB.labelKey,
+        VoiceIntentKey.headVoice.name,
+      );
+      expect((await store.loadLatestPlan())!.id, 'plan-2');
+    },
+  );
+
   test('schema v4 migrates without rewriting an existing session', () async {
     final directory = await Directory.systemTemp.createTemp(
       'voice-comparison-migration-',
@@ -89,8 +134,11 @@ void main() {
   });
 }
 
-VoiceComparisonPlan _plan() => VoiceComparisonPlan(
-  id: 'plan-1',
+VoiceComparisonPlan _plan({
+  String id = 'plan-1',
+  VoiceIntentKey labelB = VoiceIntentKey.headVoice,
+}) => VoiceComparisonPlan(
+  id: id,
   labelA: PedagogicalVoiceLabel(
     labelKey: VoiceIntentKey.chestVoice.name,
     vocabularyId: 'personal',
@@ -98,7 +146,7 @@ VoiceComparisonPlan _plan() => VoiceComparisonPlan(
     source: PedagogicalLabelSource.singerIntent,
   ),
   labelB: PedagogicalVoiceLabel(
-    labelKey: VoiceIntentKey.headVoice.name,
+    labelKey: labelB.name,
     vocabularyId: 'personal',
     vocabularyVersion: '1',
     source: PedagogicalLabelSource.singerIntent,

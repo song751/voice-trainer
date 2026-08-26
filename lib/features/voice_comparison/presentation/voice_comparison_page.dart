@@ -5,6 +5,8 @@ import 'package:go_router/go_router.dart';
 import '../../../app/router/route_names.dart';
 import '../../../core/domain/analysis/voice_comparison.dart';
 import '../../../core/domain/analysis/voice_production_profile.dart';
+import '../../../core/domain/persistence/voice_comparison_plan_store.dart';
+import '../../../core/errors/failure.dart';
 import '../../../core/widgets/responsive_page_body.dart';
 import '../application/voice_comparison_controller.dart';
 import 'voice_comparison_evidence_card.dart';
@@ -72,6 +74,8 @@ class _ComparisonFormState extends ConsumerState<_ComparisonForm> {
   late String _style;
   late String _capture;
   bool _dirty = false;
+  bool _saving = false;
+  Object? _saveError;
 
   @override
   void initState() {
@@ -210,10 +214,29 @@ class _ComparisonFormState extends ConsumerState<_ComparisonForm> {
                 const SizedBox(height: 16),
                 FilledButton.icon(
                   key: const Key('save-voice-comparison'),
-                  onPressed: _save,
+                  onPressed: _saving ? null : _save,
                   icon: const Icon(Icons.save_outlined),
-                  label: const Text('保存为新的对比组'),
+                  label: Text(
+                    _saving
+                        ? '正在保存…'
+                        : _saveError == null
+                        ? '保存为新的对比组'
+                        : '重试保存',
+                  ),
                 ),
+                if (_saveError case final error?) ...<Widget>[
+                  const SizedBox(height: 8),
+                  Semantics(
+                    liveRegion: true,
+                    child: Text(
+                      _saveErrorMessage(error),
+                      key: const Key('voice-comparison-save-error'),
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.error,
+                      ),
+                    ),
+                  ),
+                ],
                 if (hasSavedPlan) ...<Widget>[
                   const SizedBox(height: 12),
                   if (_dirty)
@@ -296,6 +319,7 @@ class _ComparisonFormState extends ConsumerState<_ComparisonForm> {
     setState(() {
       update();
       _dirty = true;
+      _saveError = null;
     });
   }
 
@@ -305,24 +329,40 @@ class _ComparisonFormState extends ConsumerState<_ComparisonForm> {
 
   Future<void> _save() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
-    await ref
-        .read(voiceComparisonControllerProvider.notifier)
-        .save(
-          VoiceComparisonDraft(
-            labelA: _labelA,
-            labelB: _labelB,
-            vocabularyId: _vocabularyId.text,
-            vocabularyVersion: _vocabularyVersion.text,
-            source: _source,
-            protocolId: _protocol,
-            pitchContextKey: _pitch,
-            vowelIpa: _vowel,
-            loudnessConditionKey: _loudness,
-            styleContextKey: _style,
-            captureProfileKey: _capture,
-          ),
-        );
+    setState(() {
+      _saving = true;
+      _saveError = null;
+    });
+    try {
+      await ref
+          .read(voiceComparisonControllerProvider.notifier)
+          .save(
+            VoiceComparisonDraft(
+              labelA: _labelA,
+              labelB: _labelB,
+              vocabularyId: _vocabularyId.text,
+              vocabularyVersion: _vocabularyVersion.text,
+              source: _source,
+              protocolId: _protocol,
+              pitchContextKey: _pitch,
+              vowelIpa: _vowel,
+              loudnessConditionKey: _loudness,
+              styleContextKey: _style,
+              captureProfileKey: _capture,
+            ),
+          );
+    } catch (error) {
+      if (mounted) setState(() => _saveError = error);
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
   }
+
+  String _saveErrorMessage(Object error) => switch (error) {
+    VoiceComparisonPlanConflict() => '该计划 ID 已对应另一份设置快照。当前草稿已保留，请重试保存为新组。',
+    PersistenceFailure() => '保存空间暂时不可用。当前草稿已保留，请重试。',
+    _ => '保存失败。当前草稿已保留，请重试。',
+  };
 
   void _record(VoiceComparisonSide side) {
     ref.read(voiceComparisonControllerProvider.notifier).prepareTake(side);

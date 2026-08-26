@@ -65,14 +65,14 @@ final class LivePracticeController extends Notifier<PracticeSessionState> {
     });
     ref.listen(livePracticeStateChangesProvider, (_, next) {
       final nextState = next.valueOrNull;
-      if (nextState != null) state = nextState;
+      if (nextState != null) _publish(nextState);
     });
     return _coordinator.state;
   }
 
   Future<void> _handleBrowserLifecycle(ApplicationLifecycleEvent event) {
     final operation = _lifecycleSerial.then((_) async {
-      state = await _coordinator.handleLifecycleEvent(event);
+      _publish(await _coordinator.handleLifecycleEvent(event));
     });
     _lifecycleSerial = operation.catchError((_) {});
     return operation;
@@ -83,24 +83,26 @@ final class LivePracticeController extends Notifier<PracticeSessionState> {
     _activeSessionId = id;
     ref.read(latestPracticeSessionProvider.notifier).state = null;
     state = RequestingPermission(sessionId: id);
-    state = await _coordinator.start(
-      PracticeSessionRequest(
-        sessionId: id,
-        template: _template,
-        startedAt: DateTime.now().toUtc(),
-        voiceComparison: ref.read(activeVoiceComparisonTakeProvider),
+    _publish(
+      await _coordinator.start(
+        PracticeSessionRequest(
+          sessionId: id,
+          template: _template,
+          startedAt: DateTime.now().toUtc(),
+          voiceComparison: ref.read(activeVoiceComparisonTakeProvider),
+        ),
       ),
     );
   }
 
   Future<void> pause() async {
     _pausedByLifecycle = false;
-    state = await _coordinator.pause();
+    _publish(await _coordinator.pause());
   }
 
   Future<void> resume() async {
     _pausedByLifecycle = false;
-    state = await _coordinator.resume();
+    _publish(await _coordinator.resume());
   }
 
   Future<void> handleApplicationLifecycle(ApplicationLifecyclePhase phase) {
@@ -108,17 +110,17 @@ final class LivePracticeController extends Notifier<PracticeSessionState> {
       switch (phase) {
         case ApplicationLifecyclePhase.background:
           if (state is Running) {
-            state = await _coordinator.pause();
+            _publish(await _coordinator.pause());
             _pausedByLifecycle = true;
           }
         case ApplicationLifecyclePhase.detached:
           if (state is Running) {
-            state = await _coordinator.pause();
+            _publish(await _coordinator.pause());
           }
           _pausedByLifecycle = false;
         case ApplicationLifecyclePhase.foreground:
           if (_pausedByLifecycle && state is Paused) {
-            state = await _coordinator.resume();
+            _publish(await _coordinator.resume());
             _pausedByLifecycle = false;
           }
       }
@@ -132,15 +134,35 @@ final class LivePracticeController extends Notifier<PracticeSessionState> {
     if (current is Running || current is Paused) {
       state = Finalizing(sessionId: _activeSessionId!);
     }
-    state = await _coordinator.stop();
+    final completedState = await _coordinator.stop();
+    state = completedState;
     final id = _activeSessionId;
-    if (state is Completed && id != null) {
+    if (completedState is Completed && id != null) {
       ref.read(latestPracticeSessionProvider.notifier).state = await _repository
           .findById(id);
     }
+    _clearActiveTakeIfTerminal(completedState);
   }
 
   Future<void> retry() async {
-    state = await _coordinator.retry();
+    final next = await _coordinator.retry();
+    state = next;
+    final id = _activeSessionId;
+    if (next is Completed && id != null) {
+      ref.read(latestPracticeSessionProvider.notifier).state = await _repository
+          .findById(id);
+    }
+    _clearActiveTakeIfTerminal(next);
+  }
+
+  void _publish(PracticeSessionState next) {
+    state = next;
+    _clearActiveTakeIfTerminal(next);
+  }
+
+  void _clearActiveTakeIfTerminal(PracticeSessionState next) {
+    if (next is Completed || (next is Failed && !next.canRetry)) {
+      ref.read(activeVoiceComparisonTakeProvider.notifier).state = null;
+    }
   }
 }

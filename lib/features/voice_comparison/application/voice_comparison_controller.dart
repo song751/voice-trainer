@@ -86,13 +86,10 @@ final class VoiceComparisonController
       ),
       updatedAt: now,
     );
-    state = const AsyncLoading<VoiceComparisonPlan?>();
-    state = await AsyncValue.guard(() async {
-      await ref.read(voiceComparisonPlanStoreProvider).savePlan(plan);
-      ref.read(activeVoiceComparisonTakeProvider.notifier).state = null;
-      return plan;
-    });
-    return state.requireValue!;
+    await ref.read(voiceComparisonPlanStoreProvider).savePlan(plan);
+    ref.read(activeVoiceComparisonTakeProvider.notifier).state = null;
+    state = AsyncData(plan);
+    return plan;
   }
 
   void prepareTake(VoiceComparisonSide side) {

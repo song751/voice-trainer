@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../features/voice_comparison/application/active_voice_comparison_take.dart';
 import '../router/route_names.dart';
 
-class AdaptiveAppShell extends StatelessWidget {
+class AdaptiveAppShell extends ConsumerWidget {
   const AdaptiveAppShell({
     required this.currentPath,
     required this.child,
@@ -22,7 +24,7 @@ class AdaptiveAppShell extends StatelessWidget {
   ];
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final selectedIndex = _destinations.indexWhere(
       (destination) => destination.path == currentPath,
     );
@@ -32,7 +34,7 @@ class AdaptiveAppShell extends StatelessWidget {
         ? NavigationRail(
             selectedIndex: index,
             labelType: NavigationRailLabelType.all,
-            onDestinationSelected: (value) => _go(context, value),
+            onDestinationSelected: (value) => _go(context, ref, value),
             destinations: _destinations
                 .map(
                   (destination) => NavigationRailDestination(
@@ -66,7 +68,7 @@ class AdaptiveAppShell extends StatelessWidget {
             : NavigationBar(
                 selectedIndex: index,
                 labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-                onDestinationSelected: (value) => _go(context, value),
+                onDestinationSelected: (value) => _go(context, ref, value),
                 destinations: _destinations
                     .map(
                       (destination) => NavigationDestination(
@@ -81,8 +83,12 @@ class AdaptiveAppShell extends StatelessWidget {
     );
   }
 
-  void _go(BuildContext context, int index) {
-    context.go(_destinations[index].path);
+  void _go(BuildContext context, WidgetRef ref, int index) {
+    final path = _destinations[index].path;
+    if (path == RoutePaths.livePractice) {
+      ref.read(activeVoiceComparisonTakeProvider.notifier).state = null;
+    }
+    context.go(path);
   }
 }
 

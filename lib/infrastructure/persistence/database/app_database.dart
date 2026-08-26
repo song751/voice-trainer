@@ -235,6 +235,11 @@ class AppDatabase extends _$AppDatabase {
             ..limit(1))
           .getSingleOrNull();
 
+  Future<SavedVoiceComparisonPlan?> voiceComparisonPlanById(String id) =>
+      (select(
+        savedVoiceComparisonPlans,
+      )..where((row) => row.id.equals(id))).getSingleOrNull();
+
   Future<void> deleteSessionData(String sessionId) => transaction(() async {
     final runs = await (select(
       analysisRuns,

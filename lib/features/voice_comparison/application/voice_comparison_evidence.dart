@@ -26,6 +26,7 @@ final class VoiceComparisonEvidence {
     required this.plan,
     required this.takeCountA,
     required this.takeCountB,
+    required this.rejectedTakeCount,
     required this.confidence,
     required List<VoiceComparisonDelta> deltas,
     required Set<AnalysisQualityFlag> qualityFlags,
@@ -37,6 +38,7 @@ final class VoiceComparisonEvidence {
   final VoiceComparisonPlan plan;
   final int takeCountA;
   final int takeCountB;
+  final int rejectedTakeCount;
   final VoiceProductionConfidence confidence;
   final List<VoiceComparisonDelta> deltas;
   final Set<AnalysisQualityFlag> qualityFlags;
@@ -47,56 +49,89 @@ VoiceComparisonEvidence buildVoiceComparisonEvidence({
   required VoiceComparisonPlan plan,
   required List<PracticeSessionRecord> records,
 }) {
-  final takes = records
+  final candidates = records
       .where((record) {
         final context = record.voiceComparison;
         return context != null && context.plan.id == plan.id;
       })
       .toList(growable: false);
-  final a = takes
+  final candidateA = candidates
       .where((record) => record.voiceComparison!.side == VoiceComparisonSide.a)
       .toList(growable: false);
-  final b = takes
+  final candidateB = candidates
       .where((record) => record.voiceComparison!.side == VoiceComparisonSide.b)
       .toList(growable: false);
-  final flags = takes.expand((record) => record.summary.qualityFlags).toSet();
-  final signalQuality = takes.isEmpty
+  final snapshotsMatch = candidates.every(
+    (record) => record.voiceComparison!.plan.hasSameSnapshotAs(plan),
+  );
+  if (!snapshotsMatch) {
+    return VoiceComparisonEvidence(
+      status: VoiceComparisonEvidenceStatus.suppressed,
+      plan: plan,
+      takeCountA: candidateA.length,
+      takeCountB: candidateB.length,
+      rejectedTakeCount: 0,
+      confidence: VoiceProductionConfidence(
+        signalQuality: 0,
+        taskMatch: 0,
+        repeatability: 0,
+        labelAgreement: _labelAgreement(plan),
+      ),
+      deltas: const <VoiceComparisonDelta>[],
+      qualityFlags: const <AnalysisQualityFlag>{},
+      suppressedReason: '同一计划 ID 下存在不一致的标签、词表来源或匹配条件快照',
+    );
+  }
+
+  final rejected = candidates
+      .where((record) => !_passesTakeQuality(record))
+      .toList(growable: false);
+  final usable = candidates.where(_passesTakeQuality).toList(growable: false);
+  final a = usable
+      .where((record) => record.voiceComparison!.side == VoiceComparisonSide.a)
+      .toList(growable: false);
+  final b = usable
+      .where((record) => record.voiceComparison!.side == VoiceComparisonSide.b)
+      .toList(growable: false);
+  final flags = <AnalysisQualityFlag>{
+    ...rejected.expand((record) => record.summary.qualityFlags),
+    if (rejected.any((record) => record.summary.validFrameRatio < .3))
+      AnalysisQualityFlag.insufficientValidFrames,
+  };
+  final signalQuality = usable.isEmpty
       ? 0.0
-      : takes
+      : usable
             .map((record) => record.summary.validFrameRatio.clamp(0.0, 1.0))
             .reduce(math.min);
-  final scopesMatch = takes.every(
-    (record) => record.voiceComparison!.plan.scope.isComparableWith(plan.scope),
-  );
   final confidence = VoiceProductionConfidence(
     signalQuality: signalQuality,
-    taskMatch: scopesMatch ? 1 : 0,
+    taskMatch: 1,
     repeatability: _repeatability(a, b),
     labelAgreement: _labelAgreement(plan),
   );
-  if (a.isEmpty || b.isEmpty) {
+  if (candidateA.isEmpty || candidateB.isEmpty) {
     return VoiceComparisonEvidence(
       status: VoiceComparisonEvidenceStatus.waitingForTakes,
       plan: plan,
       takeCountA: a.length,
       takeCountB: b.length,
+      rejectedTakeCount: rejected.length,
       confidence: confidence,
       deltas: const <VoiceComparisonDelta>[],
       qualityFlags: flags,
     );
   }
-  if (!scopesMatch || flags.isNotEmpty || signalQuality < .3) {
+  if (a.isEmpty || b.isEmpty) {
     return VoiceComparisonEvidence(
       status: VoiceComparisonEvidenceStatus.suppressed,
       plan: plan,
       takeCountA: a.length,
       takeCountB: b.length,
+      rejectedTakeCount: rejected.length,
       confidence: confidence,
       deltas: const <VoiceComparisonDelta>[],
       qualityFlags: flags,
-      suppressedReason: !scopesMatch
-          ? 'pitch/vowel/loudness/style/capture/protocol 条件不一致'
-          : '至少一个样本未通过录音质量门槛',
+      suppressedReason: 'A/B 至少一侧没有通过录音质量门槛的样本',
     );
   }
   final deltas = <VoiceComparisonDelta>[
@@ -138,12 +173,16 @@ VoiceComparisonEvidence buildVoiceComparisonEvidence({
     plan: plan,
     takeCountA: a.length,
     takeCountB: b.length,
+    rejectedTakeCount: rejected.length,
     confidence: confidence,
     deltas: deltas,
     qualityFlags: flags,
     suppressedReason: deltas.isEmpty ? '可比测量不足' : null,
   );
 }
+
+bool _passesTakeQuality(PracticeSessionRecord record) =>
+    record.summary.qualityFlags.isEmpty && record.summary.validFrameRatio >= .3;
 
 double? _difference(
   List<PracticeSessionRecord> a,
@@ -216,21 +255,24 @@ double _repeatability(
     _ => 1.0,
   };
   if (a.length == 1 || b.length == 1) return math.min(.5, countScore);
-  final pitchValues = <double>[
-    ...a.map(_pitchMedian).whereType<double>(),
-    ...b.map(_pitchMedian).whereType<double>(),
-  ];
-  final levelValues = <double>[
-    ...a.map(_levelMedian).whereType<double>(),
-    ...b.map(_levelMedian).whereType<double>(),
-  ];
-  final pitchScore = pitchValues.length < 2
-      ? 1.0
-      : (1 - _mad(pitchValues) / 100).clamp(0.0, 1.0);
-  final levelScore = levelValues.length < 2
-      ? 1.0
-      : (1 - _mad(levelValues) / 6).clamp(0.0, 1.0);
+  final pitchScore = math.min(
+    _withinSideScore(a, _pitchMedian, 100),
+    _withinSideScore(b, _pitchMedian, 100),
+  );
+  final levelScore = math.min(
+    _withinSideScore(a, _levelMedian, 6),
+    _withinSideScore(b, _levelMedian, 6),
+  );
   return <double>[countScore, pitchScore, levelScore].reduce(math.min);
+}
+
+double _withinSideScore(
+  List<PracticeSessionRecord> records,
+  double? Function(PracticeSessionRecord) read,
+  double scale,
+) {
+  final values = records.map(read).whereType<double>().toList(growable: false);
+  return values.length < 2 ? 1 : (1 - _mad(values) / scale).clamp(0.0, 1.0);
 }
 
 double? _labelAgreement(VoiceComparisonPlan plan) {

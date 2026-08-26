@@ -40,28 +40,55 @@ void main() {
       VoiceMeasurementUnit.samples,
     );
     expect(evidence.confidence.conservativeScore, .5);
+    expect(evidence.rejectedTakeCount, 0);
   });
 
-  test('quality failure suppresses every interpretation', () {
+  test('a rejected take does not poison later usable A/B evidence', () {
     final plan = _plan();
     final evidence = buildVoiceComparisonEvidence(
       plan: plan,
       records: <PracticeSessionRecord>[
         _record('a', plan, VoiceComparisonSide.a, pitch: 5700, level: -20),
         _record(
-          'b',
+          'bad-a',
+          plan,
+          VoiceComparisonSide.a,
+          pitch: 6200,
+          level: -4,
+          flags: const <AnalysisQualityFlag>{AnalysisQualityFlag.clipping},
+        ),
+        _record('b', plan, VoiceComparisonSide.b, pitch: 5712, level: -17),
+      ],
+    );
+
+    expect(evidence.status, VoiceComparisonEvidenceStatus.ready);
+    expect(evidence.rejectedTakeCount, 1);
+    expect(evidence.takeCountA, 1);
+    expect(evidence.qualityFlags, contains(AnalysisQualityFlag.clipping));
+    expect(evidence.deltas.first.valueBMinusA, 12);
+  });
+
+  test('quality gate suppresses when one side has no usable take', () {
+    final plan = _plan();
+    final evidence = buildVoiceComparisonEvidence(
+      plan: plan,
+      records: <PracticeSessionRecord>[
+        _record('a', plan, VoiceComparisonSide.a, pitch: 5700, level: -20),
+        _record(
+          'bad-b',
           plan,
           VoiceComparisonSide.b,
           pitch: 5712,
           level: -17,
-          flags: const <AnalysisQualityFlag>{AnalysisQualityFlag.clipping},
+          validFrameCount: 20,
         ),
       ],
     );
 
     expect(evidence.status, VoiceComparisonEvidenceStatus.suppressed);
+    expect(evidence.rejectedTakeCount, 1);
     expect(evidence.deltas, isEmpty);
-    expect(evidence.suppressedReason, contains('录音质量'));
+    expect(evidence.suppressedReason, contains('质量门槛'));
   });
 
   test('same id cannot bypass exact task matching', () {
@@ -82,8 +109,46 @@ void main() {
     );
 
     expect(evidence.status, VoiceComparisonEvidenceStatus.suppressed);
-    expect(evidence.suppressedReason, contains('条件不一致'));
+    expect(evidence.suppressedReason, contains('不一致'));
     expect(evidence.deltas, isEmpty);
+  });
+
+  test('same scope but changed vocabulary snapshot suppresses integrity', () {
+    final plan = _plan();
+    final mismatched = _plan(id: plan.id, vocabularyVersion: '3');
+    final evidence = buildVoiceComparisonEvidence(
+      plan: plan,
+      records: <PracticeSessionRecord>[
+        _record('a', plan, VoiceComparisonSide.a, pitch: 5700, level: -20),
+        _record(
+          'b',
+          mismatched,
+          VoiceComparisonSide.b,
+          pitch: 5712,
+          level: -17,
+        ),
+      ],
+    );
+
+    expect(evidence.status, VoiceComparisonEvidenceStatus.suppressed);
+    expect(evidence.confidence.taskMatch, 0);
+    expect(evidence.suppressedReason, contains('词表来源'));
+  });
+
+  test('repeatability is computed within each side before taking minimum', () {
+    final plan = _plan();
+    final evidence = buildVoiceComparisonEvidence(
+      plan: plan,
+      records: <PracticeSessionRecord>[
+        _record('a1', plan, VoiceComparisonSide.a, pitch: 5700, level: -25),
+        _record('a2', plan, VoiceComparisonSide.a, pitch: 5700, level: -25),
+        _record('b1', plan, VoiceComparisonSide.b, pitch: 6200, level: -10),
+        _record('b2', plan, VoiceComparisonSide.b, pitch: 6200, level: -10),
+      ],
+    );
+
+    expect(evidence.status, VoiceComparisonEvidenceStatus.ready);
+    expect(evidence.confidence.repeatability, .75);
   });
 
   test('saved pitch condition becomes the actual live-practice target', () {
@@ -103,18 +168,19 @@ VoiceComparisonPlan _plan({
   String id = 'comparison-1',
   String vowelIpa = 'a',
   String pitchContextKey = 'A3',
+  String vocabularyVersion = '2',
 }) => VoiceComparisonPlan(
   id: id,
   labelA: PedagogicalVoiceLabel(
     labelKey: VoiceIntentKey.weakMix.name,
     vocabularyId: 'teacher-li',
-    vocabularyVersion: '2',
+    vocabularyVersion: vocabularyVersion,
     source: PedagogicalLabelSource.teacherPrompt,
   ),
   labelB: PedagogicalVoiceLabel(
     labelKey: VoiceIntentKey.strongMix.name,
     vocabularyId: 'teacher-li',
-    vocabularyVersion: '2',
+    vocabularyVersion: vocabularyVersion,
     source: PedagogicalLabelSource.teacherPrompt,
   ),
   scope: VoiceProductionScope(
@@ -137,6 +203,7 @@ PracticeSessionRecord _record(
   required double pitch,
   required double level,
   Set<AnalysisQualityFlag> flags = const <AnalysisQualityFlag>{},
+  int validFrameCount = 90,
 }) => PracticeSessionRecord(
   id: id,
   template: const PracticeTemplate(
@@ -148,7 +215,7 @@ PracticeSessionRecord _record(
   ),
   startedAt: DateTime.utc(2026, 8, 27),
   summary: SessionSummary(
-    validFrameCount: 90,
+    validFrameCount: validFrameCount,
     totalFrameCount: 100,
     qualityFlags: flags,
     pitchStability: StabilitySummary(

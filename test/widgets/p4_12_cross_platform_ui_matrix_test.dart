@@ -37,20 +37,21 @@ void main() {
     P412UiProfile.androidPortrait,
     P412UiProfile.webPortrait,
   ];
-  const fiveRoutes = <String>[
+  const coreRoutes = <String>[
     RoutePaths.home,
     RoutePaths.livePractice,
     RoutePaths.result,
     RoutePaths.history,
     RoutePaths.settings,
+    RoutePaths.voiceComparison,
   ];
 
   testWidgets(
-    'Windows Android and Web five-page portrait matrix survives dark 200% text',
+    'Windows Android and Web core route matrix survives dark 200% text',
     (tester) async {
       final fixture = P412UiFixture(tester);
       for (final profile in portraitProfiles) {
-        for (final route in fiveRoutes) {
+        for (final route in coreRoutes) {
           await fixture.pump(
             profile: profile,
             route: route,
@@ -74,6 +75,46 @@ void main() {
           );
         }
       }
+    },
+  );
+
+  testWidgets(
+    'voice comparison supports semantics scroll keyboard and back in every portrait profile',
+    (tester) async {
+      final semantics = tester.ensureSemantics();
+      final fixture = P412UiFixture(tester);
+      for (final profile in portraitProfiles) {
+        await fixture.pump(
+          profile: profile,
+          route: RoutePaths.voiceComparison,
+          textScaleFactor: 2,
+          brightness: Brightness.dark,
+        );
+        await tester.drag(
+          find.byKey(const Key('voice-comparison-scroll')),
+          const Offset(0, -1800),
+        );
+        await tester.pumpAndSettle();
+        expect(
+          find.bySemanticsLabel('发声对比练习设置'),
+          findsOneWidget,
+          reason: profile.name,
+        );
+        Focus.of(tester.element(find.text('保存为新的对比组'))).requestFocus();
+        await tester.pump();
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        await tester.pumpAndSettle();
+        expect(
+          find.byKey(const Key('record-voice-a')),
+          findsOneWidget,
+          reason: profile.name,
+        );
+        expect(tester.takeException(), isNull, reason: profile.name);
+        await tester.binding.handlePopRoute();
+        await tester.pumpAndSettle();
+        expect(find.text('目标音练习'), findsOneWidget, reason: profile.name);
+      }
+      semantics.dispose();
     },
   );
 
