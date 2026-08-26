@@ -1,6 +1,7 @@
 use serde::Serialize;
 use song_separation_rd::{
-    synthesize_fixture, validate_manual_stems, JobFailure, ManualStemRequest,
+    evaluate_quality_dataset, synthesize_fixture, validate_manual_stems, JobFailure,
+    ManualStemRequest, QualityDatasetRequest,
 };
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -72,9 +73,35 @@ fn run() -> Result<(), JobFailure> {
             );
             Ok(())
         }
+        Some("evaluate") => {
+            let raw: Vec<String> = args.collect();
+            let rights_acknowledged = raw.iter().any(|arg| arg == "--acknowledge-rights");
+            let options = parse_options(raw);
+            let cancel_file = options.get("--cancel-file").map(PathBuf::from);
+            let request = QualityDatasetRequest {
+                rights_acknowledged,
+                manifest: required_path(&options, "--manifest")?,
+                dataset_root: required_path(&options, "--dataset-dir")?,
+            };
+            let report = evaluate_quality_dataset(
+                &request,
+                || cancel_file.as_deref().is_some_and(Path::exists),
+                |progress| {
+                    println!(
+                        "{}",
+                        serde_json::to_string(&progress).expect("progress is serializable")
+                    );
+                },
+            )?;
+            println!(
+                "{}",
+                serde_json::to_string(&report).expect("report is serializable")
+            );
+            Ok(())
+        }
         _ => {
             eprintln!(
-                "usage:\n  song_separation_rd synthesize --output-dir DIR\n  song_separation_rd validate --acknowledge-rights --mixture FILE --vocals FILE --accompaniment FILE [--cancel-file FILE]"
+                "usage:\n  song_separation_rd synthesize --output-dir DIR\n  song_separation_rd validate --acknowledge-rights --mixture FILE --vocals FILE --accompaniment FILE [--cancel-file FILE]\n  song_separation_rd evaluate --acknowledge-rights --manifest FILE --dataset-dir DIR [--cancel-file FILE]"
             );
             std::process::exit(64);
         }

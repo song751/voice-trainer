@@ -84,3 +84,11 @@ SRD-02 已在独立 tool package 固定 `tract-onnx 0.23.5` 做 Windows CPU smok
 - ORT CPU 对 32/47/300 frames 全部通过；相对 PyTorch 最大绝对误差分别约 `8.27e-7 / 8.53e-7 / 1.53e-6`，300-frame 单次 core inference `0.0568 s`，session build `0.0551 s`，报告时 process RSS 约 `804.6 MB`。
 - tract CPU 对 32/47/300 frames 全部通过；最大绝对误差约 `1.05e-6 / 1.04e-6 / 1.13e-6`。300-frame release core inference `0.2679 s`，load/prepare `0.1155 s`；其他平台尚未验证。
 - 这只验证 44.1 kHz stereo magnitude core。production 仍缺 STFT/ISTFT、mask/Wiener/residual、长音频分块和端到端音频数值/质量 gate，因此不把本结果写成“歌曲分离已接入”。
+
+## SRD-03 结果补记（2026-08-27）
+
+- 质量输入采用 strict v1 manifest：每个 case 固定 license/source/verifier/date、estimate provenance、reference pitch scope、四个相对路径和 SHA-256。runtime 拒绝未知字段、越界路径、hash/合同不符；音频与报告仍留在 Git 外。
+- 轻量 Rust evaluator 固定 whole-excerpt SI-SDR、mixture baseline/improvement、residual error、RMS/clipping，以及 development-only normalized-autocorrelation F0 + bounded DTW。它不声称等价于 museval/BSS Eval v4，也不作为产品教学算法。
+- reference F0 只对经核对的 `monophonic_lead` case 启用；和声、叠唱、多人声和未人工核对 case 标记 `not_eligible`，保留 waveform 证据但单独 suppress pitch interpretation。
+- 单个官方 MUSDB18 7 秒 AAC restricted research sample 完成 UMX-HQ oracle→evaluator smoke：vocals SI-SDR `12.28795 dB`，mixture baseline `-4.92437 dB`，improvement `17.21232 dB`，residual error `-98.62817 dBFS`。它没有人工听觉核对且不是 MUSDB18-HQ 多曲 gate，因此只证明工具链执行。
+- SRD-04 才能实现 production decode/resample、STFT/core/mask/ISTFT、residual、chunk/context/crossfade、资源上限和 Flutter `SongSeparator` composition；此前自动分离保持 unavailable。

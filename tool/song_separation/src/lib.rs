@@ -1,3 +1,10 @@
+mod quality;
+
+pub use quality::{
+    evaluate_quality_dataset, DatasetQualityReport, EstimateProvenance, PitchReferenceScope,
+    QualityDatasetRequest, QualityFlag, QualityProgress, QualityProgressStage,
+};
+
 use serde::Serialize;
 use sha2::{Digest, Sha256};
 use std::fmt;
@@ -18,6 +25,8 @@ pub enum JobFailureReason {
     ContractMismatch,
     Cancelled,
     IoFailure,
+    DatasetManifestInvalid,
+    IntegrityMismatch,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
@@ -28,7 +37,11 @@ pub struct JobFailure {
 }
 
 impl JobFailure {
-    fn new(reason: JobFailureReason, operation: &'static str, detail: impl Into<String>) -> Self {
+    pub(crate) fn new(
+        reason: JobFailureReason,
+        operation: &'static str,
+        detail: impl Into<String>,
+    ) -> Self {
         Self {
             reason,
             operation,

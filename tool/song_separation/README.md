@@ -72,3 +72,16 @@ cargo run --release --manifest-path tool/song_separation/Cargo.toml --bin tract_
 ```
 
 These commands validate only the magnitude model core. They do not provide the production STFT/ISTFT, Wiener/mask composition, full-song chunking, mobile/Web runtime, or perceptual quality gate.
+
+## Licensed quality evaluation
+
+SRD-03 adds an offline, development-only quality evaluator. Prepare a v1 manifest following `quality_manifest.schema.json`, keep every audio/model/output file outside Git, and run:
+
+```powershell
+cargo run --release --manifest-path tool/song_separation/Cargo.toml --bin song_separation_rd -- `
+  evaluate --acknowledge-rights `
+  --manifest <outside-git>/quality-manifest.json `
+  --dataset-dir <outside-git>/quality-audio
+```
+
+The evaluator verifies per-file SHA-256, rights metadata, relative-path containment, and a 44.1 kHz stereo PCM16 equal-length contract before computing waveform SI-SDR/improvement, residual consistency, and quality flags. Reference-F0/DTW metrics run only for a case explicitly reviewed as `monophonic_lead`; harmony, doubled vocals, or unreviewed material must use `not_eligible` and suppress pitch interpretation. See `docs/SONG_SEPARATION_QUALITY_PROTOCOL.md` for the exact algorithm and evidence limits.

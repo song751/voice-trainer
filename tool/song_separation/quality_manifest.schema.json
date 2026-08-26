@@ -1,0 +1,110 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://voice-trainer.invalid/song-separation-quality-manifest-v1.schema.json",
+  "title": "Voice Trainer SRD-03 song-separation quality manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "dataset_id",
+    "model_id",
+    "estimate_provenance",
+    "cases"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "dataset_id": { "type": "string", "minLength": 1 },
+    "model_id": { "type": "string", "minLength": 1 },
+    "estimate_provenance": {
+      "enum": ["model_output", "synthetic_identity"]
+    },
+    "cases": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/case" }
+    }
+  },
+  "$defs": {
+    "case": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "license", "pitch_reference", "files", "sha256"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "license": { "$ref": "#/$defs/license" },
+        "pitch_reference": { "$ref": "#/$defs/pitchReference" },
+        "files": { "$ref": "#/$defs/files" },
+        "sha256": { "$ref": "#/$defs/hashes" }
+      }
+    },
+    "license": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "license_id",
+        "rights_basis",
+        "source_url",
+        "verified_by",
+        "verified_on"
+      ],
+      "properties": {
+        "license_id": { "type": "string", "minLength": 1 },
+        "rights_basis": { "type": "string", "minLength": 1 },
+        "source_url": { "type": "string", "minLength": 1 },
+        "verified_by": { "type": "string", "minLength": 1 },
+        "verified_on": { "type": "string", "minLength": 1 }
+      }
+    },
+    "pitchReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["scope", "reviewed_by", "reviewed_on"],
+      "properties": {
+        "scope": { "enum": ["monophonic_lead", "not_eligible"] },
+        "reviewed_by": { "type": "string", "minLength": 1 },
+        "reviewed_on": { "type": "string", "minLength": 1 }
+      }
+    },
+    "files": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mixture",
+        "reference_vocals",
+        "estimated_vocals",
+        "estimated_accompaniment"
+      ],
+      "properties": {
+        "mixture": { "$ref": "#/$defs/relativePath" },
+        "reference_vocals": { "$ref": "#/$defs/relativePath" },
+        "estimated_vocals": { "$ref": "#/$defs/relativePath" },
+        "estimated_accompaniment": { "$ref": "#/$defs/relativePath" }
+      }
+    },
+    "hashes": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mixture",
+        "reference_vocals",
+        "estimated_vocals",
+        "estimated_accompaniment"
+      ],
+      "properties": {
+        "mixture": { "$ref": "#/$defs/sha256" },
+        "reference_vocals": { "$ref": "#/$defs/sha256" },
+        "estimated_vocals": { "$ref": "#/$defs/sha256" },
+        "estimated_accompaniment": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "relativePath": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Relative path below --dataset-dir; runtime rejects absolute and parent-traversal paths."
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[A-Fa-f0-9]{64}$"
+    }
+  }
+}

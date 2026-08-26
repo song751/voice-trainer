@@ -41,9 +41,32 @@ python tool/song_separation/oracle_umxhq.py --help
 
 **通过边界：** tract/ORT core smoke 通过不等于歌曲分离 production 通过。Rust/Flutter 仍没有 44.1 kHz stereo STFT/ISTFT、mask/residual、长音频分块、取消延迟、Android/Web 内存或许可歌曲质量 gate。
 
-## 后续锁定卡
+## SRD-03 — 许可质量清单与 reference-F0/DTW gate（非人工实现已完成）
 
-- `SRD-03`：许可音频质量集、参考 F0/DTW、confidence/quality flags。
-- `SRD-04`：经过授权的 Flutter/Rust product contract 与分平台 composition。
+**范围：** `tool/song_separation/` 的开发期质量 evaluator、schema、测试与证据文档；不修改 production Rust、Flutter/FRB、页面、provider 或 composition。
 
-`SRD-03+` 仍需独立干净任务边界；SRD-01/02 不自动解锁任何 Phase 4 卡。
+**已交付：**
+
+1. v1 strict manifest 强制逐 case license/source/verifier/date、模型/合成 provenance、Git 外相对路径和四个 SHA-256；拒绝路径越界、未知字段、hash/format/长度不符。
+2. 44.1 kHz stereo PCM16 waveform evidence：whole-excerpt SI-SDR、mixture baseline/improvement、residual error、RMS/clipping；与 museval/BSS Eval v4 明确区分。
+3. 仅对人工核对为 `monophonic_lead` 的 reference 运行版本化 autocorrelation F0 + bounded DTW；和声、叠唱、多人声或未核对 case 必须 `not_eligible` 并 suppress pitch interpretation。
+4. waveform/pitch 分列 confidence、quality flags、interpretation suppression、JSON progress、细粒度协作式 cancel；报告不含路径、曲名或 PCM。
+5. 6 项确定性测试覆盖 identity 数值/F0、错误音高+residual、rights/hash、取消、path traversal，以及 pitch-ineligible 时保留 waveform confidence；加上既有 4 项 contract 共 10 项通过。
+6. Windows 上对一个官方 MUSDB18 7 秒 restricted research sample 完成真实 UMX-HQ oracle→quality evaluator smoke；完整 hash/数值和证据限制记录于 `SONG_SEPARATION_QUALITY_PROTOCOL.md`。
+
+**人工/权利接受项：** 仓库所有者仍须提供或确认可用的逐曲授权集，并人工听觉核对可标为 `monophonic_lead` 的 case。当前单个短 AAC sample 只接受为工具 smoke，不能作为多曲听感或产品质量 gate。非人工实现无需为此停住 SRD-04 的代码设计，但不得把 SRD-03 写成最终质量通过。
+
+**验收命令：**
+
+```powershell
+cargo fmt --check --manifest-path tool/song_separation/Cargo.toml
+cargo clippy --manifest-path tool/song_separation/Cargo.toml --all-targets -- -D warnings
+cargo test --manifest-path tool/song_separation/Cargo.toml
+cargo run --release --manifest-path tool/song_separation/Cargo.toml --bin song_separation_rd -- evaluate --acknowledge-rights --manifest <git-outside>/quality-manifest.json --dataset-dir <git-outside>/quality-audio
+```
+
+## SRD-04 — production waveform pipeline 与分平台 composition（下一卡，需明确授权）
+
+必须一次闭合解码/重采样、UMX-HQ 4096/1024 STFT、magnitude core、mask/Wiener 决策、mixture-phase ISTFT、vocals+residual、长度/边界、长音频 overlap/chunk/crossfade、内存上限、progress/cancel/partial cleanup，以及 production Rust 到 Flutter `SongSeparator` 的 typed adapter。Windows/Android/Web 分列 runtime、包体和 30 秒/3 分钟/5 分钟性能；unavailable/manual-stem fallback 保留。
+
+SRD-01/02/03 均不自动解锁任何 Phase 4 卡，也不允许把 Python oracle、tool crate 或 synthetic identity 接入产品。
