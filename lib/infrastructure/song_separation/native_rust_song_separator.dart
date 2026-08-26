@@ -289,8 +289,19 @@ final class NativeRustSongSeparator implements SongSeparator, SongModelManager {
   int get _maximumFramesForPlatform =>
       44_100 * 60 * (Platform.isAndroid ? 1 : 5);
 
-  Future<void> _ensureRustInitialized() =>
-      _rustInitialization ??= RustLib.init();
+  Future<void> _ensureRustInitialized() async {
+    // ignore: invalid_use_of_internal_member
+    if (RustLib.instance.initialized) return;
+    final initialization = _rustInitialization ??= RustLib.init();
+    try {
+      await initialization;
+    } catch (_) {
+      if (identical(_rustInitialization, initialization)) {
+        _rustInitialization = null;
+      }
+      rethrow;
+    }
+  }
 }
 
 SeparatedSongReference _toDomain(
