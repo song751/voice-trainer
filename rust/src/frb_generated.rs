@@ -399,16 +399,15 @@ fn wire__crate__api__simple__init_app_impl(
     )
 }
 fn wire__crate__api__song__probe_song_separation_runtime_impl(
-    port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
     rust_vec_len_: i32,
     data_len_: i32,
-) {
-    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+) -> flutter_rust_bridge::for_generated::WireSyncRust2DartSse {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_sync::<flutter_rust_bridge::for_generated::SseCodec, _>(
         flutter_rust_bridge::for_generated::TaskInfo {
             debug_name: "probe_song_separation_runtime",
-            port: Some(port_),
-            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+            port: None,
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Sync,
         },
         move || {
             let message = unsafe {
@@ -422,31 +421,34 @@ fn wire__crate__api__song__probe_song_separation_runtime_impl(
                 flutter_rust_bridge::for_generated::SseDeserializer::new(message);
             let api_model_path = <String>::sse_decode(&mut deserializer);
             let api_expected_model_sha256 = <String>::sse_decode(&mut deserializer);
+            let api_sink = <StreamSink<
+                crate::api::song::SongRuntimeStatusDto,
+                flutter_rust_bridge::for_generated::SseCodec,
+            >>::sse_decode(&mut deserializer);
             deserializer.end();
-            move |context| {
-                transform_result_sse::<_, ()>((move || {
-                    let output_ok =
-                        Result::<_, ()>::Ok(crate::api::song::probe_song_separation_runtime(
-                            api_model_path,
-                            api_expected_model_sha256,
-                        ))?;
-                    Ok(output_ok)
-                })())
-            }
+            transform_result_sse::<_, ()>((move || {
+                let output_ok = Result::<_, ()>::Ok({
+                    crate::api::song::probe_song_separation_runtime(
+                        api_model_path,
+                        api_expected_model_sha256,
+                        api_sink,
+                    );
+                })?;
+                Ok(output_ok)
+            })())
         },
     )
 }
 fn wire__crate__api__song__start_song_separation_impl(
-    port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
     rust_vec_len_: i32,
     data_len_: i32,
-) {
-    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+) -> flutter_rust_bridge::for_generated::WireSyncRust2DartSse {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_sync::<flutter_rust_bridge::for_generated::SseCodec, _>(
         flutter_rust_bridge::for_generated::TaskInfo {
             debug_name: "start_song_separation",
-            port: Some(port_),
-            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+            port: None,
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Sync,
         },
         move || {
             let message = unsafe {
@@ -465,14 +467,12 @@ fn wire__crate__api__song__start_song_separation_impl(
                 flutter_rust_bridge::for_generated::SseCodec,
             >>::sse_decode(&mut deserializer);
             deserializer.end();
-            move |context| {
-                transform_result_sse::<_, ()>((move || {
-                    let output_ok = Result::<_, ()>::Ok({
-                        crate::api::song::start_song_separation(api_request, api_sink);
-                    })?;
-                    Ok(output_ok)
-                })())
-            }
+            transform_result_sse::<_, ()>((move || {
+                let output_ok = Result::<_, ()>::Ok({
+                    crate::api::song::start_song_separation(api_request, api_sink);
+                })?;
+                Ok(output_ok)
+            })())
         },
     )
 }
@@ -510,6 +510,19 @@ impl SseDecode
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
         let mut inner = <usize>::sse_decode(deserializer);
         return decode_rust_opaque_moi(inner);
+    }
+}
+
+impl SseDecode
+    for StreamSink<
+        crate::api::song::SongRuntimeStatusDto,
+        flutter_rust_bridge::for_generated::SseCodec,
+    >
+{
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut inner = <String>::sse_decode(deserializer);
+        return StreamSink::deserialize(inner);
     }
 }
 
@@ -942,13 +955,6 @@ fn pde_ffi_dispatcher_primary_impl(
 ) {
     // Codec=Pde (Serialization + dispatch), see doc to use other codecs
     match func_id {
-        9 => wire__crate__api__song__probe_song_separation_runtime_impl(
-            port,
-            ptr,
-            rust_vec_len,
-            data_len,
-        ),
-        10 => wire__crate__api__song__start_song_separation_impl(port, ptr, rust_vec_len, data_len),
         _ => unreachable!(),
     }
 }
@@ -981,6 +987,10 @@ fn pde_ffi_dispatcher_sync_impl(
         6 => wire__crate__api__realtime__RealtimeAnalyzer_reset_impl(ptr, rust_vec_len, data_len),
         7 => wire__crate__api__simple__greet_impl(ptr, rust_vec_len, data_len),
         8 => wire__crate__api__simple__init_app_impl(ptr, rust_vec_len, data_len),
+        9 => {
+            wire__crate__api__song__probe_song_separation_runtime_impl(ptr, rust_vec_len, data_len)
+        }
+        10 => wire__crate__api__song__start_song_separation_impl(ptr, rust_vec_len, data_len),
         _ => unreachable!(),
     }
 }
@@ -1270,6 +1280,18 @@ impl SseEncode
         let (ptr, size) = self.sse_encode_raw();
         <usize>::sse_encode(ptr, serializer);
         <i32>::sse_encode(size, serializer);
+    }
+}
+
+impl SseEncode
+    for StreamSink<
+        crate::api::song::SongRuntimeStatusDto,
+        flutter_rust_bridge::for_generated::SseCodec,
+    >
+{
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        unimplemented!("")
     }
 }
 

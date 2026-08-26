@@ -65,16 +65,55 @@ pub struct SongSeparationEventDto {
 /// Checks the reviewed hash and compiles the native model graph. It performs
 /// no download and returns unavailable on Web, where no reviewed runtime has
 /// passed the SRD-04 gate.
+#[flutter_rust_bridge::frb(sync)]
 pub fn probe_song_separation_runtime(
     model_path: String,
     expected_model_sha256: String,
-) -> SongRuntimeStatusDto {
-    probe_runtime_platform(model_path, expected_model_sha256)
+    sink: StreamSink<SongRuntimeStatusDto>,
+) {
+    start_platform_probe(model_path, expected_model_sha256, sink);
 }
 
 /// Runs the file-backed offline job on FRB's native worker and emits bounded
 /// progress plus exactly one terminal completed/failed event.
+#[flutter_rust_bridge::frb(sync)]
 pub fn start_song_separation(
+    request: SongSeparationRequestDto,
+    sink: StreamSink<SongSeparationEventDto>,
+) {
+    spawn_platform_separation(request, sink);
+}
+
+#[cfg(not(target_family = "wasm"))]
+fn start_platform_probe(
+    model_path: String,
+    expected_model_sha256: String,
+    sink: StreamSink<SongRuntimeStatusDto>,
+) {
+    std::thread::spawn(move || {
+        let _ = sink.add(probe_runtime_platform(model_path, expected_model_sha256));
+    });
+}
+
+#[cfg(target_family = "wasm")]
+fn start_platform_probe(
+    model_path: String,
+    expected_model_sha256: String,
+    sink: StreamSink<SongRuntimeStatusDto>,
+) {
+    let _ = sink.add(probe_runtime_platform(model_path, expected_model_sha256));
+}
+
+#[cfg(not(target_family = "wasm"))]
+fn spawn_platform_separation(
+    request: SongSeparationRequestDto,
+    sink: StreamSink<SongSeparationEventDto>,
+) {
+    std::thread::spawn(move || start_platform_separation(request, sink));
+}
+
+#[cfg(target_family = "wasm")]
+fn spawn_platform_separation(
     request: SongSeparationRequestDto,
     sink: StreamSink<SongSeparationEventDto>,
 ) {

@@ -113,7 +113,7 @@ abstract class RustLibApi extends BaseApi {
 
   void crateApiSimpleInitApp();
 
-  Future<SongRuntimeStatusDto> crateApiSongProbeSongSeparationRuntime({
+  Stream<SongRuntimeStatusDto> crateApiSongProbeSongSeparationRuntime({
     required String modelPath,
     required String expectedModelSha256,
   });
@@ -396,38 +396,36 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       const TaskConstMeta(debugName: "init_app", argNames: []);
 
   @override
-  Future<SongRuntimeStatusDto> crateApiSongProbeSongSeparationRuntime({
+  Stream<SongRuntimeStatusDto> crateApiSongProbeSongSeparationRuntime({
     required String modelPath,
     required String expectedModelSha256,
   }) {
-    return handler.executeNormal(
-      NormalTask(
-        callFfi: (port_) {
+    final sink = RustStreamSink<SongRuntimeStatusDto>();
+    handler.executeSync(
+      SyncTask(
+        callFfi: () {
           final serializer = SseSerializer(generalizedFrbRustBinding);
           sse_encode_String(modelPath, serializer);
           sse_encode_String(expectedModelSha256, serializer);
-          pdeCallFfi(
-            generalizedFrbRustBinding,
-            serializer,
-            funcId: 9,
-            port: port_,
-          );
+          sse_encode_StreamSink_song_runtime_status_dto_Sse(sink, serializer);
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 9)!;
         },
         codec: SseCodec(
-          decodeSuccessData: sse_decode_song_runtime_status_dto,
+          decodeSuccessData: sse_decode_unit,
           decodeErrorData: null,
         ),
         constMeta: kCrateApiSongProbeSongSeparationRuntimeConstMeta,
-        argValues: [modelPath, expectedModelSha256],
+        argValues: [modelPath, expectedModelSha256, sink],
         apiImpl: this,
       ),
     );
+    return sink.stream;
   }
 
   TaskConstMeta get kCrateApiSongProbeSongSeparationRuntimeConstMeta =>
       const TaskConstMeta(
         debugName: "probe_song_separation_runtime",
-        argNames: ["modelPath", "expectedModelSha256"],
+        argNames: ["modelPath", "expectedModelSha256", "sink"],
       );
 
   @override
@@ -435,34 +433,24 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     required SongSeparationRequestDto request,
   }) {
     final sink = RustStreamSink<SongSeparationEventDto>();
-    unawaited(
-      handler.executeNormal(
-        NormalTask(
-          callFfi: (port_) {
-            final serializer = SseSerializer(generalizedFrbRustBinding);
-            sse_encode_box_autoadd_song_separation_request_dto(
-              request,
-              serializer,
-            );
-            sse_encode_StreamSink_song_separation_event_dto_Sse(
-              sink,
-              serializer,
-            );
-            pdeCallFfi(
-              generalizedFrbRustBinding,
-              serializer,
-              funcId: 10,
-              port: port_,
-            );
-          },
-          codec: SseCodec(
-            decodeSuccessData: sse_decode_unit,
-            decodeErrorData: null,
-          ),
-          constMeta: kCrateApiSongStartSongSeparationConstMeta,
-          argValues: [request, sink],
-          apiImpl: this,
+    handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_box_autoadd_song_separation_request_dto(
+            request,
+            serializer,
+          );
+          sse_encode_StreamSink_song_separation_event_dto_Sse(sink, serializer);
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 10)!;
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_unit,
+          decodeErrorData: null,
         ),
+        constMeta: kCrateApiSongStartSongSeparationConstMeta,
+        argValues: [request, sink],
+        apiImpl: this,
       ),
     );
     return sink.stream;
@@ -513,6 +501,13 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   ) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return RealtimeAnalyzerImpl.frbInternalDcoDecode(raw as List<dynamic>);
+  }
+
+  @protected
+  RustStreamSink<SongRuntimeStatusDto>
+  dco_decode_StreamSink_song_runtime_status_dto_Sse(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    throw UnimplementedError();
   }
 
   @protected
@@ -915,6 +910,15 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       sse_decode_usize(deserializer),
       sse_decode_i_32(deserializer),
     );
+  }
+
+  @protected
+  RustStreamSink<SongRuntimeStatusDto>
+  sse_decode_StreamSink_song_runtime_status_dto_Sse(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    throw UnimplementedError('Unreachable ()');
   }
 
   @protected
@@ -1428,6 +1432,23 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_usize(
       (self as RealtimeAnalyzerImpl).frbInternalSseEncode(move: null),
+      serializer,
+    );
+  }
+
+  @protected
+  void sse_encode_StreamSink_song_runtime_status_dto_Sse(
+    RustStreamSink<SongRuntimeStatusDto> self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_String(
+      self.setupAndSerialize(
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_song_runtime_status_dto,
+          decodeErrorData: sse_decode_AnyhowException,
+        ),
+      ),
       serializer,
     );
   }

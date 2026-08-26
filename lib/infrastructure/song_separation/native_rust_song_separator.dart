@@ -57,10 +57,12 @@ final class NativeRustSongSeparator implements SongSeparator, SongModelManager {
     }
     try {
       await _ensureRustInitialized();
-      final status = await rust_song.probeSongSeparationRuntime(
-        modelPath: model.path,
-        expectedModelSha256: reviewedUmxHqModelSha256,
-      );
+      final status = await rust_song
+          .probeSongSeparationRuntime(
+            modelPath: model.path,
+            expectedModelSha256: reviewedUmxHqModelSha256,
+          )
+          .first;
       _automaticSeparationAvailable = status.available;
       _modelId = status.modelId;
       final result = SongModelStatus(

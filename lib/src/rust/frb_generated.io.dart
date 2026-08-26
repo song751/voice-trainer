@@ -46,6 +46,10 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  RustStreamSink<SongRuntimeStatusDto>
+  dco_decode_StreamSink_song_runtime_status_dto_Sse(dynamic raw);
+
+  @protected
   RustStreamSink<SongSeparationEventDto>
   dco_decode_StreamSink_song_separation_event_dto_Sse(dynamic raw);
 
@@ -199,6 +203,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   RealtimeAnalyzer
   sse_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerRealtimeAnalyzer(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  RustStreamSink<SongRuntimeStatusDto>
+  sse_decode_StreamSink_song_runtime_status_dto_Sse(
     SseDeserializer deserializer,
   );
 
@@ -393,6 +403,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void
   sse_encode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerRealtimeAnalyzer(
     RealtimeAnalyzer self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_StreamSink_song_runtime_status_dto_Sse(
+    RustStreamSink<SongRuntimeStatusDto> self,
     SseSerializer serializer,
   );
 
