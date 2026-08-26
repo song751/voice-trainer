@@ -444,3 +444,10 @@ Drift 的 `*.g.dart` 可与源文件相邻；Freezed/Riverpod generated 文件�
 5. 与 `AudioCapture` contract 的兼容测试。
 
 避免先创建一套没有实现的六平台 plugin scaffold。
+
+## 8. 歌曲分离 R&D 隔离区
+
+- `docs/SONG_SEPARATION_RD_TASKS.md`：独立 spike 的固定边界和后续 gate；不改变 Phase 4 顺序。
+- `docs/adr/0002-song-separation-rd-baseline.md`：UMX-HQ vocals-only、tract/ONNX Runtime 候选、许可与 fallback 决策。
+- `tool/song_separation/`：独立 Cargo package、手工 stem 合同测试和开发期 Python oracle；production crate、Flutter、FRB 均不得依赖它。
+- `tool/song_separation/Cargo.lock` 必须提交以固定 benchmark harness；`target/`、模型、用户音频、分离输出、虚拟环境和报告不得提交。

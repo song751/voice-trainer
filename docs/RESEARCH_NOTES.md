@@ -634,3 +634,11 @@ Phase-boundary 回归：FRB codegen 连续两次 7 个生成文件 SHA-256 不�
 - 真实 composition smoke 发现应用默认路径没有先调用 `RustLib.init()`；P4-02 的专用 probe 自行初始化因而未暴露该问题。`FrbAnalysisWorker` 现在在创建 analyzer 前幂等初始化 FRB，并在初始化失败时清除缓存 Future，以允许 supervisor restart/fallback 再试。
 - API 35/x86_64 emulator `127.0.0.1:16384` permission granted smoke：请求与 effective format 均为 PCM16 mono 48 kHz，188 chunks / 48,128 samples，真实 plugin pause/resume/stop 成功，production Rust analyzer产生 94 frames。报告不保存 PCM，不判断这些输入是否为真实麦克风/真人声。
 - 同一 emulator 在 `RECORD_AUDIO` 预先 revoke 且设为 user-fixed/user-set 后，permission smoke 返回 denied、capture 未启动、0 analysis frame；测试结束后 integration package 被卸载。另一个 emulator integration 以 fake/synthetic contract 覆盖 unsupported/changed format、worker failure 和 queue drop，不能替代真机证据。
+
+### SRD-01 歌曲人声分离基线（2026-08-26，R&D evidence only）
+
+- 隔离范围：新增独立 `tool/song_separation` Cargo package 与开发期 Python oracle；没有修改 Flutter、FRB、production Rust、P4 composition、DSP 阈值或观察规则。手工 `mixture/vocals/accompaniment` fallback 只校验等长 PCM16 WAV、输出 hash，并固定 `generated_by_model=false`。
+- 官方权重：从 Zenodo record 3370489 获取 `vocals-b62c91ce.pth` 到 `%TEMP%`，本地大小 `35,637,796` bytes；MD5 `d918985fad0fedf6d9ce89e279aa7218` 与上游发布值一致，SHA-256 为 `b62c91cedbc7a066f1778ead5b5cecb377aa3a46a31af1cce7c5c8769339d083`。权重和音频均未进入 Git。
+- 实际 oracle：Windows CPU、Python 3.13.5、PyTorch `2.11.0+cu128`、Open-Unmix `1.3.0` 对确定性 1 秒、44.1 kHz stereo PCM16 合成输入完成 vocals-only + residual 推理。输入/输出均为 `44,100` frames；warm-run inference `0.021163 s`，进程 peak working set `640,258,048` bytes。vocals 输出 `176,444` bytes / SHA-256 `a6e3ad02db7f07711634f13a810ecaae9507b895f94b4aeb9a04871a614e8488`；accompaniment 输出 `176,444` bytes / SHA-256 `aaa056efd168651f21886fa25491f048c756636d7f15deb5767b1a9d8dd37017`。这是合成 contract smoke，不是分离质量证据。
+- 导出实际结果：同一脚本以 `--export-onnx` 进入 core export stage，但隔离环境未安装开发期 `onnx`，返回 typed `export_dependency_missing`；没有创建伪 ONNX 文件。tract/ONNX Runtime 尚未加入或验证，不能据此进入 production。
+- 自动化：Rust harness 4 项测试覆盖 deterministic fixture、rights gate、取消和 stem mismatch；Clippy `-D warnings` 通过。未覆盖 30 秒/3 分钟/5 分钟性能、真实许可歌曲质量、ONNX 数值一致性、Windows production/Android/Web runtime；这些仍是 ADR 0002 的下一 gate。

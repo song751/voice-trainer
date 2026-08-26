@@ -47,6 +47,13 @@ inst_user_settings.tmp
 *.db
 *.pcm
 *.raw
+*.pth
+*.onnx
+*.ort
+*.ckpt
+*.safetensors
+/tool/song_separation/target/
+/tool/song_separation/__pycache__/
 .env
 .env.*
 !.env.example

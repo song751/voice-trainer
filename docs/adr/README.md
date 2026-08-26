@@ -5,3 +5,4 @@ ADR 记录对规划基线有影响、且后续 Agent 容易误改的工程决策
 | ADR | 状态 | 主题 |
 |---|---|---|
 | [0001](0001-frb-2-12-phase0-compatibility.md) | Accepted | FRB 2.12 的 Web 单线程基线与 Android/Gradle 兼容补丁 |
+| [0002](0002-song-separation-rd-baseline.md) | Provisional / R&D only | UMX-HQ vocals-only、runtime 候选与手工 stem fallback |
