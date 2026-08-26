@@ -170,6 +170,13 @@ void _auditWorkflows(Directory root, List<String> failures) {
         );
       }
     }
+    if (contents.contains('subosito/flutter-action@') &&
+        !RegExp(r'cache:\s*false').hasMatch(contents)) {
+      failures.add(
+        '${entry.key} must disable flutter-action cache until its movable '
+        'transitive actions/cache reference is eliminated',
+      );
+    }
   }
 }
 
