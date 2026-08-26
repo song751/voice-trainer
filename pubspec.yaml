@@ -30,5 +30,12 @@ dev_dependencies:
   integration_test:
     sdk: flutter
 
+# The official Android implementation is vendored at the locked 0.5.2+9
+# source so it can reuse this repository's pinned AGP instead of resolving a
+# second AGP 8.13.1 buildscript. See third_party/file_selector_android/UPSTREAM.md.
+dependency_overrides:
+  file_selector_android:
+    path: third_party/file_selector_android
+
 flutter:
   uses-material-design: true
