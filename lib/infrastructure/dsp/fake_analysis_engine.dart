@@ -20,6 +20,8 @@ final class FakeAnalysisEngine implements AnalysisEngine {
   AnalysisConfig? config;
   final List<PcmBatch> receivedBatches = <PcmBatch>[];
   final List<AnalysisFrame> _frames = <AnalysisFrame>[];
+  int initializeCallCount = 0;
+  int resetCallCount = 0;
   bool _disposed = false;
 
   @override
@@ -36,6 +38,7 @@ final class FakeAnalysisEngine implements AnalysisEngine {
 
   @override
   Future<void> initialize(AnalysisConfig config) async {
+    initializeCallCount += 1;
     final failure = initializeFailure;
     if (failure != null) {
       throw failure;
@@ -81,6 +84,7 @@ final class FakeAnalysisEngine implements AnalysisEngine {
 
   @override
   Future<void> reset() async {
+    resetCallCount += 1;
     _frames.clear();
   }
 

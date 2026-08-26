@@ -342,6 +342,26 @@ void main() {
     expect(worker.receivedBatches.last.discontinuityBefore, isTrue);
     await engine.dispose();
   });
+
+  test(
+    'RustAnalysisEngine reset starts a new absolute sample timeline',
+    () async {
+      final worker = _TestWorker();
+      final engine = RustAnalysisEngine(
+        primaryWorkerFactory: () async => worker,
+      );
+      await engine.initialize(config);
+      await engine.pushPcm(_batch(1024));
+      await engine.finish();
+
+      await engine.reset();
+      await engine.pushPcm(_batch(0));
+
+      expect(worker.resetCallCount, 1);
+      expect(worker.receivedSampleIndices, <int>[1024, 0]);
+      await engine.dispose();
+    },
+  );
 }
 
 PcmBatch _batch(
@@ -375,6 +395,7 @@ final class _TestWorker implements AnalysisWorker {
   final List<PcmBatch> receivedBatches = <PcmBatch>[];
   bool initialized = false;
   bool terminated = false;
+  int resetCallCount = 0;
   bool _failed = false;
 
   @override
@@ -432,6 +453,7 @@ final class _TestWorker implements AnalysisWorker {
     if (hangReset) {
       return Completer<void>().future;
     }
+    resetCallCount += 1;
   }
 
   @override

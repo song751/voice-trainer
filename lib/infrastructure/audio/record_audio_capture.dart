@@ -13,39 +13,59 @@ import 'record_capture_mapper.dart';
 
 final class RecordAudioCapture implements AudioCapture {
   factory RecordAudioCapture({
-    RecordClient? client,
+    RecordClientFactory? clientFactory,
     RecordCaptureMapper mapper = const RecordCaptureMapper(),
-  }) => RecordAudioCapture._(client ?? RecordPluginClient(), mapper);
+  }) => RecordAudioCapture._(clientFactory ?? RecordPluginClient.new, mapper);
 
-  RecordAudioCapture._(this._client, this._mapper);
-  final RecordClient _client;
+  RecordAudioCapture._(this._clientFactory, this._mapper);
+  final RecordClientFactory _clientFactory;
   final RecordCaptureMapper _mapper;
 
   @override
-  Future<List<CaptureDevice>> listDevices() async =>
-      (await _client.listInputDevices())
+  Future<List<CaptureDevice>> listDevices() async {
+    final client = _clientFactory();
+    try {
+      return (await client.listInputDevices())
           .map(_mapper.toCaptureDevice)
           .toList(growable: false);
+    } finally {
+      await client.dispose();
+    }
+  }
 
   @override
-  Future<PermissionResult> requestPermission() async =>
-      await _client.hasPermission()
-      ? const PermissionGranted()
-      : const PermissionDenied(PermissionDeniedFailure());
+  Future<PermissionResult> requestPermission() async {
+    final client = _clientFactory();
+    try {
+      return await client.hasPermission()
+          ? const PermissionGranted()
+          : const PermissionDenied(PermissionDeniedFailure());
+    } finally {
+      await client.dispose();
+    }
+  }
 
   @override
   Future<CaptureSession> start(CaptureRequest request) async {
-    final devices = await _client.listInputDevices();
-    final selected = request.deviceId == null
-        ? null
-        : devices.where((device) => device.id == request.deviceId).firstOrNull;
-    if (request.deviceId != null && selected == null) {
-      throw const CaptureFailure(CaptureFailureReason.deviceUnavailable);
+    final client = _clientFactory();
+    try {
+      final devices = await client.listInputDevices();
+      final selected = request.deviceId == null
+          ? null
+          : devices
+                .where((device) => device.id == request.deviceId)
+                .firstOrNull;
+      if (request.deviceId != null && selected == null) {
+        throw const CaptureFailure(CaptureFailureReason.deviceUnavailable);
+      }
+      final requested = _mapper.toRecordConfig(request, selected);
+      final session = _RecordCaptureSession(client, _mapper, requested);
+      await session.open();
+      return session;
+    } catch (_) {
+      await client.dispose();
+      rethrow;
     }
-    final requested = _mapper.toRecordConfig(request, selected);
-    final session = _RecordCaptureSession(_client, _mapper, requested);
-    await session.open();
-    return session;
   }
 }
 

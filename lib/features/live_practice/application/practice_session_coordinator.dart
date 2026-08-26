@@ -105,10 +105,14 @@ final class PracticeSessionCoordinator {
   StreamSubscription<PcmChunk>? _chunkSubscription;
   StreamSubscription? _healthSubscription;
   StreamSubscription<AnalysisWorkerMetrics>? _workerMetricsSubscription;
+  Future<void>? _failureCleanup;
   bool _analysisDraining = false;
   bool _recordingDraining = false;
+  bool _recordingOpen = false;
   int _droppedSamples = 0;
   bool _hasDiscontinuity = false;
+  bool _analysisInitialized = false;
+  CaptureFormat? _analysisEngineFormat;
   CaptureFormat? _analysisFormat;
   int? _expectedSequenceNumber;
   int? _expectedSampleIndex;
@@ -130,6 +134,9 @@ final class PracticeSessionCoordinator {
   );
 
   Future<PracticeSessionState> start(PracticeSessionRequest request) async {
+    if (_state is Completed || _state is Failed) {
+      await _resetForNextSession();
+    }
     if (_state is! Idle) {
       throw InvalidSessionTransition(from: _state.kind.name, event: 'start');
     }
@@ -156,9 +163,7 @@ final class PracticeSessionCoordinator {
     try {
       final captureSession = await _audioCapture.start(request.captureRequest);
       _captureSession = captureSession;
-      await _analysisEngine.initialize(
-        AnalysisConfig(inputFormat: captureSession.effectiveFormat),
-      );
+      await _prepareAnalysis(captureSession.effectiveFormat);
       _analysisFormat = captureSession.effectiveFormat;
       await _workerMetricsSubscription?.cancel();
       _workerMetricsSubscription = _analysisEngine.workerMetricsStream.listen((
@@ -169,6 +174,7 @@ final class PracticeSessionCoordinator {
       });
       performanceObserver.onWorkerMetrics(_analysisEngine.workerMetrics);
       _workerMetrics.add(_analysisEngine.workerMetrics);
+      _recordingOpen = true;
       await _recordingSink.open(
         RecordingMetadata(
           sessionId: request.sessionId,
@@ -187,6 +193,8 @@ final class PracticeSessionCoordinator {
       await _stopCapture();
       _state = _stateMachine.transition(_state, AnalysisFailedEvent(failure));
     } catch (_) {
+      await _stopCapture();
+      await _abortOpenRecording();
       _state = _stateMachine.transition(
         _state,
         CaptureFailedEvent(const CaptureFailure(CaptureFailureReason.unknown)),
@@ -245,7 +253,9 @@ final class PracticeSessionCoordinator {
   }
 
   Future<void> dispose() async {
+    await _failureCleanup;
     await _stopCapture();
+    await _abortOpenRecording();
     await _analysisEngine.dispose();
     await _workerMetricsSubscription?.cancel();
     await _realtimeFrames.close();
@@ -262,6 +272,7 @@ final class PracticeSessionCoordinator {
     try {
       final finalized = await _analysisEngine.finish();
       recording = await _recordingSink.finalize();
+      _recordingOpen = false;
       final flags = <AnalysisQualityFlag>{
         ...finalized.segmentSummary.qualityFlags,
       };
@@ -313,11 +324,73 @@ final class PracticeSessionCoordinator {
         // Recovery handles any remaining durable tombstone on the next start.
       }
     }
+    await _abortOpenRecording();
+  }
+
+  Future<void> _resetForNextSession() async {
+    await _failureCleanup;
+    _failureCleanup = null;
+    await _stopCapture();
+    await _waitForQueues();
+    await _abortOpenRecording();
+    _analysisQueue.clear();
+    _recordingQueue.clear();
+    _request = null;
+    _analysisFormat = null;
+    _expectedSequenceNumber = null;
+    _expectedSampleIndex = null;
+    _resumeDiscontinuityPending = false;
+    _droppedSamples = 0;
+    _hasDiscontinuity = false;
+    _state = _stateMachine.transition(_state, const ResetRequested());
+  }
+
+  Future<void> _prepareAnalysis(CaptureFormat format) async {
+    final initializedFormat = _analysisEngineFormat;
+    if (!_analysisInitialized) {
+      await _analysisEngine.initialize(AnalysisConfig(inputFormat: format));
+      _analysisInitialized = true;
+      _analysisEngineFormat = format;
+      return;
+    }
+    if (initializedFormat != format) {
+      throw const AnalysisFailure(AnalysisFailureReason.formatChanged);
+    }
+    try {
+      await _analysisEngine.reset();
+    } on AnalysisFailure {
+      rethrow;
+    } catch (_) {
+      throw const AnalysisFailure(AnalysisFailureReason.processing);
+    }
+  }
+
+  Future<void> _abortOpenRecording() async {
+    if (!_recordingOpen) return;
     try {
       await _recordingSink.abort();
     } catch (_) {
-      // The session already transitions to a typed finalization failure.
+      // Failure cleanup must not mask the already typed session failure.
+    } finally {
+      _recordingOpen = false;
     }
+  }
+
+  void _scheduleFailureCleanup() {
+    if (_failureCleanup != null) return;
+    final cleanup = _cleanupFailedSession();
+    _failureCleanup = cleanup;
+    unawaited(cleanup);
+  }
+
+  Future<void> _cleanupFailedSession() async {
+    try {
+      await _stopCapture();
+    } catch (_) {
+      // The failed session cannot keep capture ownership into the next start.
+    }
+    await _waitForQueues();
+    await _abortOpenRecording();
   }
 
   void _onPcmChunk(PcmChunk chunk) {
@@ -357,8 +430,7 @@ final class PracticeSessionCoordinator {
         _state,
         const CaptureFailedEvent(CaptureFailure(CaptureFailureReason.unknown)),
       );
-      unawaited(_recordingSink.abort());
-      unawaited(_stopCapture());
+      _scheduleFailureCleanup();
       return;
     }
     performanceObserver.onQueueAccounting(
@@ -387,6 +459,7 @@ final class PracticeSessionCoordinator {
           CaptureFailure(CaptureFailureReason.streamInterrupted),
         ),
       );
+      _scheduleFailureCleanup();
     }
   }
 
@@ -423,6 +496,7 @@ final class PracticeSessionCoordinator {
         _failFinalization(
           const FinalizationFailure(FinalizationFailureReason.analysis),
         );
+        _scheduleFailureCleanup();
       } else if (_state is Running || _state is Paused) {
         _state = _stateMachine.transition(
           _state,
@@ -430,6 +504,7 @@ final class PracticeSessionCoordinator {
             AnalysisFailure(AnalysisFailureReason.processing),
           ),
         );
+        _scheduleFailureCleanup();
       }
     } finally {
       _analysisDraining = false;
@@ -499,15 +574,14 @@ final class PracticeSessionCoordinator {
         _state,
         const CaptureFailedEvent(CaptureFailure(CaptureFailureReason.unknown)),
       );
-      unawaited(_recordingSink.abort());
-      unawaited(_stopCapture());
+      _scheduleFailureCleanup();
     }
   }
 
   void _failAnalysis(AnalysisFailure failure) {
     if (_state is Running || _state is Paused) {
       _state = _stateMachine.transition(_state, AnalysisFailedEvent(failure));
-      unawaited(_stopCapture());
+      _scheduleFailureCleanup();
     }
   }
 }
@@ -554,5 +628,10 @@ final class _BoundedPcmQueue {
     final chunk = _chunks.removeAt(0);
     _queuedSamples -= chunk.frameCount;
     return chunk;
+  }
+
+  void clear() {
+    _chunks.clear();
+    _queuedSamples = 0;
   }
 }

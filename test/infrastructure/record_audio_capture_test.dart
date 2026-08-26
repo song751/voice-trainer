@@ -17,7 +17,7 @@ void main() {
     'record adapter emits copied PCM with monotonic sample indices',
     () async {
       final client = _FakeRecordClient();
-      final adapter = RecordAudioCapture(client: client);
+      final adapter = RecordAudioCapture(clientFactory: () => client);
       final session = await adapter.start(const CaptureRequest());
       final chunks = <PcmChunk>[];
       final sub = session.pcmChunks.listen(chunks.add);
@@ -40,7 +40,7 @@ void main() {
     () async {
       final client = _FakeRecordClient();
       final session = await RecordAudioCapture(
-        client: client,
+        clientFactory: () => client,
       ).start(const CaptureRequest());
       final health = <CaptureHealth>[];
       final healthSub = session.health.listen(health.add);
@@ -78,7 +78,7 @@ void main() {
     final client = _FakeRecordClient(devices: const <InputDevice>[]);
     expect(
       () => RecordAudioCapture(
-        client: client,
+        clientFactory: () => client,
       ).start(const CaptureRequest(deviceId: 'missing')),
       throwsA(
         isA<CaptureFailure>().having(
@@ -88,6 +88,31 @@ void main() {
         ),
       ),
     );
+  });
+
+  test('record adapter owns a fresh plugin client for each session', () async {
+    final clients = <_FakeRecordClient>[
+      _FakeRecordClient(),
+      _FakeRecordClient(),
+    ];
+    var nextClient = 0;
+    final adapter = RecordAudioCapture(
+      clientFactory: () => clients[nextClient++],
+    );
+
+    for (var index = 0; index < clients.length; index += 1) {
+      final session = await adapter.start(const CaptureRequest());
+      final chunks = <PcmChunk>[];
+      final subscription = session.pcmChunks.listen(chunks.add);
+      clients[index].emit(Uint8List(8));
+      await Future<void>.delayed(Duration.zero);
+      expect(chunks.single.firstSampleIndex, 0);
+      await session.stop();
+      await subscription.cancel();
+    }
+
+    expect(nextClient, 2);
+    expect(clients.map((client) => client.disposeCalls), <int>[1, 1]);
   });
 
   test('streaming WAV writer patches header after PCM append', () async {
@@ -120,6 +145,7 @@ final class _FakeRecordClient implements RecordClient {
   void Function(RecordConfig)? _onConfigChanged;
   int pauseCalls = 0;
   int resumeCalls = 0;
+  int disposeCalls = 0;
   @override
   Future<bool> hasPermission() async => true;
   @override
@@ -145,6 +171,7 @@ final class _FakeRecordClient implements RecordClient {
   Future<void> stop() async {}
   @override
   Future<void> dispose() async {
+    disposeCalls += 1;
     await _controller.close();
   }
 }

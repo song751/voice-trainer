@@ -37,6 +37,7 @@ final class InMemoryRecordingSink implements RecordingSink {
       await _store.delete(finalized);
       _finalizedLocator = null;
     }
+    chunks.clear();
     _aborted = true;
     _opened = false;
   }
@@ -67,6 +68,7 @@ final class InMemoryRecordingSink implements RecordingSink {
   @override
   Future<void> open(RecordingMetadata metadata) async {
     this.metadata = metadata;
+    chunks.clear();
     _opened = true;
     _aborted = false;
     _finalizedLocator = null;

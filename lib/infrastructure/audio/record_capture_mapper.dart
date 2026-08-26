@@ -44,6 +44,8 @@ abstract interface class RecordClient {
   Future<void> dispose();
 }
 
+typedef RecordClientFactory = RecordClient Function();
+
 final class RecordPluginClient implements RecordClient {
   RecordPluginClient([AudioRecorder? recorder])
     : _recorder = recorder ?? AudioRecorder();
