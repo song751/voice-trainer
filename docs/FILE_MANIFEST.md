@@ -469,5 +469,10 @@ Drift 的 `*.g.dart` 可与源文件相邻；Freezed/Riverpod generated 文件�
 
 - `lib/core/domain/reference/song_reference.dart`：文件来源、权利确认、分离进度/取消、typed failure 与输出元数据合同；不依赖 Flutter plugin、路径或模型 runtime。
 - `lib/infrastructure/audio_import/file_selector_song_picker.dart`：用户主动选择本地音频的跨平台 adapter；只向 domain 暴露脱敏显示名、长度与 byte stream。
-- `lib/features/song_reference/`：歌曲导入状态与页面；模型 runtime 未通过时明确显示 unavailable，不生成或伪造 stem。
+- `lib/infrastructure/audio_import/file_selector_song_model_picker.dart`：仅选择本地 ONNX；production adapter 再执行大小与 reviewed SHA-256 gate。
+- `lib/infrastructure/song_separation/`：Windows/Android native Rust adapter、用户模型安装、spool/progress/cancel/typed mapping，以及 Web/其他平台 unavailable composition。
+- `rust/src/song/`：SRD-04 production decode/resample/STFT/ISTFT、UMX-HQ tract backend、chunk/crossfade、file job 与原子 stem 输出；模型和音频均为 Git 外输入。
+- `rust/src/api/song.rs` 与生成的 `lib/src/rust/api/song.dart`：小型 file-backed request、runtime probe、progress/terminal event 和输出元数据桥。
+- `rust/tests/srd04_model_runtime.rs`、`srd04_file_pipeline.rs`、`srd04_duration_smoke.rs`：显式 Git 外模型/许可样本/输出的 ignored runtime、文件和 30 秒/3 分钟/5 分钟 smoke；普通测试不依赖外部资产。
+- `lib/features/song_reference/`：歌曲/模型导入状态与页面；runtime/model gate 未通过时明确显示 unavailable，不生成或伪造 stem。
 - `test/features/song_reference/` 与 `test/widgets/song_import_page_test.dart`：覆盖取消、空/超限文件、rights gate、runtime unavailable、进度/ready 与隐私文案。

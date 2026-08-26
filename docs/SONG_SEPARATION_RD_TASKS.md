@@ -65,8 +65,14 @@ cargo test --manifest-path tool/song_separation/Cargo.toml
 cargo run --release --manifest-path tool/song_separation/Cargo.toml --bin song_separation_rd -- evaluate --acknowledge-rights --manifest <git-outside>/quality-manifest.json --dataset-dir <git-outside>/quality-audio
 ```
 
-## SRD-04 — production waveform pipeline 与分平台 composition（下一卡，需明确授权）
+## SRD-04 — production waveform pipeline 与分平台 composition（实现完成，平台接受证据受限）
 
-必须一次闭合解码/重采样、UMX-HQ 4096/1024 STFT、magnitude core、mask/Wiener 决策、mixture-phase ISTFT、vocals+residual、长度/边界、长音频 overlap/chunk/crossfade、内存上限、progress/cancel/partial cleanup，以及 production Rust 到 Flutter `SongSeparator` 的 typed adapter。Windows/Android/Web 分列 runtime、包体和 30 秒/3 分钟/5 分钟性能；unavailable/manual-stem fallback 保留。
+已交付 production Symphonia decode、有界 windowed-sinc 44.1 kHz 重采样、center-reflection periodic-Hann 4096/hop-1024 STFT、reviewed-hash tract UMX-HQ magnitude core、mixture-phase ISTFT、complex residual accompaniment、300-frame chunk/64-frame overlap weighted crossfade、长度/边界、平台帧上限、progress/cancel/partial cleanup 和原子 PCM16 stem 输出。算法明确使用 Open-Unmix `niter=0` 路径：预测 vocals magnitude 配 mixture phase，并以 complex mixture-minus-vocals 生成 accompaniment；没有把它误称为多通道 Wiener。
+
+Flutter `SongSeparator` 已接 FRB stream，返回 model/algorithm/source/output/chunk 与 stem locator/hash/byte-length；模型由用户本地导入且强制固定 SHA-256，权重不进 Git。Windows 与 Android 使用 native runtime；Web 明确 composition 到 typed unavailable/manual fallback，不编译 tract。Windows debug build 与 30 秒/3 分钟/5 分钟确定性 waveform smoke 通过；Android debug APK 与 MuMu x86_64 模拟器上的真实模型 probe、7 秒文件全链路通过。模拟器不是 Android 真机，Web 没有已审核模型 runtime，因此这两项不能写成真机/Web 性能通过。
+
+Android canonical release 包体已量得 universal `118.7 MB`，split armv7/arm64/x86_64 分别 `30.4/41.2/48.0 MB`，且不包含外置模型权重；因此 native capability 只作为 **probe-gated candidate** 启用，不作无条件可用声明。
+
+**未关闭的接受风险：** Android 真机 30 秒与 60 秒内存/RSS、取消延迟和包体产品接受；Windows peak RSS；多曲许可集与人工听感仍待 owner。当前安全上限是 Windows 5 分钟、Android 1 分钟，超过时 typed `resource_limit_exceeded`，不是假成功。SRD-04 实现完成不关闭 Phase 3/4 或人工/真机 gate。
 
 SRD-01/02/03 均不自动解锁任何 Phase 4 卡，也不允许把 Python oracle、tool crate 或 synthetic identity 接入产品。

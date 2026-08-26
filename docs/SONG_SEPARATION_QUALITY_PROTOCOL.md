@@ -67,9 +67,9 @@ stdout 每行一个 JSON progress/report。报告包含 case ID、许可证据�
 
 这是单个短、压缩、restricted research sample 的执行证据，不是产品质量结论。SRD-03 的非人工实现已经闭合；仍需仓库所有者提供/确认可用的逐曲授权集，并由人工听觉核对 `monophonic_lead` case，才能形成最终多曲质量接受报告。
 
-## 5. SRD-04 移交边界
+## 5. SRD-04 实现与保留 gate
 
-SRD-04 才能把分离接入产品，且必须在一张明确授权卡中同时交付：
+SRD-04 已把分离接入产品，并在一张明确授权卡中交付：
 
 1. 本地文件解码到 44.1 kHz stereo f32 与有界高质量重采样；不让采集/UI isolate 等待。
 2. 与 UMX-HQ 一致的 centered STFT（4096/hop 1024）、model magnitude normalization/core inference、mask/Wiener 决策、mixture phase ISTFT 与长度补偿。
@@ -78,4 +78,4 @@ SRD-04 才能把分离接入产品，且必须在一张明确授权卡中同时�
 5. production Rust adapter 到 Flutter `SongSeparator`：typed error、输出 locator/hash/format/model version；Windows/Android/Web 分平台 composition 与 unavailable/manual-stem fallback。
 6. 30 秒/3 分钟/5 分钟性能；Windows、Android 真机、Web 单线程/WebGPU；SRD-03 质量集回归和人工听感 gate。
 
-在这些条件满足前，UI 必须继续显示自动分离 unavailable，不得把当前 Python oracle 或 R&D tract harness 当 production backend。
+production backend 不调用 Python oracle 或 R&D tool crate。Windows 已通过本地 release waveform/Flutter build，Android 仅通过 MuMu x86_64 模拟器的模型 probe 与 7 秒全链路，Web 保持 typed unavailable。Android 真机性能/内存、Windows peak RSS、多曲许可集和人工听觉检查仍是接受 gate；不得把模拟器或单个 research sample 写成这些 gate 已通过。
