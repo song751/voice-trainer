@@ -5,7 +5,10 @@ const origin = new URL(originArg);
 const targets = await fetch(`http://127.0.0.1:${debugPort}/json/list`).then(
   (response) => response.json(),
 );
-const target = targets.find((item) => item.type === 'page');
+const target = targets.find(
+  (item) => item.type === 'page' &&
+    (item.url === 'about:blank' || item.url.startsWith(origin.origin)),
+);
 if (!target) throw new Error(`No page target on CDP port ${debugPort}`);
 
 const socket = new WebSocket(target.webSocketDebuggerUrl);

@@ -5,7 +5,10 @@ const origin = new URL(originArg);
 const targets = await fetch(`http://127.0.0.1:${debugPort}/json/list`).then(
   (response) => response.json(),
 );
-const target = targets.find((item) => item.type === 'page');
+const target = targets.find(
+  (item) => item.type === 'page' &&
+    (item.url === 'about:blank' || item.url.startsWith(origin.origin)),
+);
 if (!target) throw new Error(`No page target on CDP port ${debugPort}`);
 
 const socket = new WebSocket(target.webSocketDebuggerUrl);
@@ -29,7 +32,9 @@ function command(method, params = {}) {
   return new Promise((resolve, reject) => pending.set(id, { resolve, reject }));
 }
 async function waitFor(prefix) {
-  const deadline = Date.now() + 30_000;
+  // The first self-contained Flutter/SQLite load is materially slower than a
+  // warm retry on some Edge runners; sixty seconds stays bounded and honest.
+  const deadline = Date.now() + 60_000;
   let status = '';
   while (Date.now() < deadline) {
     const result = await command('Runtime.evaluate', {

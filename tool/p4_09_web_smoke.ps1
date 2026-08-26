@@ -21,13 +21,16 @@ if ([string]::IsNullOrWhiteSpace($EdgePath) -or -not (Test-Path -LiteralPath $Ed
 $tempRoot = [IO.Path]::GetFullPath((Join-Path ([IO.Path]::GetTempPath()) ('voice-trainer-p4-09-' + [Guid]::NewGuid().ToString('N'))))
 New-Item -ItemType Directory -Path $tempRoot | Out-Null
 $server = $null
+$serverListenerPid = $null
 $edge = $null
 $grantedEdge = $null
 
 try {
     Push-Location $repoRoot
     if (-not $SkipBuild) {
-        & flutter build web --release --target tool/p4_09_web_capture_main.dart
+        # Keep the synthetic capture page independent from CDN availability,
+        # matching the canonical P4-11 deployment contract.
+        & flutter build web --release --no-web-resources-cdn --target tool/p4_09_web_capture_main.dart
         if ($LASTEXITCODE -ne 0) { throw "Flutter Web smoke build failed with exit code $LASTEXITCODE." }
     }
     & dart run tool/verify_frb_web_artifacts.dart
@@ -52,6 +55,7 @@ try {
         Start-Sleep -Milliseconds 100
     }
     if (-not $serverReady) { throw "P4-09 local server did not become ready. $(Get-Content $serverErr -Raw)" }
+    $serverListenerPid = (Get-NetTCPConnection -LocalPort $ServerPort -State Listen -ErrorAction Stop | Select-Object -First 1).OwningProcess
 
     $edge = Start-Process -FilePath $EdgePath -ArgumentList @(
         '--headless=new',
@@ -120,6 +124,12 @@ finally {
     if ($grantedEdge -and -not $grantedEdge.HasExited) { Stop-Process -Id $grantedEdge.Id -Force -ErrorAction SilentlyContinue }
     if ($edge -and -not $edge.HasExited) { Stop-Process -Id $edge.Id -Force -ErrorAction SilentlyContinue }
     if ($server -and -not $server.HasExited) { Stop-Process -Id $server.Id -Force -ErrorAction SilentlyContinue }
+    if ($serverListenerPid) {
+        $listenerProcess = Get-CimInstance Win32_Process -Filter "ProcessId=$serverListenerPid" -ErrorAction SilentlyContinue
+        if ($listenerProcess -and $listenerProcess.CommandLine -like '*tool\p4_09_web_server.dart*') {
+            Stop-Process -Id $serverListenerPid -Force -ErrorAction SilentlyContinue
+        }
+    }
     Start-Sleep -Milliseconds 200
     if (Test-Path -LiteralPath $tempRoot) {
         try { Remove-Item -LiteralPath $tempRoot -Recurse -Force -ErrorAction Stop } catch {}

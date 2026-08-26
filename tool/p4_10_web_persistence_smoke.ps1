@@ -26,6 +26,7 @@ if (-not $tempRoot.StartsWith($tempBase, [StringComparison]::OrdinalIgnoreCase) 
 }
 New-Item -ItemType Directory -Path $tempRoot | Out-Null
 $server = $null
+$serverListenerPid = $null
 $edge = $null
 try {
     Push-Location $repoRoot
@@ -51,6 +52,7 @@ try {
         if ($attempt -eq 99) { throw 'P4-10 local server did not become ready.' }
         Start-Sleep -Milliseconds 100
     }
+    $serverListenerPid = (Get-NetTCPConnection -LocalPort $ServerPort -State Listen -ErrorAction Stop | Select-Object -First 1).OwningProcess
 
     $edge = Start-Process -FilePath $EdgePath -ArgumentList @(
         '--headless=new',
@@ -76,6 +78,12 @@ finally {
     Pop-Location
     if ($edge -and -not $edge.HasExited) { Stop-Process -Id $edge.Id -Force -ErrorAction SilentlyContinue }
     if ($server -and -not $server.HasExited) { Stop-Process -Id $server.Id -Force -ErrorAction SilentlyContinue }
+    if ($serverListenerPid) {
+        $listenerProcess = Get-CimInstance Win32_Process -Filter "ProcessId=$serverListenerPid" -ErrorAction SilentlyContinue
+        if ($listenerProcess -and $listenerProcess.CommandLine -like '*tool\p4_09_web_server.dart*') {
+            Stop-Process -Id $serverListenerPid -Force -ErrorAction SilentlyContinue
+        }
+    }
     Start-Sleep -Milliseconds 200
     if (Test-Path -LiteralPath $tempRoot) {
         Remove-Item -LiteralPath $tempRoot -Recurse -Force -ErrorAction SilentlyContinue

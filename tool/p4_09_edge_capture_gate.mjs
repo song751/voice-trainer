@@ -13,7 +13,12 @@ const acceptedGrantedSentinels = [
 const targets = await fetch(`http://127.0.0.1:${debugPort}/json/list`).then(
   (response) => response.json(),
 );
-const target = targets.find((item) => item.type === 'page');
+// Recent Edge builds may open an edge:// sync/first-run page alongside the
+// requested about:blank target. Never attach the gate to a browser-owned page.
+const target = targets.find(
+  (item) => item.type === 'page' &&
+    (item.url === 'about:blank' || item.url.startsWith(url.origin)),
+);
 if (!target) throw new Error(`No page target on CDP port ${debugPort}`);
 
 const socket = new WebSocket(target.webSocketDebuggerUrl);
@@ -47,7 +52,9 @@ await command('Browser.grantPermissions', {
 });
 await command('Page.navigate', { url: url.href });
 
-const deadline = Date.now() + 30_000;
+// A cold self-contained CanvasKit load can exceed 30 seconds on a busy
+// Windows CI runner. Keep the wait bounded but avoid a cache-warm-only gate.
+const deadline = Date.now() + 60_000;
 let status = '';
 while (Date.now() < deadline) {
   const result = await command('Runtime.evaluate', {
